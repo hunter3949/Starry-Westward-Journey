@@ -27,8 +27,10 @@ const W4_STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTopicDone, temporaryQuests, userInventory, teamInventory = [], w4Applications, weeklyReview, isLoadingReview, onCheckIn, onUndo, onSubmitW4 }: WeeklyTopicTabProps) {
+    const topicBaseReward = parseInt(systemSettings.TopicQuestReward || '1000', 10);
+    const topicCoins = parseInt(systemSettings.TopicQuestCoins || '100', 10);
     // a4 (幌金繩)：t 開頭定課 ×1.5（與 quest.ts 伺服器邏輯一致）
-    const topicExp = Math.ceil(1000 * (teamInventory.includes('a4') ? 1.5 : 1));
+    const topicExp = Math.ceil(topicBaseReward * (teamInventory.includes('a4') ? 1.5 : 1));
 
     const [showW4Form, setShowW4Form] = useState(false);
     const [w4Target, setW4Target] = useState('');
@@ -83,17 +85,17 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                 <div className="flex items-center gap-6 mb-6 text-left text-center justify-center">
                     <div className="text-6xl mx-auto">🎯</div>
                     <div className="flex-1">
-                        <span className="bg-yellow-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase mb-1 inline-block">雙週挑戰</span>
+                        <span className="bg-yellow-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase mb-1 inline-block">主線任務</span>
                         <h3 className="text-2xl font-black text-white italic uppercase">主題親證</h3>
                         <p className="text-sm text-yellow-400 font-bold mt-1 italic">「{systemSettings.TopicQuestTitle}」</p>
                     </div>
                     <div className="text-right bg-yellow-500/10 px-3 py-2 rounded-xl">
                         <div className="text-sm font-black text-yellow-500">+{topicExp} 修為</div>
-                        <div className="text-xs font-bold text-yellow-400">+100 🪙</div>
+                        <div className="text-xs font-bold text-yellow-400">+{topicCoins} 🪙</div>
                     </div>
                 </div>
                 <button
-                    onClick={() => !isTopicDone ? onCheckIn({ id: 't1', title: '主題親證', reward: 1000 }) : onUndo({ id: 't1', title: '主題親證', reward: 1000 })}
+                    onClick={() => !isTopicDone ? onCheckIn({ id: 't1', title: '主題親證', reward: topicBaseReward }) : onUndo({ id: 't1', title: '主題親證', reward: topicBaseReward })}
                     className={`w-full py-4 rounded-2xl font-black text-lg transition-all ${isTopicDone ? 'bg-emerald-600/20 text-emerald-400 shadow-inner' : 'bg-yellow-500 text-slate-950 shadow-lg active:scale-95'}`}>
                     {isTopicDone ? "本期已圓滿 (點擊回溯) ✓" : "回報主題修行"}
                 </button>

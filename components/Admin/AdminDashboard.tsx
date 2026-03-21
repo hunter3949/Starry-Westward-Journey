@@ -1,6 +1,6 @@
 import React from 'react';
-import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, ChevronUp, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download } from 'lucide-react';
-import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course } from '@/types';
+import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, ChevronUp, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download, Calendar, Zap } from 'lucide-react';
+import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course, MainQuestEntry } from '@/types';
 import { getCourseRegistrations } from '@/app/actions/course';
 
 import { ADMIN_PASSWORD, ARTIFACTS_CONFIG, ROLE_CURE_MAP } from '@/lib/constants';
@@ -1592,6 +1592,7 @@ interface AdminDashboardProps {
     onAuth: (e: { preventDefault: () => void; currentTarget: HTMLFormElement }) => void;
     systemSettings: SystemSettings;
     updateGlobalSetting: (key: string, value: string) => void;
+    updateGlobalSettings: (updates: Record<string, string>) => void;
     leaderboard: CharacterStats[];
     topicHistory: TopicHistory[];
     temporaryQuests: TemporaryQuest[];
@@ -1615,7 +1616,7 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({
-    adminAuth, onAuth, systemSettings, updateGlobalSetting,
+    adminAuth, onAuth, systemSettings, updateGlobalSetting, updateGlobalSettings,
     leaderboard, topicHistory, temporaryQuests,
     squadApprovedW4Apps, adminLogs, testimonies, courses,
     onAddTempQuest, onToggleTempQuest, onDeleteTempQuest,
@@ -1629,6 +1630,54 @@ export function AdminDashboard({
     const [reviewingW4Id, setReviewingW4Id] = React.useState<string | null>(null);
     const [volunteerPwd, setVolunteerPwd] = React.useState('');
     const [volPwdSaved, setVolPwdSaved] = React.useState(false);
+
+    // 主線任務設定
+    const [mqTitle, setMqTitle] = React.useState('');
+    const [mqReward, setMqReward] = React.useState('1000');
+    const [mqCoins, setMqCoins] = React.useState('100');
+    React.useEffect(() => {
+        setMqTitle(systemSettings.TopicQuestTitle || '');
+        setMqReward(systemSettings.TopicQuestReward || '1000');
+        setMqCoins(systemSettings.TopicQuestCoins || '100');
+    }, [systemSettings.TopicQuestTitle, systemSettings.TopicQuestReward, systemSettings.TopicQuestCoins]);
+
+    const mainQuestSchedule: MainQuestEntry[] = React.useMemo(() => {
+        try { return JSON.parse(systemSettings.MainQuestSchedule ?? '[]'); } catch { return []; }
+    }, [systemSettings.MainQuestSchedule]);
+
+    const [mqFormEntry, setMqFormEntry] = React.useState({ title: '', reward: '1000', coins: '100', startDate: '' });
+
+    const today = new Date().toISOString().split('T')[0];
+    const activeMqEntry = [...mainQuestSchedule]
+        .filter(e => e.startDate <= today)
+        .sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
+
+    const handleAddMqEntry = () => {
+        if (!mqFormEntry.title.trim() || !mqFormEntry.startDate) return;
+        const newEntry: MainQuestEntry = {
+            id: Date.now().toString(),
+            title: mqFormEntry.title.trim(),
+            reward: parseInt(mqFormEntry.reward, 10) || 1000,
+            coins: parseInt(mqFormEntry.coins, 10) || 100,
+            startDate: mqFormEntry.startDate,
+        };
+        const sorted = [...mainQuestSchedule, newEntry].sort((a, b) => a.startDate.localeCompare(b.startDate));
+        updateGlobalSetting('MainQuestSchedule', JSON.stringify(sorted));
+        setMqFormEntry({ title: '', reward: '1000', coins: '100', startDate: '' });
+    };
+
+    const handleRemoveMqEntry = (id: string) => {
+        updateGlobalSetting('MainQuestSchedule', JSON.stringify(mainQuestSchedule.filter(e => e.id !== id)));
+    };
+
+    const handleApplyMqEntry = (entry: MainQuestEntry) => {
+        updateGlobalSettings({
+            TopicQuestTitle: entry.title,
+            TopicQuestReward: String(entry.reward),
+            TopicQuestCoins: String(entry.coins),
+            MainQuestAppliedId: entry.id,
+        });
+    };
 
     // 大小隊分組管理
     const [squadExpandedTeams, setSquadExpandedTeams] = React.useState<Set<string>>(new Set());
@@ -3195,28 +3244,48 @@ export function AdminDashboard({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <section className="space-y-6">
                             <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest"><BarChart3 size={16} /> 全域修行設定</div>
-                            <div className="bg-slate-900 border-2 border-slate-800 p-8 rounded-4xl space-y-8 shadow-xl">
-                                <div className="space-y-4">
-                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">雙週加分主題名稱</label>
-                                    <div className="flex gap-2 text-center mx-auto">
-                                        <input defaultValue={systemSettings.TopicQuestTitle} onBlur={(e) => updateGlobalSetting('TopicQuestTitle', e.target.value)}
-                                            className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-orange-500 text-center" />
-                                        <button className="bg-orange-600 p-4 rounded-2xl text-white font-black"><Save size={20} /></button>
+                            <div className="bg-slate-900 border-2 border-slate-800 p-6 rounded-4xl space-y-5 shadow-xl">
+                                <p className="text-xs font-black text-yellow-500 uppercase tracking-widest">⚔️ 當前主線任務</p>
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">任務名稱</label>
+                                        <input
+                                            value={mqTitle}
+                                            onChange={e => setMqTitle(e.target.value)}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm"
+                                        />
                                     </div>
-                                    {topicHistory.length > 0 && (
-                                        <div className="mt-4 bg-slate-950/50 rounded-2xl border border-white/5 overflow-hidden">
-                                            <div className="p-3 bg-slate-900 border-b border-white/5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">歷史主題紀錄</div>
-                                            <div className="max-h-32 overflow-y-auto divide-y divide-white/5">
-                                                {topicHistory.map(h => (
-                                                    <div key={h.id} className="p-3 text-sm flex justify-between items-center text-slate-300">
-                                                        <span>{h.TopicTitle}</span>
-                                                        <span className="text-[10px] text-slate-600">{new Date(h.created_at).toLocaleDateString('zh-TW')}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1"><Zap size={10} /> 修為獎勵</label>
+                                            <input type="number" value={mqReward} onChange={e => setMqReward(e.target.value)}
+                                                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm text-center" />
                                         </div>
-                                    )}
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">🪙 金幣獎勵</label>
+                                            <input type="number" value={mqCoins} onChange={e => setMqCoins(e.target.value)}
+                                                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm text-center" />
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => updateGlobalSettings({ TopicQuestTitle: mqTitle, TopicQuestReward: mqReward, TopicQuestCoins: mqCoins })}
+                                        className="w-full flex items-center justify-center gap-2 bg-yellow-500 text-slate-950 p-3 rounded-2xl font-black text-sm shadow-lg hover:bg-yellow-400 transition-colors">
+                                        <Save size={15} /> 儲存當前主線任務
+                                    </button>
                                 </div>
+                                {topicHistory.length > 0 && (
+                                    <div className="bg-slate-950/50 rounded-2xl border border-white/5 overflow-hidden">
+                                        <div className="p-2.5 bg-slate-900 border-b border-white/5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">歷史主題紀錄</div>
+                                        <div className="max-h-28 overflow-y-auto divide-y divide-white/5">
+                                            {topicHistory.map(h => (
+                                                <div key={h.id} className="px-3 py-2 text-xs flex justify-between items-center text-slate-300">
+                                                    <span>{h.TopicTitle}</span>
+                                                    <span className="text-[10px] text-slate-600">{new Date(h.created_at).toLocaleDateString('zh-TW')}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </section>
                         <section className="space-y-6">
@@ -3233,6 +3302,77 @@ export function AdminDashboard({
                             </div>
                         </section>
                     </div>
+
+                    {/* ── 主線任務列表 ── */}
+                    <section className="space-y-6">
+                        <div className="flex items-center gap-2 text-yellow-500 font-black text-sm uppercase tracking-widest"><Calendar size={16} /> 主線任務排程列表</div>
+                        <div className="bg-slate-900 border-2 border-yellow-500/20 p-6 rounded-4xl space-y-6 shadow-xl">
+                            {/* 現有排程列表 */}
+                            {mainQuestSchedule.length > 0 ? (
+                                <div className="space-y-2">
+                                    {mainQuestSchedule.map(entry => {
+                                        const isActive = activeMqEntry?.id === entry.id;
+                                        const isPast = entry.startDate <= today;
+                                        return (
+                                            <div key={entry.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${isActive ? 'border-yellow-500/60 bg-yellow-500/10' : isPast ? 'border-slate-700 bg-slate-800/50 opacity-60' : 'border-slate-700 bg-slate-800/50'}`}>
+                                                <div className="text-xs font-black text-slate-400 w-24 shrink-0">{entry.startDate}</div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold text-white truncate">{entry.title}</p>
+                                                    <p className="text-[10px] text-slate-400">+{entry.reward} 修為 · +{entry.coins} 🪙</p>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {isActive && <span className="text-[10px] font-black text-yellow-400 bg-yellow-500/20 px-2 py-0.5 rounded-lg">當前</span>}
+                                                    {!isActive && (
+                                                        <button onClick={() => handleApplyMqEntry(entry)}
+                                                            className="text-[10px] font-black text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded-lg transition-colors">
+                                                            套用
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => handleRemoveMqEntry(entry.id)}
+                                                        className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-slate-500 text-center py-4">尚無排程。新增後系統將依開始日期自動切換。</p>
+                            )}
+                            {/* 新增排程 */}
+                            <div className="border-t border-slate-800 pt-5 space-y-3">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">新增排程</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="col-span-2 space-y-1">
+                                        <label className="text-[10px] text-slate-500 font-bold">任務名稱</label>
+                                        <input value={mqFormEntry.title} onChange={e => setMqFormEntry(p => ({ ...p, title: e.target.value }))}
+                                            placeholder="例：感恩修行實踐" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] text-slate-500 font-bold">修為</label>
+                                        <input type="number" value={mqFormEntry.reward} onChange={e => setMqFormEntry(p => ({ ...p, reward: e.target.value }))}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm text-center" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] text-slate-500 font-bold">金幣</label>
+                                        <input type="number" value={mqFormEntry.coins} onChange={e => setMqFormEntry(p => ({ ...p, coins: e.target.value }))}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm text-center" />
+                                    </div>
+                                    <div className="col-span-2 space-y-1">
+                                        <label className="text-[10px] text-slate-500 font-bold flex items-center gap-1"><Calendar size={10} /> 開始日期（到期自動套用）</label>
+                                        <input type="date" value={mqFormEntry.startDate} onChange={e => setMqFormEntry(p => ({ ...p, startDate: e.target.value }))}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
+                                    </div>
+                                </div>
+                                <button onClick={handleAddMqEntry}
+                                    disabled={!mqFormEntry.title.trim() || !mqFormEntry.startDate}
+                                    className="w-full flex items-center justify-center gap-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 text-white p-3 rounded-2xl font-black text-sm shadow-lg transition-colors">
+                                    <Plus size={15} /> 加入排程列表
+                                </button>
+                            </div>
+                        </div>
+                    </section>
 
                     <section className="space-y-6">
                         <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest"><Settings size={16} /> 臨時加分任務管理</div>

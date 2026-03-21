@@ -8,7 +8,7 @@ import {
   Dice5, Loader2, RotateCcw
 } from 'lucide-react';
 
-import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, FinePaymentRecord, AchievementRecord, Course } from '@/types';
+import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, FinePaymentRecord, AchievementRecord, Course, MainQuestEntry } from '@/types';
 import { getLogicalDateStr, getWeeklyMonday } from '@/lib/utils/time';
 import { standardizePhone } from '@/lib/utils/phone';
 import { ROLE_CURE_MAP, DEFAULT_CONFIG, ADVENTURE_COST, ADMIN_PASSWORD, calculateLevelFromExp, ROLE_GROWTH_RATES, DEFAULT_QUEST_ROLES } from '@/lib/constants';
@@ -150,6 +150,27 @@ export default function App() {
     logs.some(l => l.QuestID === 't1' && new Date(l.Timestamp) >= currentWeeklyMonday),
     [logs, currentWeeklyMonday]
   );
+
+  // 主線任務排程自動切換：當排程中有 startDate <= 今天且尚未套用的項目，自動更新
+  useEffect(() => {
+    if (!systemSettings.MainQuestSchedule) return;
+    let schedule: MainQuestEntry[] = [];
+    try { schedule = JSON.parse(systemSettings.MainQuestSchedule); } catch { return; }
+    if (schedule.length === 0) return;
+    const today = getLogicalDateStr(new Date());
+    const due = [...schedule]
+      .filter(e => e.startDate <= today)
+      .sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
+    if (!due) return;
+    if (due.id === systemSettings.MainQuestAppliedId) return;
+    updateGlobalSettings({
+      TopicQuestTitle: due.title,
+      TopicQuestReward: String(due.reward),
+      TopicQuestCoins: String(due.coins),
+      MainQuestAppliedId: due.id,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [systemSettings.MainQuestSchedule, systemSettings.MainQuestAppliedId]);
 
   const roleTrait = useMemo(() => {
     if (!userData) return null;
@@ -466,6 +487,31 @@ export default function App() {
 
       setModalMessage({ text: "設定已同步雲端，諸位修行者將即時感應。", type: 'success' });
     } catch (err) {
+      setModalMessage({ text: "同步失敗，法陣連線異常。", type: 'error' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // 批次更新多個 SystemSettings（主線任務用）
+  const updateGlobalSettings = async (updates: Record<string, string>) => {
+    setIsSyncing(true);
+    try {
+      const results = await Promise.all(
+        Object.entries(updates).map(([key, value]) =>
+          supabase.from('SystemSettings').upsert({ SettingName: key, Value: value }, { onConflict: 'SettingName' })
+        )
+      );
+      if (results.some(r => r.error)) throw new Error('部分儲存失敗');
+      setSystemSettings(prev => ({ ...prev, ...updates }));
+
+      if ('TopicQuestTitle' in updates) {
+        const { data: newHistory } = await supabase.from('TopicHistory').insert([{ TopicTitle: updates.TopicQuestTitle }]).select();
+        if (newHistory) setTopicHistory(prev => [newHistory[0] as TopicHistory, ...prev]);
+      }
+
+      setModalMessage({ text: "設定已同步雲端，諸位修行者將即時感應。", type: 'success' });
+    } catch {
       setModalMessage({ text: "同步失敗，法陣連線異常。", type: 'error' });
     } finally {
       setIsSyncing(false);
@@ -974,6 +1020,10 @@ export default function App() {
         const sObj = settingsData.reduce((acc: any, curr: any) => ({ ...acc, [curr.SettingName]: curr.Value }), {});
         setSystemSettings({
           TopicQuestTitle: sObj.TopicQuestTitle || '修行主題載入中',
+          TopicQuestReward: sObj.TopicQuestReward || '1000',
+          TopicQuestCoins: sObj.TopicQuestCoins || '100',
+          MainQuestSchedule: sObj.MainQuestSchedule,
+          MainQuestAppliedId: sObj.MainQuestAppliedId,
           RegistrationMode: (sObj.RegistrationMode as 'open' | 'roster') || 'open',
           WorldState: sObj.WorldState,
           WorldStateMsg: sObj.WorldStateMsg,
@@ -1404,6 +1454,7 @@ export default function App() {
           onAuth={handleAdminAuth}
           systemSettings={systemSettings}
           updateGlobalSetting={updateGlobalSetting}
+          updateGlobalSettings={updateGlobalSettings}
           leaderboard={leaderboard}
           topicHistory={topicHistory}
           temporaryQuests={temporaryQuests}
