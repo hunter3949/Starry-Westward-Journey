@@ -158,7 +158,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                     </div>
                 )}
 
-                <Scanner courseKey={volCourseId} onCheckedIn={() => loadAttendance(volCourseId)} />
+                {volCourseId && <Scanner courseKey={volCourseId as 'class_b' | 'class_c'} onCheckedIn={() => loadAttendance(volCourseId)} />}
 
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 text-teal-400 font-black text-xs uppercase tracking-widest">
