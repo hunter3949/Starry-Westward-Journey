@@ -86,8 +86,8 @@ export async function processCheckInTransaction(
         const myInventory = typeof userData.Inventory === 'string' ? JSON.parse(userData.Inventory) : (userData.Inventory || []);
         let teamInventory: string[] = [];
 
-        if (userData.TeamName) {
-            const tsRes = await client.query(`SELECT inventory FROM "TeamSettings" WHERE "team_name" = $1`, [userData.TeamName]);
+        if (userData.LittleTeamLeagelName) {
+            const tsRes = await client.query(`SELECT inventory FROM "TeamSettings" WHERE "team_name" = $1`, [userData.LittleTeamLeagelName]);
             if (tsRes.rowCount && tsRes.rowCount > 0) {
                 const tsData = tsRes.rows[0];
                 teamInventory = typeof tsData.inventory === 'string' ? JSON.parse(tsData.inventory) : (tsData.inventory || []);

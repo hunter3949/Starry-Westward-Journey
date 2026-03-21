@@ -186,7 +186,7 @@ export async function getCourseRegistrations(
 
     const { data: users } = await supabase
         .from('CharacterStats')
-        .select('UserID, Name, TeamName, SquadName')
+        .select('UserID, Name, BigTeamLeagelName, LittleTeamLeagelName')
         .in('UserID', userIds);
 
     const { data: attended } = await supabase
@@ -204,8 +204,8 @@ export async function getCourseRegistrations(
         return {
             userId: r.user_id,
             userName: u?.Name ?? r.user_id,
-            teamName: u?.TeamName ?? '—',
-            squadName: u?.SquadName ?? '—',
+            teamName: u?.BigTeamLeagelName ?? '—',
+            squadName: u?.LittleTeamLeagelName ?? '—',
             registeredAt: r.registered_at,
             attended: !!att,
             attendedAt: att?.attended_at ?? null,

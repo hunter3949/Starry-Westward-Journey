@@ -33,7 +33,7 @@ export async function purchaseArtifact(userId: string, artifactId: string, teamN
 
             // We need to know how many members in the team to calc total price.
             // A simple approximation or actual count. Let's do actual count:
-            const membersRes = await client.query(`SELECT COUNT(*) as count FROM "CharacterStats" WHERE "TeamName" = $1`, [teamName]);
+            const membersRes = await client.query(`SELECT COUNT(*) as count FROM "CharacterStats" WHERE "LittleTeamLeagelName" = $1`, [teamName]);
             const memberCount = parseInt(membersRes.rows[0].count, 10) || 1;
 
             const totalPrice = config.price * memberCount;

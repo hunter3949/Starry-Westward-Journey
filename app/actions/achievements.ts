@@ -64,7 +64,7 @@ export async function checkAndUnlockAchievements(
     try {
         // 1. Fetch user stats
         const userRes = await client.query(
-            `SELECT "Role", "Spirit", "Physique", "Charisma", "Savvy", "Luck", "Potential", "TeamName"
+            `SELECT "Role", "Spirit", "Physique", "Charisma", "Savvy", "Luck", "Potential", "LittleTeamLeagelName"
              FROM "CharacterStats" WHERE "UserID" = $1`,
             [userId]
         );
@@ -176,10 +176,10 @@ export async function checkAndUnlockAchievements(
         const teammateAnyToday: Record<string, boolean> = {};  // userId → has any quest today
         const teammateRecentPunch: Record<string, string[]> = {}; // userId → sorted punch dates
 
-        if (user.TeamName) {
+        if (user.LittleTeamLeagelName) {
             const membersRes = await client.query(
-                `SELECT "UserID" FROM "CharacterStats" WHERE "TeamName" = $1 AND "UserID" != $2`,
-                [user.TeamName, userId]
+                `SELECT "UserID" FROM "CharacterStats" WHERE "LittleTeamLeagelName" = $1 AND "UserID" != $2`,
+                [user.LittleTeamLeagelName, userId]
             );
             teamMemberIds = membersRes.rows.map((r: { UserID: string }) => r.UserID);
 
@@ -217,18 +217,18 @@ export async function checkAndUnlockAchievements(
         const selfPunchToday = punchDates.includes(todayStr);
         const teamPunchCount = (selfPunchToday ? 1 : 0) +
             Object.values(teammateLogsToday).filter(Boolean).length;
-        const teamPunch = user.TeamName && teamPunchCount >= 2;
+        const teamPunch = user.LittleTeamLeagelName && teamPunchCount >= 2;
 
         // team_perfect: all team members have at least 1 quest today
         const selfAnyToday = anyQDates.includes(todayStr);
         const allTeamAnyToday = selfAnyToday &&
             Object.values(teammateAnyToday).every(Boolean) &&
             teamMemberIds.length > 0;
-        const teamPerfect = user.TeamName && allTeamAnyToday;
+        const teamPerfect = user.LittleTeamLeagelName && allTeamAnyToday;
 
         // team_streak: any teammate has 3-day consecutive punch overlap with self
         let teamStreak = false;
-        if (user.TeamName && selfPunchToday) {
+        if (user.LittleTeamLeagelName && selfPunchToday) {
             for (const tm of teamMemberIds) {
                 const tmPunch = teammateRecentPunch[tm] ?? [];
                 // Check last 3 consecutive days ending today

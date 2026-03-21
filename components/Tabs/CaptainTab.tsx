@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ShieldAlert, Dices, Loader2, ChevronDown, ChevronUp, Banknote, CalendarCheck, Building2, UserCheck } from 'lucide-react';
+import { ShieldAlert, Dices, Loader2, ChevronDown, ChevronUp, Banknote, CalendarCheck, Building2, UserCheck, Pencil } from 'lucide-react';
 import { DAILY_QUEST_CONFIG } from '@/lib/constants';
 import { TeamSettings, W4Application, CaptainBriefing, FinePaymentRecord, SquadFineSubmission } from '@/types';
+import { setSquadDisplayName } from '@/app/actions/admin';
 // SquadFineSubmission used in orgSubmissions prop below
 
 interface SquadMemberFine {
@@ -15,12 +16,13 @@ interface SquadMemberFine {
 interface SquadMemberWithRole {
     userId: string;
     name: string;
-    questRole: string;
+    questRoles: string[];
 }
 
 interface CaptainTabProps {
     captainUserId: string;
     teamName: string;
+    teamDisplayName?: string;
     teamSettings?: TeamSettings;
     pendingW4Apps: W4Application[];
     onDrawWeeklyQuest: () => Promise<void>;
@@ -42,8 +44,9 @@ interface CaptainTabProps {
     complianceResult: { periodLabel: string; violators: { userId: string; name: string }[]; alreadyRun: boolean } | null;
     // 任務角色
     squadMembersWithRoles: SquadMemberWithRole[];
-    onSetQuestRole: (targetUserId: string, roleId: string) => Promise<void>;
+    onSetQuestRole: (targetUserId: string, roleId: string, action: 'assign' | 'unassign') => Promise<void>;
     questRoleDefs: { id: string; name: string; duties: string[] }[];
+    onDisplayNameSaved?: (name: string) => void;
 }
 
 
@@ -56,18 +59,30 @@ function getCurrentWeekMondayStr(): string {
 }
 
 export function CaptainTab({
-    captainUserId, teamName, teamSettings, pendingW4Apps, onDrawWeeklyQuest, onReviewW4,
+    captainUserId, teamName, teamDisplayName, teamSettings, pendingW4Apps, onDrawWeeklyQuest, onReviewW4,
     onGetAIBriefing, aiBriefing, isLoadingBriefing,
     squadFineMembers, fineHistory, orgSubmissions, onRecordPayment, onSetPaidToCaptainDate, onRecordOrgSubmission, isLoadingFines,
     onCheckW3Compliance, isCheckingCompliance, complianceResult,
-    squadMembersWithRoles, onSetQuestRole, questRoleDefs,
+    squadMembersWithRoles, onSetQuestRole, questRoleDefs, onDisplayNameSaved,
 }: CaptainTabProps) {
     const [isDrawing, setIsDrawing] = useState(false);
     const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
     const [reviewingId, setReviewingId] = useState<string | null>(null);
 
+    // 小隊名稱設定 state
+    const [editingName, setEditingName] = useState(false);
+    const [nameInput, setNameInput] = useState(teamDisplayName || '');
+    const [savingName, setSavingName] = useState(false);
+    const handleSaveName = async () => {
+        setSavingName(true);
+        await setSquadDisplayName(teamName, nameInput);
+        setSavingName(false);
+        setEditingName(false);
+        onDisplayNameSaved?.(nameInput.trim());
+    };
+
     // 任務角色指派 state
-    const [expandedRole, setExpandedRole] = useState<string | null>(null);
+    const [savingMember, setSavingMember] = useState<string | null>(null);
 
     // 罰款管理 state
     const [paymentInput, setPaymentInput] = useState<Record<string, { amount: string; date: string }>>({});
@@ -146,8 +161,33 @@ export function CaptainTab({
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
             <div className="bg-indigo-950/40 border-2 border-indigo-500/40 rounded-4xl p-6 shadow-2xl text-center mx-auto">
                 <div className="flex items-center justify-center gap-2 text-indigo-400 font-black text-xs uppercase mb-2 tracking-widest"><ShieldAlert size={16} /> 隊長權限指揮所</div>
-                <h2 className="text-2xl font-black text-white italic mx-auto">{teamName || '未知小隊'}</h2>
+                <h2 className="text-2xl font-black text-white italic mx-auto">{teamDisplayName || teamName || '未知小隊'}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{teamName}</p>
                 <p className="text-xs text-indigo-300 mt-2 font-black">你擁有點亮同伴前行的提燈。請謹慎決策。</p>
+                {/* 小隊名稱設定 */}
+                <div className="mt-4 border-t border-indigo-500/20 pt-4">
+                    {editingName ? (
+                        <div className="flex gap-2">
+                            <input
+                                value={nameInput}
+                                onChange={e => setNameInput(e.target.value)}
+                                placeholder={teamName}
+                                className="flex-1 bg-slate-950 border border-indigo-500/50 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-400"
+                            />
+                            <button onClick={handleSaveName} disabled={savingName}
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-colors">
+                                {savingName ? '…' : '儲存'}
+                            </button>
+                            <button onClick={() => setEditingName(false)}
+                                className="px-3 py-2 bg-slate-700 text-slate-300 text-xs rounded-xl">取消</button>
+                        </div>
+                    ) : (
+                        <button onClick={() => { setNameInput(teamDisplayName || ''); setEditingName(true); }}
+                            className="flex items-center gap-1.5 mx-auto text-xs text-indigo-400 hover:text-indigo-200 transition-colors">
+                            <Pencil size={12} /> 設定小隊名稱
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* ── AI 隊務分析 ── */}
@@ -492,82 +532,66 @@ export function CaptainTab({
                 <h3 className="text-lg font-black text-white border-b border-white/10 pb-4 flex items-center gap-2">
                     <UserCheck size={20} className="text-teal-400" /> 任務角色指派
                 </h3>
-                {questRoleDefs.length === 0 ? (
+                {squadMembersWithRoles.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">載入組員中…</p>
+                ) : questRoleDefs.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-4">尚未設定任務角色，請至管理後台 → 參數管理 新增。</p>
                 ) : (
-                    <div className="space-y-2">
-                        {questRoleDefs.map(role => {
-                            const assignee = squadMembersWithRoles.find(m => m.questRole === role.id);
-                            const isExpanded = expandedRole === role.id;
+                    <div className="space-y-3">
+                        {squadMembersWithRoles.map(member => {
+                            const isSaving = savingMember === member.userId;
+                            const full = member.questRoles.length >= 2;
                             return (
-                                <div key={role.id} className="bg-slate-800 rounded-2xl overflow-hidden">
-                                    {/* 角色列 */}
-                                    <button
-                                        onClick={() => setExpandedRole(isExpanded ? null : role.id)}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-700/50 transition-colors"
-                                    >
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-black text-white text-sm">{role.name}</span>
-                                                {role.duties.map((d, i) => (
-                                                    <span key={i} className="text-[10px] text-slate-500">｜{d}</span>
-                                                ))}
-                                            </div>
+                                <div key={member.userId} className="bg-slate-800 rounded-2xl px-4 py-3 space-y-2">
+                                    {/* 組員名稱 + 目前角色 */}
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-black text-white text-sm">{member.name}</span>
+                                        {member.questRoles.length === 0 && (
+                                            <span className="text-[11px] text-slate-600">未指派</span>
+                                        )}
+                                        {member.questRoles.map(roleId => {
+                                            const roleDef = questRoleDefs.find(r => r.id === roleId);
+                                            if (!roleDef) return null;
+                                            return (
+                                                <button
+                                                    key={roleId}
+                                                    disabled={isSaving}
+                                                    onClick={async () => {
+                                                        setSavingMember(member.userId);
+                                                        await onSetQuestRole(member.userId, roleId, 'unassign');
+                                                        setSavingMember(null);
+                                                    }}
+                                                    className="text-[11px] font-black text-teal-300 bg-teal-500/20 border border-teal-500/40 px-2.5 py-1 rounded-xl hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40 transition-colors disabled:opacity-50"
+                                                    title="點擊移除此角色"
+                                                >
+                                                    {roleDef.name} ✕
+                                                </button>
+                                            );
+                                        })}
+                                        {isSaving && <span className="text-[10px] text-slate-500">儲存中…</span>}
+                                    </div>
+                                    {/* 可指派角色 */}
+                                    {!full && (
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="text-[10px] text-slate-600">＋指派：</span>
+                                            {questRoleDefs.filter(r => !member.questRoles.includes(r.id)).map(role => (
+                                                <button
+                                                    key={role.id}
+                                                    disabled={isSaving}
+                                                    onClick={async () => {
+                                                        setSavingMember(member.userId);
+                                                        await onSetQuestRole(member.userId, role.id, 'assign');
+                                                        setSavingMember(null);
+                                                    }}
+                                                    className="text-[11px] text-slate-400 bg-slate-700 border border-slate-600 px-2.5 py-1 rounded-xl hover:bg-teal-600 hover:text-white hover:border-teal-500 transition-colors disabled:opacity-50"
+                                                >
+                                                    {role.name}
+                                                </button>
+                                            ))}
                                         </div>
-                                        <div className="shrink-0 flex items-center gap-2">
-                                            {assignee ? (
-                                                <span className="text-[11px] font-black text-teal-400 bg-teal-400/10 px-2.5 py-1 rounded-xl">{assignee.name}</span>
-                                            ) : (
-                                                <span className="text-[11px] text-slate-600 font-bold">未指派</span>
-                                            )}
-                                            <ChevronDown size={14} className={`text-slate-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                                        </div>
-                                    </button>
-
-                                    {/* 展開：選取隊員 */}
-                                    {isExpanded && (
-                                        <div className="border-t border-slate-700 px-4 py-3 space-y-2">
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">選取隊員</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {assignee && (
-                                                    <button
-                                                        onClick={async () => {
-                                                            await onSetQuestRole(assignee.userId, '');
-                                                            setExpandedRole(null);
-                                                        }}
-                                                        className="text-[11px] font-bold px-3 py-1.5 bg-red-900/40 text-red-400 hover:bg-red-900/70 rounded-xl transition-colors"
-                                                    >
-                                                        清除指派
-                                                    </button>
-                                                )}
-                                                {squadMembersWithRoles.map(member => (
-                                                    <button
-                                                        key={member.userId}
-                                                        onClick={async () => {
-                                                            // 若該成員已有其他角色，先清除
-                                                            if (member.questRole && member.questRole !== role.id) {
-                                                                await onSetQuestRole(member.userId, role.id);
-                                                            } else {
-                                                                await onSetQuestRole(member.userId, role.id);
-                                                            }
-                                                            setExpandedRole(null);
-                                                        }}
-                                                        className={`text-[11px] font-black px-3 py-1.5 rounded-xl transition-colors ${
-                                                            member.userId === assignee?.userId
-                                                                ? 'bg-teal-600 text-white'
-                                                                : 'bg-slate-700 text-slate-300 hover:bg-teal-700 hover:text-white'
-                                                        }`}
-                                                    >
-                                                        {member.name}
-                                                        {member.questRole && member.questRole !== role.id && (
-                                                            <span className="ml-1 text-slate-400 font-normal">
-                                                                ({questRoleDefs.find(r => r.id === member.questRole)?.name ?? ''})
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                    )}
+                                    {full && (
+                                        <p className="text-[10px] text-slate-600">已持有 2 個角色（點擊角色移除）</p>
                                     )}
                                 </div>
                             );

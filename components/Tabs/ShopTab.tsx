@@ -81,10 +81,10 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
     const [isTransferring, setIsTransferring] = useState(false);
 
     const handleTransfer = async () => {
-        if (!userData.TeamName || !transferAmount || typeof transferAmount !== 'number' || transferAmount <= 0) return;
+        if (!userData.BigTeamLeagelName || !transferAmount || typeof transferAmount !== 'number' || transferAmount <= 0) return;
         setIsTransferring(true);
         try {
-            const res = await transferCoinsToTeam(userData.UserID, userData.TeamName, transferAmount);
+            const res = await transferCoinsToTeam(userData.UserID, userData.BigTeamLeagelName, transferAmount);
             if (res.success) {
                 onShowMessage(`已成功將 ${transferAmount} 金幣注入團隊資金！`, "success");
                 setTransferAmount('');
@@ -102,7 +102,7 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
     const handlePurchase = async (artifactId: string, isTeamBinding: boolean) => {
         setIsBuying(artifactId);
         try {
-            const teamName = isTeamBinding ? userData.TeamName : null;
+            const teamName = isTeamBinding ? userData.LittleTeamLeagelName : null;
             if (isTeamBinding && !teamName) {
                 onShowMessage("小隊專屬法寶需加入小隊後由隊長購買", "error");
                 return;
@@ -226,7 +226,7 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
                     <div className="flex items-center gap-1.5 text-yellow-500 bg-yellow-500/10 px-3 py-1.5 rounded-xl">
                         <User size={13} /> 個人金幣: {userData.Coins || 0}
                     </div>
-                    {userData.TeamName && (
+                    {userData.BigTeamLeagelName && (
                         <div className="flex items-center gap-1.5 text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-xl">
                             <Users size={13} /> 團隊資金: {teamSettings?.team_coins || 0}
                         </div>
@@ -268,7 +268,7 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
             </div>
 
             {/* Coin transfer to team */}
-            {userData.TeamName && (
+            {userData.BigTeamLeagelName && (
                 <div className="bg-indigo-950/40 border-2 border-indigo-500/30 p-4 rounded-3xl flex items-center justify-between gap-4">
                     <div className="flex-1">
                         <p className="text-xs text-indigo-300 font-bold mb-2">捐獻個人金幣至團隊</p>

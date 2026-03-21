@@ -35,10 +35,10 @@ import { triggerWeeklySnapshot, importRostersData, checkWeeklyW3Compliance, auto
 import { listCourses, upsertCourse, deleteCourse } from '@/app/actions/course';
 import { getTestimonies } from '@/app/actions/testimonies_admin';
 import { drawWeeklyQuestForSquad, autoDrawAllSquads } from '@/app/actions/team';
-import { submitW4Application, reviewW4BySquadLeader, reviewW4ByAdmin, getW4Applications, getAdminActivityLog } from '@/app/actions/w4';
+import { submitW4Application, reviewW4BySquadLeader, reviewW4ByAdmin, getW4Applications, getAdminActivityLog, deleteAdminLog } from '@/app/actions/w4';
 import { generateWeeklyReview, generateCaptainBriefing } from '@/app/actions/gemini';
 import { handleChestOpen } from '@/app/actions/map';
-import { getSquadFineStatus, recordFinePayment, setPaidToCaptainDate, getSquadFinePaymentHistory, checkSquadW3Compliance, recordOrgSubmission, getSquadOrgSubmissions, getSquadMembersWithRoles, setMemberQuestRole } from '@/app/actions/fines';
+import { getSquadFineStatus, recordFinePayment, setPaidToCaptainDate, getSquadFinePaymentHistory, checkSquadW3Compliance, recordOrgSubmission, getSquadOrgSubmissions, setMemberQuestRole } from '@/app/actions/fines';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -72,6 +72,7 @@ export default function App() {
   const [modalMessage, setModalMessage] = useState<{ text: string, type: 'info' | 'error' | 'success' } | null>(null);
   const [undoTarget, setUndoTarget] = useState<Quest | null>(null);
   const [adminAuth, setAdminAuth] = useState(false);
+  const [adminOperator, setAdminOperator] = useState<string>('');
 
   // 字體大小設定（存 localStorage，套用於 <html>）
   const FONT_SIZES = [100, 112, 125, 140] as const;
@@ -91,6 +92,10 @@ export default function App() {
   const [mapData, setMapData] = useState<Record<string, string>>({});
   const [mapEntities, setMapEntities] = useState<any[]>([]);
   const [teamSettings, setTeamSettings] = useState<any>(null);
+  const [battalionDisplayName, setBattalionDisplayName] = useState<string | undefined>(undefined);
+  interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; }
+  interface BattalionSquad { squadName: string; members: BattalionSquadMember[]; }
+  const [battalionSquads, setBattalionSquads] = useState<BattalionSquad[]>([]);
   const [teamMemberCount, setTeamMemberCount] = useState<number>(1);
   const [corridorL, setCorridorL] = useState<number>(DEFAULT_CONFIG.CORRIDOR_L);
   const [corridorW, setCorridorW] = useState<number>(DEFAULT_CONFIG.CORRIDOR_W);
@@ -121,7 +126,7 @@ export default function App() {
   const [fineHistory, setFineHistory] = useState<FinePaymentRecord[]>([]);
   const [isLoadingFines, setIsLoadingFines] = useState(false);
   const [orgSubmissions, setOrgSubmissions] = useState<import('@/types').SquadFineSubmission[]>([]);
-  interface SquadMemberWithRole { userId: string; name: string; questRole: string; }
+  interface SquadMemberWithRole { userId: string; name: string; questRoles: string[]; }
   const [squadMembersWithRoles, setSquadMembersWithRoles] = useState<SquadMemberWithRole[]>([]);
   interface QuestRoleDef { id: string; name: string; duties: string[] }
   const [questRoleDefs, setQuestRoleDefs] = useState<QuestRoleDef[]>([]);
@@ -187,7 +192,11 @@ export default function App() {
   const handleAdminAuth = async (e: { preventDefault: () => void; currentTarget: HTMLFormElement }) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    if (fd.get('password') === ADMIN_PASSWORD) {
+    const pwd = fd.get('password');
+    const isGmLogin = pwd === userData?.UserID?.slice(-3);
+    const isDirectLogin = !userData?.IsGM && pwd === ADMIN_PASSWORD;
+    if (isGmLogin || isDirectLogin) {
+      setAdminOperator(isGmLogin ? (userData?.Name || 'GM') : '最高管理員');
       setAdminAuth(true);
       // Fetch admin data on auth
       const [w4Res, logsRes] = await Promise.all([
@@ -205,7 +214,7 @@ export default function App() {
     if (!confirm("確定要執行『每週業力結算』(Weekly Snapshot)？\n這將重新計算所有活躍使用者的完成率，並變更全服動態難度 (WorldState)。")) return;
     setIsSyncing(true);
     try {
-      const res = await triggerWeeklySnapshot();
+      const res = await triggerWeeklySnapshot(adminOperator);
       if (res.success) {
         setSystemSettings(prev => ({
           ...prev,
@@ -226,7 +235,7 @@ export default function App() {
   const handleImportRoster = async (csvData: string) => {
     setIsSyncing(true);
     try {
-      const res = await importRostersData(csvData);
+      const res = await importRostersData(csvData, adminOperator);
       if (res.success) {
         setModalMessage({ text: `成功匯入！共新增/更新了 ${res.count} 筆名冊資料。`, type: 'success' });
       } else {
@@ -243,7 +252,7 @@ export default function App() {
     if (!confirm("確定要執行『w3 週罰款結算』？\n本週未完成「自我精進課」(w3) 的修行者將被記 NT$200 罰金。")) return;
     setIsSyncing(true);
     try {
-      const res = await checkWeeklyW3Compliance();
+      const res = await checkWeeklyW3Compliance(undefined, undefined, adminOperator);
       if (res.success) {
         const count = res.violatorCount ?? 0;
         const names = res.violators?.map((v: { name: string }) => v.name).join('、') || '（無）';
@@ -285,10 +294,10 @@ export default function App() {
   };
 
   const handleDrawWeeklyQuest = async () => {
-    if (!userData?.TeamName || !userData.IsCaptain) return;
+    if (!userData?.LittleTeamLeagelName || !userData.IsCaptain) return;
     setIsSyncing(true);
     try {
-      const res = await drawWeeklyQuestForSquad(userData.TeamName, userData.UserID);
+      const res = await drawWeeklyQuestForSquad(userData.LittleTeamLeagelName, userData.UserID);
       if (res.success) {
         setTeamSettings((prev: any) => ({
           ...prev,
@@ -360,37 +369,49 @@ export default function App() {
   };
 
   // ── 罰款 handlers ──
-  const loadFinesData = async () => {
-    if (!userData?.TeamName) return;
-    setIsLoadingFines(true);
-    try {
-      const [summaryRes, histRes, orgRes, rolesRes] = await Promise.all([
-        getSquadFineStatus(userData.UserID),
-        getSquadFinePaymentHistory(userData.UserID),
-        getSquadOrgSubmissions(userData.UserID),
-        getSquadMembersWithRoles(userData.UserID),
-      ]);
-      if (summaryRes.success && summaryRes.members) setSquadFineMembers(summaryRes.members as SquadMemberFine[]);
-      if (histRes.success && histRes.records) setFineHistory(histRes.records as FinePaymentRecord[]);
-      if (orgRes.success && orgRes.records) setOrgSubmissions(orgRes.records as import('@/types').SquadFineSubmission[]);
-      if (rolesRes.success && rolesRes.members) setSquadMembersWithRoles(rolesRes.members as SquadMemberWithRole[]);
-    } catch (_) { /* silent */ } finally {
-      setIsLoadingFines(false);
+  const parseQuestRoles = (qr: string | null): string[] => {
+    if (!qr) return [];
+    try { const p = JSON.parse(qr); return Array.isArray(p) ? p : [String(qr)]; } catch { return [String(qr)]; }
+  };
+
+  const loadSquadMembers = async (squadName: string) => {
+    const { data } = await supabase
+      .from('CharacterStats')
+      .select('UserID, Name, QuestRole')
+      .eq('LittleTeamLeagelName', squadName)
+      .order('Name');
+    if (data && data.length > 0) {
+      setSquadMembersWithRoles(data.map((r: any) => ({ userId: r.UserID, name: r.Name, questRoles: parseQuestRoles(r.QuestRole) })));
     }
   };
 
-  const handleSetQuestRole = async (targetUserId: string, roleId: string) => {
+  const loadFinesData = async () => {
     if (!userData?.UserID) return;
-    const res = await setMemberQuestRole(userData.UserID, targetUserId, roleId);
+    setIsLoadingFines(true);
+    const [summaryRes, histRes, orgRes] = await Promise.allSettled([
+      getSquadFineStatus(userData.UserID),
+      getSquadFinePaymentHistory(userData.UserID),
+      getSquadOrgSubmissions(userData.UserID),
+    ]);
+    if (summaryRes.status === 'fulfilled' && summaryRes.value.success && summaryRes.value.members) setSquadFineMembers(summaryRes.value.members as SquadMemberFine[]);
+    if (histRes.status === 'fulfilled' && histRes.value.success && histRes.value.records) setFineHistory(histRes.value.records as FinePaymentRecord[]);
+    if (orgRes.status === 'fulfilled' && orgRes.value.success && orgRes.value.records) setOrgSubmissions(orgRes.value.records as import('@/types').SquadFineSubmission[]);
+    if (userData.LittleTeamLeagelName) await loadSquadMembers(userData.LittleTeamLeagelName);
+    setIsLoadingFines(false);
+  };
+
+  const handleSetQuestRole = async (targetUserId: string, roleId: string, action: 'assign' | 'unassign') => {
+    if (!userData?.UserID || !userData.LittleTeamLeagelName) return;
+    const res = await setMemberQuestRole(userData.UserID, targetUserId, roleId, action);
     if (res.success) {
-      setSquadMembersWithRoles(prev => prev.map(m => m.userId === targetUserId ? { ...m, questRole: roleId } : m));
+      await loadSquadMembers(userData.LittleTeamLeagelName);
     } else {
       setModalMessage({ text: res.error || '設定失敗', type: 'error' });
     }
   };
 
   const handleRecordFinePayment = async (targetUserId: string, amount: number, periodLabel: string, paidToCaptainAt?: string) => {
-    if (!userData?.TeamName) return;
+    if (!userData?.LittleTeamLeagelName) return;
     const res = await recordFinePayment(userData.UserID, targetUserId, amount, periodLabel, paidToCaptainAt);
     if (res.success) {
       setModalMessage({ text: `已記錄繳款 NT$${amount}`, type: 'success' });
@@ -398,6 +419,29 @@ export default function App() {
     } else {
       setModalMessage({ text: res.error || '記錄失敗', type: 'error' });
     }
+  };
+
+  const loadBattalionSquads = async () => {
+    if (!userData?.UserID) return;
+    const battalionName = userData.BigTeamLeagelName;
+    if (!battalionName) return;
+
+    const { data, error } = await supabase
+      .from('CharacterStats')
+      .select('UserID, Name, Level, QuestRole, LittleTeamLeagelName, IsCaptain')
+      .eq('BigTeamLeagelName', battalionName);
+
+    if (error || !data || data.length === 0) return;
+
+    const squadMap = new Map<string, BattalionSquadMember[]>();
+    for (const r of data) {
+      const sq = r.LittleTeamLeagelName || '（未分隊）';
+      if (!squadMap.has(sq)) squadMap.set(sq, []);
+      squadMap.get(sq)!.push({ userId: r.UserID, name: r.Name, level: r.Level || 1, role: r.QuestRole || null, isCaptain: !!r.IsCaptain });
+    }
+    setBattalionSquads(Array.from(squadMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([squadName, members]) => ({ squadName, members: members.sort((a, b) => a.name.localeCompare(b.name)) })));
   };
 
   const handleSetPaidToCaptainDate = async (paymentId: string, date: string) => {
@@ -527,7 +571,7 @@ export default function App() {
       if (error) throw error;
       const newQuest: TemporaryQuest = { id, title, sub, desc, reward, limit: 1, active: true };
       setTemporaryQuests(prev => [newQuest, ...prev]);
-      await logAdminAction('temp_quest_add', 'admin', id, title, { reward });
+      await logAdminAction('temp_quest_add', adminOperator, id, title, { reward });
     } catch (err) {
       console.error(err);
       setModalMessage({ text: "新增臨時任務失敗。", type: 'error' });
@@ -542,7 +586,7 @@ export default function App() {
       const { error } = await supabase.from('temporaryquests').update({ active }).eq('id', id);
       if (error) throw error;
       setTemporaryQuests(prev => prev.map(q => q.id === id ? { ...q, active } : q));
-      await logAdminAction('temp_quest_toggle', 'admin', id, undefined, { active });
+      await logAdminAction('temp_quest_toggle', adminOperator, id, undefined, { active });
     } catch (err) {
       setModalMessage({ text: "更新臨時任務狀態失敗。", type: 'error' });
     } finally {
@@ -557,7 +601,7 @@ export default function App() {
       const { error } = await supabase.from('temporaryquests').delete().eq('id', id);
       if (error) throw error;
       setTemporaryQuests(prev => prev.filter(q => q.id !== id));
-      await logAdminAction('temp_quest_delete', 'admin', id);
+      await logAdminAction('temp_quest_delete', adminOperator, id);
     } catch (err) {
       setModalMessage({ text: "刪除臨時任務失敗。", type: 'error' });
     } finally {
@@ -591,7 +635,7 @@ export default function App() {
     if (!userData) return;
     const res = await submitW4Application(
       userData.UserID, userData.Name,
-      userData.TeamName || null, userData.SquadName || null,
+      userData.LittleTeamLeagelName || null, userData.BigTeamLeagelName || null,
       data.interviewTarget, data.interviewDate, data.description
     );
     if (res.success && res.application) {
@@ -624,6 +668,11 @@ export default function App() {
     } else {
       setModalMessage({ text: (res as any).error || '審核失敗', type: 'error' });
     }
+  };
+
+  const handleDeleteAdminLog = async (id: string) => {
+    await deleteAdminLog(id);
+    setAdminLogs(prev => prev.filter(l => l.id !== id));
   };
 
   const [showGoldenDicePicker, setShowGoldenDicePicker] = useState(false);
@@ -860,8 +909,8 @@ export default function App() {
       const { data: stats } = await supabase.from('CharacterStats').select('*').eq('UserID', userData.UserID).single();
       if (stats) setUserData(prev => ({ ...prev, ...stats }));
 
-      if (userData.TeamName) {
-        const { data: tSettings } = await supabase.from('TeamSettings').select('*').eq('team_name', userData.TeamName).single();
+      if (userData.LittleTeamLeagelName) {
+        const { data: tSettings } = await supabase.from('TeamSettings').select('*').eq('team_name', userData.LittleTeamLeagelName).single();
         if (tSettings) setTeamSettings(tSettings);
       }
     } catch (e) {
@@ -885,8 +934,8 @@ export default function App() {
         const { data: userLogs } = await supabase.from('DailyLogs').select('*').eq('UserID', match.UserID);
         const logsArray = (userLogs as DailyLog[]) || [];
 
-        if (match.TeamName) {
-          const { data: ts } = await supabase.from('TeamSettings').select('*').eq('team_name', match.TeamName).single();
+        if (match.LittleTeamLeagelName) {
+          const { data: ts } = await supabase.from('TeamSettings').select('*').eq('team_name', match.LittleTeamLeagelName).single();
           if (ts) setTeamSettings(ts);
         }
 
@@ -947,8 +996,8 @@ export default function App() {
       if (email) {
         const { data: rosterMatch } = await supabase.from('Rosters').select('*').eq('email', email).single();
         if (rosterMatch) {
-          newChar.SquadName = rosterMatch.squad_name;
-          newChar.TeamName = rosterMatch.team_name;
+          newChar.BigTeamLeagelName = rosterMatch.big_team_name;
+          newChar.LittleTeamLeagelName = rosterMatch.little_team_name;
           newChar.IsCaptain = rosterMatch.is_captain;
         }
       }
@@ -988,6 +1037,10 @@ export default function App() {
   };
 
   const handleLogout = () => { localStorage.removeItem('starry_session_uid'); localStorage.removeItem('starry_session_expiry'); setUserData(null); setView('login'); };
+
+  const handleQuickLogin = (userId: string) => {
+    window.open(`${window.location.origin}/?uid=${encodeURIComponent(userId)}`, '_blank');
+  };
 
   const handleUnbindLine = async () => {
     if (!userData?.UserID) return;
@@ -1067,7 +1120,7 @@ export default function App() {
           const { data: mates } = await supabase
             .from('CharacterStats')
             .select('UserID, Name, Role, CurrentQ, CurrentR, EnergyDice, Level')
-            .eq('TeamName', teamName)
+            .eq('LittleTeamLeagelName', teamName)
             .neq('UserID', selfId);
           if (mates && mates.length > 0) {
             const teammateEntities = mates.map((m: any) => ({
@@ -1084,6 +1137,17 @@ export default function App() {
           }
         } catch (_) { /* non-critical */ }
       };
+
+      // 快捷登入：?uid=USERID — 直接登入指定帳號（不污染原分頁的 localStorage）
+      if (typeof window !== 'undefined') {
+        const qlParams = new URLSearchParams(window.location.search);
+        const qlUid = qlParams.get('uid');
+        if (qlUid) {
+          window.history.replaceState({}, '', '/');
+          sessionStorage.setItem('starry_session_uid', qlUid);
+          sessionStorage.setItem('starry_session_expiry', String(Date.now() + 24 * 60 * 60 * 1000));
+        }
+      }
 
       // LINE OAuth session handoff — handle ?line_uid, ?line_bound, ?line_error params
       if (typeof window !== 'undefined') {
@@ -1111,6 +1175,10 @@ export default function App() {
       }
 
       const savedUid = (() => {
+        // sessionStorage 優先（快捷登入新分頁），否則 fallback 到 localStorage
+        const ssUid = sessionStorage.getItem('starry_session_uid');
+        const ssExpiry = Number(sessionStorage.getItem('starry_session_expiry') || 0);
+        if (ssUid && Date.now() < ssExpiry) return ssUid;
         const uid = localStorage.getItem('starry_session_uid');
         const expiry = Number(localStorage.getItem('starry_session_expiry') || 0);
         if (uid && Date.now() < expiry) return uid;
@@ -1134,12 +1202,17 @@ export default function App() {
           const logsArray = (userLogs as DailyLog[]) || [];
 
           // Fetch TeamSettings if User belongs to a Team
-          if (stats.TeamName) {
-            const { data: tSettings } = await supabase.from('TeamSettings').select('*').eq('team_name', stats.TeamName).single();
+          if (stats.LittleTeamLeagelName) {
+            const { data: tSettings } = await supabase.from('TeamSettings').select('*').eq('team_name', stats.LittleTeamLeagelName).single();
             if (tSettings) setTeamSettings(tSettings);
-            const { count } = await supabase.from('CharacterStats').select('*', { count: 'exact', head: true }).eq('TeamName', stats.TeamName);
+            // Fetch battalion display name for commandant
+            if (stats.BigTeamLeagelName) {
+              const { data: bSettings } = await supabase.from('BattalionSettings').select('display_name').eq('battalion_name', stats.BigTeamLeagelName).single();
+              if (bSettings?.display_name) setBattalionDisplayName(bSettings.display_name);
+            }
+            const { count } = await supabase.from('CharacterStats').select('*', { count: 'exact', head: true }).eq('BigTeamLeagelName', stats.BigTeamLeagelName);
             setTeamMemberCount(count || 1);
-            await fetchTeammates(stats.TeamName, stats.UserID);
+            await fetchTeammates(stats.LittleTeamLeagelName, stats.UserID);
 
             // Auto-draw fallback: trigger for ALL squads every Monday after noon.
             // Do NOT gate on teamAlreadyDrew — if this squad drew manually but others didn't,
@@ -1150,7 +1223,7 @@ export default function App() {
               const drawRes = await autoDrawAllSquads();
               if (drawRes.success && (drawRes.drawnCount ?? 0) > 0) {
                 // Refresh teamSettings so UI reflects the newly drawn quest
-                const { data: freshTS } = await supabase.from('TeamSettings').select('*').eq('team_name', stats.TeamName).single();
+                const { data: freshTS } = await supabase.from('TeamSettings').select('*').eq('team_name', stats.LittleTeamLeagelName).single();
                 if (freshTS) setTeamSettings(freshTS);
               }
             }
@@ -1164,8 +1237,8 @@ export default function App() {
           if (w4Res.success) setW4Applications(w4Res.applications);
 
           // If squad leader, fetch pending apps for review
-          if (stats.IsCaptain && stats.TeamName) {
-            const pendingRes = await getW4Applications({ squadName: stats.TeamName, status: 'pending' });
+          if (stats.IsCaptain && stats.LittleTeamLeagelName) {
+            const pendingRes = await getW4Applications({ squadName: stats.LittleTeamLeagelName, status: 'pending' });
             if (pendingRes.success) setPendingW4Apps(pendingRes.applications);
           }
 
@@ -1209,6 +1282,20 @@ export default function App() {
     if (activeTab === 'commandant' && !showCommandantTab) setActiveTab('daily');
   }, [gmViewMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 小隊長：登入後或切換到 captain tab 時自動載入隊員名單
+  useEffect(() => {
+    if ((userData?.IsCaptain || userData?.IsGM) && userData?.UserID && activeTab === 'captain') {
+      loadFinesData();
+    }
+  }, [userData?.UserID, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 大隊長：切換到 commandant tab 時載入所管轄小隊名單
+  useEffect(() => {
+    if ((userData?.IsCommandant || userData?.IsGM) && userData?.UserID && activeTab === 'commandant') {
+      loadBattalionSquads();
+    }
+  }, [userData?.UserID, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const GmToolbar = () => {
     if (!userData?.IsGM) return null;
     const modes: { label: string; value: GmViewMode }[] = [
@@ -1220,6 +1307,12 @@ export default function App() {
     return (
       <div className="bg-amber-950/80 border-b-2 border-amber-500/60 px-4 py-2 flex items-center gap-3 flex-wrap">
         <span className="text-amber-400 text-[10px] font-black tracking-widest shrink-0">⚙ GM模式</span>
+        <button
+          onClick={() => { setAdminAuth(false); setAdminOperator(''); setView('admin'); }}
+          className="px-3 py-1 rounded-xl text-[10px] font-black bg-rose-900/60 text-rose-300 hover:bg-rose-800/70 transition-all shrink-0"
+        >
+          登入大會中樞
+        </button>
         <div className="flex gap-2 flex-wrap">
           {modes.map(m => (
             <button
@@ -1241,7 +1334,7 @@ export default function App() {
 
   const HomeView = () => (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-40 text-center animate-in fade-in">
-      <Header userData={userData} onLogout={handleLogout} fontSize={fontSize} onFontSizeChange={setFontSize} questRoleName={questRoleDefs.find(r => r.id === userData?.QuestRole)?.name} onUnbindLine={handleUnbindLine} />
+      <Header userData={userData} onLogout={handleLogout} fontSize={fontSize} onFontSizeChange={setFontSize} questRoleNames={(() => { try { const q = userData?.QuestRole; if (!q) return []; const p = JSON.parse(q); return Array.isArray(p) ? p.map((id: string) => questRoleDefs.find(r => r.id === id)?.name).filter(Boolean) as string[] : [questRoleDefs.find(r => r.id === q)?.name].filter(Boolean) as string[]; } catch { return userData?.QuestRole ? [questRoleDefs.find(r => r.id === userData.QuestRole)?.name].filter(Boolean) as string[] : []; } })()} onUnbindLine={handleUnbindLine} squadNickname={teamSettings?.display_name ?? undefined} battalionNickname={battalionDisplayName || undefined} />
       <GmToolbar />
 
       {/* LINE 綁定提示 Banner */}
@@ -1327,7 +1420,8 @@ export default function App() {
         {activeTab === 'captain' && showCaptainTab && userData && (
           <CaptainTab
             captainUserId={userData.UserID}
-            teamName={userData.TeamName || '未編組'}
+            teamName={userData.LittleTeamLeagelName || '未編組'}
+            teamDisplayName={teamSettings?.display_name ?? undefined}
             teamSettings={teamSettings}
             pendingW4Apps={pendingW4Apps}
             onDrawWeeklyQuest={handleDrawWeeklyQuest}
@@ -1348,17 +1442,22 @@ export default function App() {
             squadMembersWithRoles={squadMembersWithRoles}
             onSetQuestRole={handleSetQuestRole}
             questRoleDefs={questRoleDefs}
+            onDisplayNameSaved={(name) => setTeamSettings((prev: any) => ({ ...prev, display_name: name }))}
           />
         )}
         {activeTab === 'commandant' && showCommandantTab && userData && (
           <CommandantTab
             userData={userData}
+            battalionDisplayName={battalionDisplayName}
             apps={squadApprovedW4Apps}
+            squads={battalionSquads}
             onRefresh={async () => {
               const res = await getW4Applications({ status: 'squad_approved' });
               if (res.success) setSquadApprovedW4Apps(res.applications);
+              loadBattalionSquads();
             }}
             onShowMessage={(msg, type) => setModalMessage({ text: msg, type })}
+            onDisplayNameSaved={(name) => setBattalionDisplayName(name)}
           />
         )}
         {activeTab === 'achievements' && userData && (
@@ -1490,7 +1589,9 @@ export default function App() {
             const { data } = await supabase.from('CharacterStats').select('*').order('Exp', { ascending: false });
             if (data) setLeaderboard(data as CharacterStats[]);
           }}
-          onClose={() => setView('login')}
+          onDeleteAdminLog={handleDeleteAdminLog}
+          onQuickLogin={handleQuickLogin}
+          onClose={() => { setAdminAuth(false); setAdminOperator(''); setView(userData ? 'app' : 'login'); }}
         />
       )}
 

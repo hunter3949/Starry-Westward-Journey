@@ -8,8 +8,10 @@ interface HeaderProps {
     onLogout: () => void;
     fontSize: number;
     onFontSizeChange: (size: 100 | 112 | 125 | 140) => void;
-    questRoleName?: string;
+    questRoleNames?: string[]; // parsed from QuestRole JSON array
     onUnbindLine?: () => Promise<void>;
+    squadNickname?: string;     // TeamSettings.display_name（小隊長設定的暱稱）
+    battalionNickname?: string; // BattalionSettings.display_name（大隊長設定的暱稱）
 }
 
 const FONT_LABELS: { size: 100 | 112 | 125 | 140; label: string }[] = [
@@ -19,7 +21,7 @@ const FONT_LABELS: { size: 100 | 112 | 125 | 140; label: string }[] = [
     { size: 140, label: '特大' },
 ];
 
-export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRoleName, onUnbindLine }: HeaderProps) {
+export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRoleNames, onUnbindLine, squadNickname, battalionNickname }: HeaderProps) {
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [unbinding, setUnbinding] = React.useState(false);
     const settingsRef = React.useRef<HTMLDivElement>(null);
@@ -133,29 +135,44 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
             <div className="flex-1 text-left">
                 <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <h1 className="text-3xl font-black text-white">{userData?.Name}</h1>
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-black text-white ${userData ? ROLE_CURE_MAP[userData.Role]?.color : ''}`}>
-                        {userData ? ROLE_CURE_MAP[userData.Role]?.poison : ''}
-                    </span>
                 </div>
-                {(userData?.SquadName || questRoleName) && (
+                {(userData?.LittleTeamLeagelName || (userData && ROLE_CURE_MAP[userData.Role]?.poison)) && (
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        {userData?.SquadName && (
-                            <span className="text-xs font-black text-slate-300 bg-slate-800 border border-slate-600 px-2.5 py-1 rounded-lg">
-                                {userData.SquadName}
+                        {userData && ROLE_CURE_MAP[userData.Role]?.poison && (
+                            <span className={`text-xs font-black text-white px-2.5 py-1 rounded-lg ${ROLE_CURE_MAP[userData.Role]?.color}`}>
+                                {ROLE_CURE_MAP[userData.Role]?.poison}
                             </span>
                         )}
-                        {questRoleName && (
-                            <span className="text-xs font-black text-teal-300 bg-teal-900/50 border border-teal-600/60 px-2.5 py-1 rounded-lg">
-                                {questRoleName}
-                            </span>
-                        )}
+                        {userData?.LittleTeamLeagelName && (() => {
+                            let label = '';
+                            if (userData.IsCommandant) {
+                                const team = userData.BigTeamLeagelName || '';
+                                const nick = battalionNickname ? `（${battalionNickname}）` : '';
+                                label = `${team}${nick}．大隊長`;
+                            } else if (userData.IsCaptain) {
+                                const team = userData.LittleTeamLeagelName;
+                                const nick = squadNickname ? `（${squadNickname}）` : '';
+                                label = `${team}${nick}．小隊長`;
+                            } else if (questRoleNames && questRoleNames.length > 0) {
+                                const team = userData.LittleTeamLeagelName;
+                                const nick = squadNickname ? `（${squadNickname}）` : '';
+                                label = `${team}${nick}．${questRoleNames.join('・')}`;
+                            } else {
+                                label = squadNickname || userData.LittleTeamLeagelName;
+                            }
+                            return (
+                                <span className="text-xs font-black text-white bg-red-600 border border-red-500 px-2.5 py-1 rounded-lg">
+                                    {label}
+                                </span>
+                            );
+                        })()}
                     </div>
                 )}
                 <div className="flex justify-between items-end mb-2">
                     <div className="flex items-center gap-2">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest italic">{userData?.Role} 修行中</p>
-                        <div className="flex items-center gap-1.5 bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-lg text-[10px] font-black shadow-inner border border-yellow-500/20">
-                            <Coins size={12} /> {userData?.Coins || 0}
+                        <p className="text-xs text-white/50 font-bold uppercase tracking-widest italic border border-white/15 px-2.5 py-1 rounded-lg">{userData?.Role} 修行中</p>
+                        <div className="flex items-center gap-1.5 bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-lg text-xs font-black shadow-inner border border-yellow-500/20">
+                            <Coins size={13} /> {userData?.Coins || 0}
                         </div>
                     </div>
                     <p className="text-[10px] text-slate-400 font-mono tracking-tighter mix-blend-screen">{userData?.Level! >= 99 ? 'MAX' : `${expInCurrentLevel} / ${nextLevelExp}`}</p>

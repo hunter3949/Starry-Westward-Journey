@@ -81,10 +81,10 @@ export async function autoDrawAllSquads() {
     // Collect all distinct squad names from CharacterStats and ensure TeamSettings rows exist
     const { data: squadsInStats } = await supabase
         .from('CharacterStats')
-        .select('TeamName')
-        .not('TeamName', 'is', null);
+        .select('LittleTeamLeagelName')
+        .not('LittleTeamLeagelName', 'is', null);
     if (squadsInStats) {
-        const distinctNames = [...new Set(squadsInStats.map((r: any) => r.TeamName).filter(Boolean))];
+        const distinctNames = [...new Set(squadsInStats.map((r: any) => r.LittleTeamLeagelName).filter(Boolean))];
         for (const name of distinctNames) {
             const { data: exists } = await supabase
                 .from('TeamSettings').select('team_name').eq('team_name', name).maybeSingle();
@@ -160,7 +160,7 @@ export async function donateDice(fromUserId: string, toUserId: string, amount: n
 
     // 2. 驗證條件
     if ((donor.EnergyDice || 0) < amount) throw new Error("能源骰子不足，無法完成捐贈。");
-    if (donor.TeamName !== recipient.TeamName) throw new Error("只能捐贈給同單位的夥伴。");
+    if (donor.LittleTeamLeagelName !== recipient.LittleTeamLeagelName) throw new Error("只能捐贈給同單位的夥伴。");
     if (fromUserId === toUserId) throw new Error("不能捐贈給自己。");
 
     // 3. 執行捐贈 (透過 RPC 確保原子性)
@@ -204,7 +204,7 @@ export async function donateGoldenDice(fromUserId: string, toUserId: string, amo
     if (recErr || !recipient) throw new Error("受贈者資料讀取失敗");
 
     if ((donor.GoldenDice || 0) < amount) throw new Error("黃金骰子不足，無法完成捐贈。");
-    if (donor.TeamName !== recipient.TeamName) throw new Error("只能捐贈給同單位的夥伴。");
+    if (donor.LittleTeamLeagelName !== recipient.LittleTeamLeagelName) throw new Error("只能捐贈給同單位的夥伴。");
     if (fromUserId === toUserId) throw new Error("不能捐贈給自己。");
 
     // 執行捐贈

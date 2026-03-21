@@ -68,7 +68,7 @@ export async function reviewW4BySquadLeader(
     // 驗證審核者為小隊長，且與申請人同小隊
     const { data: reviewer } = await supabase
         .from('CharacterStats')
-        .select('IsCaptain, TeamName, Name')
+        .select('IsCaptain, LittleTeamLeagelName, Name')
         .eq('UserID', reviewerId)
         .single();
 
@@ -82,7 +82,7 @@ export async function reviewW4BySquadLeader(
 
     if (!app) return { success: false, error: '找不到申請記錄' };
     if (app.status !== 'pending') return { success: false, error: '此申請已被審核，無法重複操作' };
-    if (app.squad_name !== reviewer.TeamName) return { success: false, error: '只能審核本小隊的申請' };
+    if (app.squad_name !== reviewer.LittleTeamLeagelName) return { success: false, error: '只能審核本小隊的申請' };
 
     const { error } = await supabase
         .from('W4Applications')
@@ -191,4 +191,12 @@ export async function getAdminActivityLog(limit = 50) {
 
     if (error) return { success: false, error: error.message, logs: [] };
     return { success: true, logs: data || [] };
+}
+
+// ── 刪除單筆操作日誌 ──────────────────────────────────────
+export async function deleteAdminLog(id: string) {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { error } = await supabase.from('AdminActivityLog').delete().eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
 }

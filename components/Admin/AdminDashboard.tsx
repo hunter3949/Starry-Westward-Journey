@@ -1,9 +1,10 @@
 import React from 'react';
-import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, ChevronUp, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download, Calendar, Zap } from 'lucide-react';
+import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, ChevronUp, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download, Calendar, Zap, Search, LogIn, Tag, RefreshCw } from 'lucide-react';
 import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course, MainQuestEntry } from '@/types';
 import { getCourseRegistrations } from '@/app/actions/course';
 
 import { ADMIN_PASSWORD, ARTIFACTS_CONFIG, ROLE_CURE_MAP } from '@/lib/constants';
+import { logAdminAction } from '@/app/actions/admin';
 import type { DailyQuestConfigRow, ArtifactConfigRow, AchievementConfigRow } from '@/app/actions/admin';
 
 // ── 共用：圖示選擇器 ─────────────────────────────────────────────────────────
@@ -133,6 +134,62 @@ function IconPicker({ value, onChange }: {
     );
 }
 
+// ── 圖片庫選取器（用於 Logo / 卡背等圖片欄位）────────────────────────────
+function GalleryPickerButton({ onSelect, label = '🖼 從圖片庫選取' }: { onSelect: (url: string) => void; label?: string }) {
+    const [open, setOpen] = React.useState(false);
+    const FOLDERS = ['gallery', 'quest-icons', 'artifacts'];
+    const [folder, setFolder] = React.useState('gallery');
+    const [files, setFiles] = React.useState<{ name: string; publicUrl: string }[]>([]);
+    const [loading, setLoading] = React.useState(false);
+
+    const load = React.useCallback(async (f: string) => {
+        setLoading(true);
+        const { listStorageFiles } = await import('@/app/actions/admin');
+        const res = await listStorageFiles(f);
+        setFiles(res.filter(x => /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(x.name)));
+        setLoading(false);
+    }, []);
+
+    React.useEffect(() => { if (open) load(folder); }, [open, folder, load]);
+
+    if (!open) return (
+        <button type="button" onClick={() => setOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-black rounded-xl border border-slate-700 transition-colors">
+            {label}
+        </button>
+    );
+
+    return (
+        <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+                <div className="flex gap-1.5 flex-wrap">
+                    {FOLDERS.map(f => (
+                        <button key={f} type="button" onClick={() => { setFolder(f); load(f); }}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all ${folder === f ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                            {f}
+                        </button>
+                    ))}
+                </div>
+                <button type="button" onClick={() => setOpen(false)} className="p-1 rounded-lg text-slate-500 hover:text-white transition-colors"><X size={14} /></button>
+            </div>
+            {loading ? (
+                <p className="text-xs text-slate-500 text-center py-4">載入中…</p>
+            ) : files.length === 0 ? (
+                <p className="text-xs text-slate-600 text-center py-4">此資料夾無圖片</p>
+            ) : (
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-48 overflow-y-auto">
+                    {files.map(f => (
+                        <button key={f.publicUrl} type="button" onClick={() => { onSelect(f.publicUrl); setOpen(false); }}
+                            className="aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-orange-500 transition-all">
+                            <img src={f.publicUrl} alt={f.name} className="w-full h-full object-cover" />
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ── 定課管理元件 ──────────────────────────────────────────────────────────
 
 const EMPTY_QUEST_FORM: Omit<DailyQuestConfigRow, 'created_at'> = {
@@ -198,6 +255,7 @@ function DailyQuestConfigSection() {
         const res = await upsertDailyQuestConfig({ ...form, sub: form.sub || null, desc: form.desc || null, icon: form.icon || null });
         setSaving(false);
         if (!res.success) { setError(res.error ?? '儲存失敗'); return; }
+        await logAdminAction(editingId ? 'quest_config_update' : 'quest_config_create', 'admin', form.id, form.title, { exp: form.reward, coins: form.coins ?? 0, dice: form.dice, active: form.is_active });
         setFormOpen(false);
         load();
     };
@@ -206,6 +264,7 @@ function DailyQuestConfigSection() {
         const { upsertDailyQuestConfig } = await import('@/app/actions/admin');
         await upsertDailyQuestConfig({ ...r, sub: r.sub, desc: r.desc, icon: r.icon, is_active: !r.is_active });
         setRows(prev => prev.map(x => x.id === r.id ? { ...x, is_active: !x.is_active } : x));
+        await logAdminAction('quest_config_toggle', 'admin', r.id, r.title, { active: !r.is_active });
     };
 
     const handleSeedDefaults = async () => {
@@ -229,6 +288,7 @@ function DailyQuestConfigSection() {
                 is_active: true,
             });
         }
+        await logAdminAction('quest_config_seed', 'admin', undefined, undefined, { count: DAILY_QUEST_CONFIG.length });
         setSeeding(false);
         load();
     };
@@ -239,6 +299,7 @@ function DailyQuestConfigSection() {
         const { deleteDailyQuestConfig } = await import('@/app/actions/admin');
         await deleteDailyQuestConfig(id);
         setDeleting(null);
+        await logAdminAction('quest_config_delete', 'admin', id);
         load();
     };
 
@@ -508,6 +569,7 @@ function GameItemConfigSection() {
         const res = await upsertArtifactConfig({ ...form, exclusive_with: form.exclusive_with || null });
         setSaving(false);
         if (!res.success) { setError(res.error ?? '儲存失敗'); return; }
+        await logAdminAction(editingId ? 'artifact_config_update' : 'artifact_config_create', 'admin', form.id, form.name ?? form.id, { price: form.price, teamBinding: form.is_team_binding, effect: (form.effect ?? '').slice(0, 40) });
         setFormOpen(false);
         load();
     };
@@ -516,6 +578,7 @@ function GameItemConfigSection() {
         const { upsertArtifactConfig } = await import('@/app/actions/admin');
         await upsertArtifactConfig({ ...r, is_active: !r.is_active });
         setRows(prev => prev.map(x => x.id === r.id ? { ...x, is_active: !x.is_active } : x));
+        await logAdminAction('artifact_config_toggle', 'admin', r.id, undefined, { active: !r.is_active });
     };
 
     const handleDelete = async (id: string) => {
@@ -524,6 +587,7 @@ function GameItemConfigSection() {
         const { deleteArtifactConfig } = await import('@/app/actions/admin');
         await deleteArtifactConfig(id);
         setDeleting(null);
+        await logAdminAction('artifact_config_delete', 'admin', id);
         load();
     };
 
@@ -552,6 +616,7 @@ function GameItemConfigSection() {
                 is_active: true, sort_order: i + 1,
             });
         }
+        await logAdminAction('artifact_config_seed', 'admin');
         setSeeding(false);
         load();
     };
@@ -844,6 +909,7 @@ function AchievementConfigSection() {
         const res = await upsertAchievementConfig({ ...form, role_exclusive: form.role_exclusive || null });
         setSaving(false);
         if (!res.success) { setError(res.error ?? '儲存失敗'); return; }
+        await logAdminAction(editingId ? 'achievement_config_update' : 'achievement_config_create', 'admin', form.id, form.name ?? form.id, { rarity: form.rarity, active: form.is_active });
         setFormOpen(false); load();
     };
 
@@ -851,6 +917,7 @@ function AchievementConfigSection() {
         const { upsertAchievementConfig } = await import('@/app/actions/admin');
         await upsertAchievementConfig({ ...r, is_active: !r.is_active });
         setRows(prev => prev.map(x => x.id === r.id ? { ...x, is_active: !x.is_active } : x));
+        await logAdminAction('achievement_config_toggle', 'admin', r.id, undefined, { active: !r.is_active });
     };
 
     const handleDelete = async (id: string) => {
@@ -858,7 +925,9 @@ function AchievementConfigSection() {
         setDeleting(id);
         const { deleteAchievementConfig } = await import('@/app/actions/admin');
         await deleteAchievementConfig(id);
-        setDeleting(null); load();
+        setDeleting(null);
+        await logAdminAction('achievement_config_delete', 'admin', id);
+        load();
     };
 
     const handleSeedDefaults = async () => {
@@ -875,6 +944,7 @@ function AchievementConfigSection() {
                 is_active: true, sort_order: i + 1,
             });
         }
+        await logAdminAction('achievement_config_seed', 'admin');
         setSeeding(false); load();
     };
 
@@ -1160,6 +1230,7 @@ function BasicParamsSection({ systemSettings, updateGlobalSetting }: { systemSet
         setSaving(false);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
+        logAdminAction('site_name_update', 'admin', undefined, siteName.trim() || '大無限開運西遊');
     };
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1172,6 +1243,7 @@ function BasicParamsSection({ systemSettings, updateGlobalSetting }: { systemSet
             updateGlobalSetting('SiteLogo', dataUrl);
             setLogoPreview(dataUrl);
             setLogoSaving(false);
+            logAdminAction('logo_upload', 'admin', undefined, undefined, { source: 'file' });
         };
         reader.readAsDataURL(file);
     };
@@ -1179,6 +1251,7 @@ function BasicParamsSection({ systemSettings, updateGlobalSetting }: { systemSet
     const handleRemoveLogo = () => {
         updateGlobalSetting('SiteLogo', '');
         setLogoPreview(null);
+        logAdminAction('logo_remove', 'admin');
     };
 
     return (
@@ -1214,6 +1287,7 @@ function BasicParamsSection({ systemSettings, updateGlobalSetting }: { systemSet
                             </button>
                         )}
                         <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                        <GalleryPickerButton label="🖼 從圖片庫選取 Logo" onSelect={url => { updateGlobalSetting('SiteLogo', url); setLogoPreview(url); logAdminAction('logo_upload', 'admin', undefined, undefined, { source: 'gallery', url }); }} />
                         <p className="text-[10px] text-slate-600">支援 PNG / JPG，建議正方形（1:1）</p>
                     </div>
 
@@ -1271,6 +1345,7 @@ function CardMottoSection() {
         setSaving(false);
         if (!res.success) { setError(res.error ?? '儲存失敗'); return false; }
         setMottos(next);
+        logAdminAction('motto_save', 'admin', undefined, undefined, { count: next.length });
         return true;
     };
 
@@ -1302,7 +1377,7 @@ function CardMottoSection() {
             const { saveCardBackImage } = await import('@/app/actions/admin');
             const res = await saveCardBackImage(dataUrl);
             setImgSaving(false);
-            if (res.success) setBackImage(dataUrl);
+            if (res.success) { setBackImage(dataUrl); logAdminAction('card_back_image_upload', 'admin', undefined, undefined, { source: 'file' }); }
             else setError(res.error ?? '圖片儲存失敗');
         };
         reader.readAsDataURL(file);
@@ -1315,6 +1390,7 @@ function CardMottoSection() {
         await saveCardBackImage('');
         setImgSaving(false);
         setBackImage(null);
+        logAdminAction('card_back_image_remove', 'admin');
     };
 
     return (
@@ -1359,6 +1435,7 @@ function CardMottoSection() {
                             className="hidden"
                             onChange={handleImageUpload}
                         />
+                        <GalleryPickerButton label="🖼 從圖片庫選取卡背" onSelect={async url => { setImgSaving(true); const { saveCardBackImage } = await import('@/app/actions/admin'); const res = await saveCardBackImage(url); setImgSaving(false); if (res.success) { setBackImage(url); await logAdminAction('card_back_image_upload', 'admin', undefined, undefined, { source: 'gallery', url }); } }} />
                         <p className="text-[10px] text-slate-600">支援 JPG / PNG，建議比例 3:4（直式）</p>
                     </div>
                     <div className="border-t border-slate-800" />
@@ -1663,6 +1740,7 @@ function ImageGallerySection() {
         }
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
+        await logAdminAction('gallery_upload', 'admin', undefined, activeFolder, { count: Array.from(picked).length });
         load();
     };
 
@@ -1672,6 +1750,7 @@ function ImageGallerySection() {
         const { deleteStorageFile } = await import('@/app/actions/admin');
         await deleteStorageFile(item.fullPath);
         setDeleting(null);
+        await logAdminAction('gallery_delete', 'admin', item.fullPath, item.name);
         load();
     };
 
@@ -1887,6 +1966,65 @@ const ACTION_LABELS: Record<string, string> = {
     w4_final_approve: 'w4 終審核准',
     w4_final_reject: 'w4 終審駁回',
     topic_title_update: '更新主題名稱',
+    quest_config_create: '新增定課設定',
+    quest_config_update: '修改定課設定',
+    quest_config_toggle: '切換定課啟用',
+    quest_config_delete: '刪除定課設定',
+    quest_config_seed: '套用預設定課',
+    artifact_config_create: '新增法寶設定',
+    artifact_config_update: '修改法寶設定',
+    artifact_config_toggle: '切換法寶啟用',
+    artifact_config_delete: '刪除法寶設定',
+    artifact_config_seed: '套用預設法寶',
+    achievement_config_create: '新增成就設定',
+    achievement_config_update: '修改成就設定',
+    achievement_config_toggle: '切換成就啟用',
+    achievement_config_delete: '刪除成就設定',
+    achievement_config_seed: '套用預設成就',
+    site_name_update: '修改站台名稱',
+    logo_upload: '更換 Logo',
+    logo_remove: '移除 Logo',
+    card_back_image_upload: '更換卡背圖片',
+    card_back_image_remove: '移除卡背圖片',
+    motto_save: '儲存格言',
+    display_name_save: '設定顯示名稱',
+    member_assignment_update: '修改成員分配',
+    member_add: '新增成員',
+    gallery_upload: '上傳圖片至圖庫',
+    gallery_delete: '刪除圖庫圖片',
+    course_create: '新增課程',
+    course_update: '修改課程',
+    course_delete: '刪除課程',
+};
+
+const DETAIL_LABELS: Record<string, string> = {
+    active: '啟用',
+    count: '數量',
+    exp: '修為獎勵',
+    coins: '銅錢',
+    dice: '骰子數',
+    price: '售價',
+    teamBinding: '隊伍共享',
+    effect: '效果',
+    rarity: '稀有度',
+    team: '大隊',
+    squad: '小隊',
+    isCaptain: '小隊長',
+    isCommandant: '大隊長',
+    isGM: 'GM',
+    source: '來源',
+    url: '圖片',
+    date: '日期',
+    time: '時間',
+    location: '地點',
+    notes: '備註',
+    type: '類型',
+    interviewTarget: '傳愛對象',
+    questId: '任務ID',
+    worldState: '世界狀態',
+    rate: '活躍率',
+    error: '錯誤',
+    checkInError: '入帳錯誤',
 };
 
 interface AdminDashboardProps {
@@ -1914,7 +2052,9 @@ interface AdminDashboardProps {
     onDeleteCourse: (id: string) => Promise<void>;
     onUpdateMemberAssignment: (userId: string, teamName: string, squadName: string, isCaptain: boolean, isCommandant: boolean, isGM: boolean) => Promise<void>;
     onRefreshLeaderboard: () => Promise<void>;
+    onDeleteAdminLog: (id: string) => Promise<void>;
     onClose: () => void;
+    onQuickLogin?: (userId: string) => void;
 }
 
 export function AdminDashboard({
@@ -1924,7 +2064,7 @@ export function AdminDashboard({
     onAddTempQuest, onToggleTempQuest, onDeleteTempQuest,
     onTriggerSnapshot, onCheckW3Compliance, onAutoDrawAllSquads,
     onImportRoster, onFinalReviewW4, onUpsertCourse, onDeleteCourse,
-    onUpdateMemberAssignment, onRefreshLeaderboard, onClose
+    onUpdateMemberAssignment, onRefreshLeaderboard, onClose, onQuickLogin
 }: AdminDashboardProps) {
     const [csvInput, setCsvInput] = React.useState("");
     const [isImporting, setIsImporting] = React.useState(false);
@@ -1988,6 +2128,22 @@ export function AdminDashboard({
     const [memberEditForm, setMemberEditForm] = React.useState({ teamName: '', squadName: '', isCaptain: false, isCommandant: false, isGM: false });
     const [memberSaving, setMemberSaving] = React.useState(false);
 
+    // 任務角色
+    type QuestRoleConfig = { id: string; name: string; duties: string[] };
+    const parseQuestRoles = (raw: string | null | undefined): string[] => {
+        if (!raw) return [];
+        try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [raw]; } catch { return [raw]; }
+    };
+    const [questRolesConfig, setQuestRolesConfig] = React.useState<QuestRoleConfig[]>(DEFAULT_QUEST_ROLES);
+    const [rolesSaving, setRolesSaving] = React.useState(false);
+    const [memberDetailRoles, setMemberDetailRoles] = React.useState<string[]>([]);
+    React.useEffect(() => {
+        if (!adminAuth) return;
+        import('@/app/actions/admin').then(({ getQuestRoles }) =>
+            getQuestRoles().then(r => setQuestRolesConfig(r.length > 0 ? r : DEFAULT_QUEST_ROLES))
+        );
+    }, [adminAuth]);
+
     // 自訂隊名（可自訂，不影響固定識別碼）
     const [squadDisplayNames, setSquadDisplayNames] = React.useState<Record<string, string>>({});
     const [battalionDisplayNames, setBattalionDisplayNames] = React.useState<Record<string, string>>({});
@@ -2019,6 +2175,7 @@ export function AdminDashboard({
             setBattalionDisplayNames(prev => ({ ...prev, [settingDisplayNameFor.id]: displayNameInput.trim() }));
         }
         setDisplayNameSaving(false);
+        await logAdminAction('display_name_save', 'admin', settingDisplayNameFor.id ?? '', displayNameInput, { type: settingDisplayNameFor.type });
         setSettingDisplayNameFor(null);
     };
 
@@ -2077,9 +2234,9 @@ export function AdminDashboard({
     const groupedByTeam = React.useMemo(() => {
         const map = new Map<string, Map<string, CharacterStats[]>>();
         for (const p of leaderboard) {
-            const team = p.TeamName ?? '（未分配）';
+            const team = p.BigTeamLeagelName ?? '（未分配）';
             // 大隊長不歸入任何小隊，改用特殊 key
-            const squad = p.IsCommandant ? COMMANDANT_KEY : (p.SquadName ?? '（未分配）');
+            const squad = p.IsCommandant ? COMMANDANT_KEY : (p.LittleTeamLeagelName ?? '（未分配）');
             if (!map.has(team)) map.set(team, new Map());
             const squadMap = map.get(team)!;
             if (!squadMap.has(squad)) squadMap.set(squad, []);
@@ -2098,8 +2255,8 @@ export function AdminDashboard({
         return map;
     }, [leaderboard, definedBattalions, definedSquads]);
 
-    const allSquadNames = React.useMemo(() => [...new Set(leaderboard.map(p => p.SquadName).filter(Boolean))] as string[], [leaderboard]);
-    const allTeamNames = React.useMemo(() => [...new Set(leaderboard.map(p => p.TeamName).filter(Boolean))] as string[], [leaderboard]);
+    const allSquadNames = React.useMemo(() => [...new Set(leaderboard.map(p => p.LittleTeamLeagelName).filter(Boolean))] as string[], [leaderboard]);
+    const allTeamNames = React.useMemo(() => [...new Set(leaderboard.map(p => p.BigTeamLeagelName).filter(Boolean))] as string[], [leaderboard]);
 
     const toggleTeam = (name: string) => setSquadExpandedTeams(prev => {
         const s = new Set(prev);
@@ -2114,12 +2271,13 @@ export function AdminDashboard({
 
     const startEditMember = (p: CharacterStats) => {
         setEditingMemberId(p.UserID);
-        setMemberEditForm({ teamName: p.TeamName ?? '', squadName: p.SquadName ?? '', isCaptain: !!p.IsCaptain, isCommandant: !!p.IsCommandant, isGM: !!p.IsGM });
+        setMemberEditForm({ teamName: p.BigTeamLeagelName ?? '', squadName: p.LittleTeamLeagelName ?? '', isCaptain: !!p.IsCaptain, isCommandant: !!p.IsCommandant, isGM: !!p.IsGM });
     };
     const saveMemberEdit = async () => {
         if (!editingMemberId) return;
         setMemberSaving(true);
         await onUpdateMemberAssignment(editingMemberId, memberEditForm.teamName, memberEditForm.squadName, memberEditForm.isCaptain, memberEditForm.isCommandant, memberEditForm.isGM);
+        await logAdminAction('member_assignment_update', 'admin', editingMemberId ?? '', undefined, { team: memberEditForm.teamName, squad: memberEditForm.squadName, isCaptain: memberEditForm.isCaptain, isCommandant: memberEditForm.isCommandant });
         setMemberSaving(false);
         setEditingMemberId(null);
     };
@@ -2210,13 +2368,14 @@ export function AdminDashboard({
         const res = await adminCreateMember(addMemberForm);
         setAddMemberSaving(false);
         if (!res.success) { alert(`新增失敗：${res.error}`); return; }
+        await logAdminAction('member_add', 'admin', undefined, addMemberForm.name, { team: addMemberForm.teamName, squad: addMemberForm.squadName });
         setAddMemberOpen(false);
         setAddMemberForm({ name: '', phone: '', email: '', role: '孫悟空', teamName: '', squadName: '', isCaptain: false, isCommandant: false });
         await onRefreshLeaderboard();
     };
 
     // 參與人員名單
-    type MemberSortKey = 'Name' | 'TeamName' | 'SquadName' | 'Level' | 'Exp' | 'Streak' | 'TotalFines';
+    type MemberSortKey = 'Name' | 'BigTeamLeagelName' | 'LittleTeamLeagelName' | 'Level' | 'Exp' | 'Streak' | 'TotalFines';
     const [memberFilter, setMemberFilter] = React.useState('');
     const [memberTeamFilter, setMemberTeamFilter] = React.useState('');
     const [memberDetailTarget, setMemberDetailTarget] = React.useState<CharacterStats | null>(null);
@@ -2224,14 +2383,14 @@ export function AdminDashboard({
     const handleMemberSort = (key: MemberSortKey) => {
         setMemberSort(prev => prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'desc' });
     };
-    const allTeams = React.useMemo(() => [...new Set(leaderboard.map(p => p.TeamName).filter(Boolean))].sort() as string[], [leaderboard]);
+    const allTeams = React.useMemo(() => [...new Set(leaderboard.map(p => p.BigTeamLeagelName).filter(Boolean))].sort() as string[], [leaderboard]);
     const filteredMembers = React.useMemo(() => {
         let list = [...leaderboard];
         if (memberFilter.trim()) {
             const kw = memberFilter.trim().toLowerCase();
-            list = list.filter(p => p.Name.toLowerCase().includes(kw) || (p.TeamName ?? '').toLowerCase().includes(kw) || (p.SquadName ?? '').toLowerCase().includes(kw));
+            list = list.filter(p => p.Name.toLowerCase().includes(kw) || (p.BigTeamLeagelName ?? '').toLowerCase().includes(kw) || (p.LittleTeamLeagelName ?? '').toLowerCase().includes(kw));
         }
-        if (memberTeamFilter) list = list.filter(p => p.TeamName === memberTeamFilter);
+        if (memberTeamFilter) list = list.filter(p => p.BigTeamLeagelName === memberTeamFilter);
         list.sort((a, b) => {
             const va = a[memberSort.key] ?? 0;
             const vb = b[memberSort.key] ?? 0;
@@ -2242,11 +2401,12 @@ export function AdminDashboard({
     }, [leaderboard, memberFilter, memberTeamFilter, memberSort]);
     const downloadMembersCsv = () => {
         if (filteredMembers.length === 0) return;
-        const header = ['#', '姓名', '大隊', '小隊', '職位', '等級', '修為', '連勝', '罰金餘額'];
+        const header = ['#', '姓名', '大隊', '小隊', '職位', '任務角色', '等級', '修為'];
         const rows = filteredMembers.map((p, i) => [
-            i + 1, p.Name, p.TeamName ?? '—', p.SquadName ?? '—',
+            i + 1, p.Name, p.BigTeamLeagelName ?? '—', p.LittleTeamLeagelName ?? '—',
             p.IsCommandant ? '大隊長' : p.IsCaptain ? '小隊長' : '學員',
-            p.Level, p.Exp, p.Streak, p.TotalFines - p.FinePaid,
+            parseQuestRoles(p.QuestRole).join('・') || '—',
+            p.Level, p.Exp,
         ]);
         const csv = '\uFEFF' + [header, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -2292,6 +2452,7 @@ export function AdminDashboard({
             is_active: courseForm.is_active,
             sort_order: Number(courseForm.sort_order),
         });
+        await logAdminAction(courseForm.id ? 'course_update' : 'course_create', 'admin', courseForm.id, courseForm.name, { date: courseForm.date, time: courseForm.startTime && courseForm.endTime ? `${courseForm.startTime}–${courseForm.endTime}` : courseForm.startTime, location: courseForm.location });
         setCourseSubmitting(false);
         setCourseForm(emptyCourseForm);
         setEditingCourseId(null);
@@ -2315,11 +2476,48 @@ export function AdminDashboard({
     const handleW4Review = async (appId: string, approve: boolean) => {
         setReviewingW4Id(appId);
         await onFinalReviewW4(appId, approve, w4Notes[appId] || '');
+        await logAdminAction(approve ? 'w4_final_approve' : 'w4_final_reject', 'admin', appId, undefined, { notes: w4Notes[appId] });
         setReviewingW4Id(null);
         setW4Notes(prev => { const n = { ...prev }; delete n[appId]; return n; });
     };
 
-    const [adminModule, setAdminModule] = React.useState<'personnel' | 'course' | 'quest' | 'params' | 'gallery' | null>(null);
+    const [adminModule, setAdminModule] = React.useState<'personnel' | 'course' | 'quest' | 'params' | 'gallery' | 'dashboard' | 'logs' | null>(null);
+
+    // 儀表板統計
+    type DashStats = { total: number; active: number; fallen: number; fallenUsers: { name: string; teamName: string | null; squadName: string | null }[] };
+    const [dashStats, setDashStats] = React.useState<DashStats | null>(null);
+    const [dashLoading, setDashLoading] = React.useState(false);
+    const [showFallenModal, setShowFallenModal] = React.useState(false);
+
+    const loadDashStats = React.useCallback(async () => {
+        setDashLoading(true);
+        const { getDashboardStats } = await import('@/app/actions/admin');
+        const res = await getDashboardStats();
+        if (res.success) setDashStats({ total: res.total, active: res.active, fallen: res.fallen, fallenUsers: res.fallenUsers });
+        setDashLoading(false);
+    }, []);
+
+    React.useEffect(() => {
+        if (adminModule !== 'dashboard') return;
+        loadDashStats();
+    }, [adminModule, loadDashStats]);
+
+    const [trashedLogIds, setTrashedLogIds] = React.useState<Set<string>>(new Set());
+    const [showTrash, setShowTrash] = React.useState(false);
+    const [freshLogs, setFreshLogs] = React.useState<AdminLog[]>(adminLogs);
+    const [loadingLogs, setLoadingLogs] = React.useState(false);
+
+    const refreshLogs = React.useCallback(async () => {
+        setLoadingLogs(true);
+        const { getAdminActivityLog } = await import('@/app/actions/w4');
+        const res = await getAdminActivityLog(200);
+        if (res.success) setFreshLogs(res.logs as AdminLog[]);
+        setLoadingLogs(false);
+    }, []);
+
+    React.useEffect(() => {
+        if (adminModule === 'logs' || adminModule === null) refreshLogs();
+    }, [adminModule, refreshLogs]);
 
     if (!adminAuth) {
         return (
@@ -2340,12 +2538,14 @@ export function AdminDashboard({
     }
 
     const NAV_ITEMS = [
-        { key: null as null,          label: '首頁',    icon: <BarChart3 size={17} />, accent: 'slate' },
-        { key: 'personnel' as const,  label: '人員管理', icon: <Users size={17} />,    accent: 'cyan' },
-        { key: 'course' as const,     label: '課程管理', icon: <BookOpen size={17} />, accent: 'amber' },
-        { key: 'quest' as const,      label: '任務管理', icon: <Settings size={17} />, accent: 'orange' },
-        { key: 'params' as const,     label: '參數管理', icon: <Save size={17} />,        accent: 'violet' },
-        { key: 'gallery' as const,    label: '圖片庫',   icon: <ImageIcon size={17} />,   accent: 'teal' },
+        { key: null as null,             label: '首頁',    icon: <BarChart3 size={17} />, accent: 'slate' },
+        { key: 'dashboard' as const,     label: '儀表板',   icon: <BarChart3 size={17} />, accent: 'sky' },
+        { key: 'personnel' as const,     label: '人員管理', icon: <Users size={17} />,    accent: 'cyan' },
+        { key: 'course' as const,        label: '課程管理', icon: <BookOpen size={17} />, accent: 'amber' },
+        { key: 'quest' as const,         label: '任務管理', icon: <Settings size={17} />, accent: 'orange' },
+        { key: 'params' as const,        label: '參數管理', icon: <Save size={17} />,     accent: 'violet' },
+        { key: 'gallery' as const,       label: '圖片庫',   icon: <ImageIcon size={17} />, accent: 'teal' },
+        { key: 'logs' as const,          label: 'Log 紀錄', icon: <BarChart3 size={17} />, accent: 'rose' },
     ] as const;
 
     const accentClass: Record<string, string> = {
@@ -2355,9 +2555,11 @@ export function AdminDashboard({
         orange: 'bg-orange-950/70 text-orange-300 border-orange-700/50',
         violet: 'bg-violet-950/70 text-violet-300 border-violet-700/50',
         teal:   'bg-teal-950/70 text-teal-300 border-teal-700/50',
+        sky:    'bg-sky-950/70 text-sky-300 border-sky-700/50',
+        rose:   'bg-rose-950/70 text-rose-300 border-rose-700/50',
     };
     const accentDot: Record<string, string> = {
-        slate: 'bg-slate-400', cyan: 'bg-cyan-400', amber: 'bg-amber-400', orange: 'bg-orange-400', violet: 'bg-violet-400', teal: 'bg-teal-400',
+        slate: 'bg-slate-400', cyan: 'bg-cyan-400', amber: 'bg-amber-400', orange: 'bg-orange-400', violet: 'bg-violet-400', teal: 'bg-teal-400', sky: 'bg-sky-400', rose: 'bg-rose-400',
     };
 
     return (
@@ -2428,7 +2630,7 @@ export function AdminDashboard({
                         <div className="p-2.5 bg-orange-600 rounded-2xl text-white shadow-lg md:hidden"><Settings size={20} /></div>
                         <div>
                             <h1 className="text-xl md:text-2xl font-black text-white">
-                                {adminModule === null ? '首頁' : adminModule === 'personnel' ? '人員管理' : adminModule === 'course' ? '課程管理' : adminModule === 'quest' ? '任務管理' : adminModule === 'params' ? '參數管理' : '圖片庫'}
+                                {adminModule === null ? '首頁' : adminModule === 'personnel' ? '人員管理' : adminModule === 'course' ? '課程管理' : adminModule === 'quest' ? '任務管理' : adminModule === 'params' ? '參數管理' : adminModule === 'gallery' ? '圖片庫' : adminModule === 'dashboard' ? '儀表板' : 'Log 紀錄'}
                             </h1>
                             <p className="text-[10px] text-slate-600">大會管理後台</p>
                         </div>
@@ -2486,6 +2688,29 @@ export function AdminDashboard({
                             <ul className="text-xs text-slate-400 space-y-1.5 font-bold">
                                 <li>・定課管理</li>
                                 <li>・道具管理</li>
+                            </ul>
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <button onClick={() => setAdminModule('dashboard')}
+                            className="text-left bg-slate-900 border-2 border-sky-500/30 hover:border-sky-400/60 p-6 rounded-4xl shadow-xl transition-all hover:bg-slate-800 group">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 bg-sky-600/20 rounded-2xl text-sky-400 group-hover:bg-sky-600/30 transition-colors"><BarChart3 size={22} /></div>
+                                <h2 className="text-lg font-black text-white">儀表板</h2>
+                            </div>
+                            <ul className="text-xs text-slate-400 space-y-1.5 font-bold">
+                                <li>・功能尚未想好</li>
+                            </ul>
+                        </button>
+                        <button onClick={() => setAdminModule('logs')}
+                            className="text-left bg-slate-900 border-2 border-rose-500/30 hover:border-rose-400/60 p-6 rounded-4xl shadow-xl transition-all hover:bg-slate-800 group">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 bg-rose-600/20 rounded-2xl text-rose-400 group-hover:bg-rose-600/30 transition-colors"><BarChart3 size={22} /></div>
+                                <h2 className="text-lg font-black text-white">Log 紀錄</h2>
+                            </div>
+                            <ul className="text-xs text-slate-400 space-y-1.5 font-bold">
+                                <li>・逐筆後台操作記錄</li>
+                                <li>・可刪除單筆記錄</li>
                             </ul>
                         </button>
                     </div>
@@ -2575,15 +2800,17 @@ export function AdminDashboard({
                         <section className="space-y-6">
                             <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest"><BarChart3 size={16} /> 管理操作日誌</div>
                             <div className="bg-slate-900 border-2 border-slate-800 rounded-4xl overflow-hidden shadow-xl max-h-[400px] overflow-y-auto divide-y divide-slate-800">
-                                {adminLogs.length === 0 ? (
+                                {freshLogs.length === 0 ? (
                                     <p className="text-sm text-slate-500 text-center py-8">尚無操作記錄</p>
-                                ) : adminLogs.map(log => (
+                                ) : freshLogs.map(log => (
                                     <div key={log.id} className={`p-4 hover:bg-white/5 transition-colors ${log.result === 'error' ? 'bg-red-950/20' : ''}`}>
                                         <div className="flex justify-between items-start gap-2">
                                             <div className="flex-1 min-w-0">
                                                 <p className={`text-xs font-black ${log.result === 'error' ? 'text-red-400' : 'text-slate-200'}`}>{ACTION_LABELS[log.action] || log.action}</p>
                                                 {log.target_name && <p className="text-[10px] text-slate-500 truncate">對象：{log.target_name}</p>}
-                                                {log.details && <p className="text-[10px] text-slate-600 truncate">{Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>}
+                                                {log.details && Object.keys(log.details).length > 0 && (
+                                                    <p className="text-[10px] text-slate-600 truncate">{Object.entries(log.details).map(([k, v]) => `${DETAIL_LABELS[k] ?? k}: ${typeof v === 'boolean' ? (v ? '是' : '否') : v}`).join('・')}</p>
+                                                )}
                                             </div>
                                             <div className="text-right shrink-0">
                                                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${log.result === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/10 text-emerald-500'}`}>
@@ -2599,6 +2826,204 @@ export function AdminDashboard({
                     </div>
 
                 </>)}
+
+                {/* ══ 儀表板模組 ══ */}
+                {adminModule === 'dashboard' && (<>
+                    <div className="space-y-8">
+                        {/* 頂部工具列 */}
+                        <div className="flex items-center justify-between flex-wrap gap-3">
+                            <div className="flex items-center gap-2 text-sky-400 font-black text-sm uppercase tracking-widest">
+                                <BarChart3 size={16} /> 儀表板
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => {
+                                    setDashStats(null);
+                                    loadDashStats();
+                                }} disabled={dashLoading}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-800 text-slate-400 border border-slate-700 hover:text-slate-200 transition-all disabled:opacity-50">
+                                    {dashLoading ? '載入中…' : '↻ 重新整理'}
+                                </button>
+                                <button onClick={() => setAdminModule(null)}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-black rounded-xl transition-all">
+                                    ← 返回上一步
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 第一橫列：三個統計模塊 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {/* 總參與人數 */}
+                            <div className="bg-gradient-to-br from-sky-950/60 to-slate-900 border-2 border-sky-700/30 rounded-3xl p-6 flex flex-col items-center justify-center gap-2 text-center shadow-xl min-h-[140px]">
+                                <div className="w-10 h-10 bg-sky-800/40 rounded-2xl flex items-center justify-center text-sky-400 mb-1">
+                                    <Users size={20} />
+                                </div>
+                                <p className="text-[11px] font-black text-sky-400 uppercase tracking-widest">總參與人數</p>
+                                {dashLoading ? (
+                                    <div className="w-12 h-8 bg-slate-800 rounded-xl animate-pulse" />
+                                ) : (
+                                    <p className="text-4xl font-black text-white">{dashStats?.total ?? '—'}</p>
+                                )}
+                                <p className="text-[10px] text-slate-500">全體修行者</p>
+                            </div>
+
+                            {/* 活躍人數 */}
+                            <div className="bg-gradient-to-br from-emerald-950/60 to-slate-900 border-2 border-emerald-700/30 rounded-3xl p-6 flex flex-col items-center justify-center gap-2 text-center shadow-xl min-h-[140px]">
+                                <div className="w-10 h-10 bg-emerald-800/40 rounded-2xl flex items-center justify-center text-emerald-400 mb-1">
+                                    <Zap size={20} />
+                                </div>
+                                <p className="text-[11px] font-black text-emerald-400 uppercase tracking-widest">活躍人數</p>
+                                {dashLoading ? (
+                                    <div className="w-12 h-8 bg-slate-800 rounded-xl animate-pulse" />
+                                ) : (
+                                    <p className="text-4xl font-black text-white">{dashStats?.active ?? '—'}</p>
+                                )}
+                                <p className="text-[10px] text-slate-500">近 2 日有回報</p>
+                            </div>
+
+                            {/* 陣亡人數 */}
+                            <div className="bg-gradient-to-br from-red-950/60 to-slate-900 border-2 border-red-800/30 rounded-3xl p-6 flex flex-col items-center justify-center gap-2 text-center shadow-xl min-h-[140px]">
+                                <div className="w-10 h-10 bg-red-900/40 rounded-2xl flex items-center justify-center text-red-400 mb-1">
+                                    <Shield size={20} />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <p className="text-[11px] font-black text-red-400 uppercase tracking-widest">陣亡人數</p>
+                                    <button
+                                        onClick={() => { if (dashStats && dashStats.fallen > 0) setShowFallenModal(true); }}
+                                        disabled={dashLoading || !dashStats || dashStats.fallen === 0}
+                                        className="p-1 rounded-lg text-red-400/60 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-30 disabled:cursor-default"
+                                        title="查看陣亡名單">
+                                        <Search size={12} />
+                                    </button>
+                                </div>
+                                {dashLoading ? (
+                                    <div className="w-12 h-8 bg-slate-800 rounded-xl animate-pulse" />
+                                ) : (
+                                    <p className="text-4xl font-black text-white">{dashStats?.fallen ?? '—'}</p>
+                                )}
+                                <p className="text-[10px] text-slate-500">逾 3 日無動靜</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── 陣亡名單彈窗 ── */}
+                    {showFallenModal && dashStats && (
+                        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-6 bg-black/80 backdrop-blur-sm"
+                            onClick={() => setShowFallenModal(false)}>
+                            <div className="bg-slate-900 border border-slate-700 rounded-t-4xl sm:rounded-4xl w-full sm:max-w-lg shadow-2xl flex flex-col max-h-[80vh]"
+                                onClick={e => e.stopPropagation()}>
+                                {/* 標題列 */}
+                                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 shrink-0">
+                                    <div className="flex items-center gap-2">
+                                        <Shield size={15} className="text-red-400" />
+                                        <p className="font-black text-white text-sm">陣亡名單</p>
+                                        <span className="text-[10px] font-black bg-red-500/20 text-red-400 px-2 py-0.5 rounded-lg">{dashStats.fallen} 人</span>
+                                    </div>
+                                    <button onClick={() => setShowFallenModal(false)}
+                                        className="p-1.5 bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors">
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                                {/* 表頭 */}
+                                <div className="grid grid-cols-3 px-5 py-2 border-b border-slate-800 shrink-0">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">姓名</p>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">大隊</p>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">小隊</p>
+                                </div>
+                                {/* 名單 */}
+                                <div className="overflow-y-auto divide-y divide-slate-800/60 flex-1">
+                                    {dashStats.fallenUsers.map((u, i) => (
+                                        <div key={i} className="grid grid-cols-3 px-5 py-3 hover:bg-white/5 transition-colors">
+                                            <p className="text-sm font-bold text-white">{u.name}</p>
+                                            <p className="text-sm text-slate-400">{u.teamName ?? '—'}</p>
+                                            <p className="text-sm text-slate-400">{u.squadName ?? '—'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </>)}
+
+                {/* ══ Log 紀錄模組 ══ */}
+                {adminModule === 'logs' && (() => {
+                    const visibleLogs = freshLogs.filter(l => !trashedLogIds.has(l.id));
+                    const trashedLogs = freshLogs.filter(l => trashedLogIds.has(l.id));
+                    const displayLogs = showTrash ? trashedLogs : visibleLogs;
+                    return (
+                    <div className="space-y-6">
+                        {/* 頂部工具列 */}
+                        <div className="flex items-center justify-between flex-wrap gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 text-rose-400 font-black text-sm uppercase tracking-widest">
+                                    <BarChart3 size={16} />
+                                    {showTrash ? `回收桶（${trashedLogs.length} 筆）` : `Log 紀錄（${visibleLogs.length} 筆）`}
+                                </div>
+                                <button onClick={() => setShowTrash(v => !v)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all border ${showTrash ? 'bg-rose-900/40 text-rose-300 border-rose-700/40' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'}`}>
+                                    🗑 回收桶{trashedLogs.length > 0 && <span className="bg-rose-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{trashedLogs.length}</span>}
+                                </button>
+                                <button onClick={refreshLogs} disabled={loadingLogs}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-800 text-slate-400 border border-slate-700 hover:text-slate-200 transition-all disabled:opacity-50">
+                                    {loadingLogs ? '載入中…' : '↻ 重新整理'}
+                                </button>
+                            </div>
+                            <button onClick={() => { setAdminModule(null); setShowTrash(false); }}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-black rounded-xl transition-all">
+                                ← 返回上一步
+                            </button>
+                        </div>
+
+                        {/* 日誌列表 */}
+                        <div className="bg-slate-900 border-2 border-slate-800 rounded-4xl overflow-hidden shadow-xl divide-y divide-slate-800">
+                            {displayLogs.length === 0 ? (
+                                <p className="text-sm text-slate-500 text-center py-10">
+                                    {showTrash ? '回收桶是空的' : '尚無操作記錄'}
+                                </p>
+                            ) : displayLogs.map(log => (
+                                <div key={log.id} className={`flex items-start gap-3 p-4 hover:bg-white/5 transition-colors ${log.result === 'error' ? 'bg-red-950/20' : ''} ${showTrash ? 'opacity-60' : ''}`}>
+                                    <div className="flex-1 min-w-0 space-y-0.5">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className={`text-xs font-black ${log.result === 'error' ? 'text-red-400' : 'text-slate-200'}`}>
+                                                {ACTION_LABELS[log.action] || log.action}
+                                            </p>
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${log.result === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                                                {log.result === 'error' ? '失敗' : '成功'}
+                                            </span>
+                                        </div>
+                                        {log.actor && <p className="text-[10px] text-slate-500">操作者：{log.actor}</p>}
+                                        {log.target_name && <p className="text-[10px] text-slate-500">對象：{log.target_name}</p>}
+                                        {log.details && Object.keys(log.details).length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {Object.entries(log.details).map(([k, v]) => (
+                                                    <span key={k} className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-md">
+                                                        {DETAIL_LABELS[k] ?? k}：{typeof v === 'boolean' ? (v ? '是' : '否') : String(v)}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <p className="text-[10px] text-slate-700">{new Date(log.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                                    </div>
+                                    {showTrash ? (
+                                        <button
+                                            onClick={() => setTrashedLogIds(prev => { const next = new Set(prev); next.delete(log.id); return next; })}
+                                            className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-black text-emerald-400 hover:bg-emerald-500/10 transition-all border border-emerald-700/30"
+                                            title="復原此記錄">
+                                            復原
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => setTrashedLogIds(prev => new Set(prev).add(log.id))}
+                                            className="shrink-0 p-2 rounded-xl text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                                            title="移至回收桶">
+                                            <X size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    );
+                })()}
 
                 {/* ══ 人員管理模組 ══ */}
                 {adminModule === 'personnel' && (<>
@@ -2988,6 +3413,13 @@ export function AdminDashboard({
                                 >
                                     <Plus size={13} /> 新增人員
                                 </button>
+                                <button
+                                    onClick={onRefreshLeaderboard}
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-black rounded-xl border border-slate-700 transition-colors"
+                                    title="重新整理名單"
+                                >
+                                    <RefreshCw size={13} />
+                                </button>
                                 {filteredMembers.length > 0 && (
                                     <button onClick={downloadMembersCsv} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black rounded-xl transition-colors">
                                         ⬇️ 下載 Excel
@@ -3114,12 +3546,8 @@ export function AdminDashboard({
                                             <th className="text-left px-4 py-3 text-slate-500 font-black w-8">#</th>
                                             {([
                                                 { key: 'Name', label: '姓名' },
-                                                { key: 'TeamName', label: '大隊' },
-                                                { key: 'SquadName', label: '小隊' },
-                                                { key: 'Level', label: '等級' },
-                                                { key: 'Exp', label: '修為' },
-                                                { key: 'Streak', label: '連勝' },
-                                                { key: 'TotalFines', label: '罰金餘額' },
+                                                { key: 'BigTeamLeagelName', label: '大隊' },
+                                                { key: 'LittleTeamLeagelName', label: '小隊' },
                                             ] as { key: MemberSortKey; label: string }[]).map(col => (
                                                 <th key={col.key} onClick={() => handleMemberSort(col.key)}
                                                     className="text-left px-4 py-3 text-slate-500 font-black cursor-pointer hover:text-white transition-colors select-none">
@@ -3128,6 +3556,17 @@ export function AdminDashboard({
                                                 </th>
                                             ))}
                                             <th className="text-left px-4 py-3 text-slate-500 font-black">職位</th>
+                                            <th className="text-left px-4 py-3 text-slate-500 font-black">任務角色</th>
+                                            {([
+                                                { key: 'Level', label: '等級' },
+                                                { key: 'Exp', label: '修為' },
+                                            ] as { key: MemberSortKey; label: string }[]).map(col => (
+                                                <th key={col.key} onClick={() => handleMemberSort(col.key)}
+                                                    className="text-left px-4 py-3 text-slate-500 font-black cursor-pointer hover:text-white transition-colors select-none">
+                                                    {col.label}
+                                                    {memberSort.key === col.key && <span className="ml-1 text-violet-400">{memberSort.dir === 'asc' ? '↑' : '↓'}</span>}
+                                                </th>
+                                            ))}
                                             <th className="px-4 py-3 w-16"></th>
                                         </tr>
                                     </thead>
@@ -3140,16 +3579,8 @@ export function AdminDashboard({
                                                 <tr key={p.UserID} className="hover:bg-white/5 transition-colors">
                                                     <td className="px-4 py-3 text-slate-600">{i + 1}</td>
                                                     <td className="px-4 py-3 font-bold text-white">{p.Name}</td>
-                                                    <td className="px-4 py-3 text-slate-300">{p.TeamName ?? '—'}</td>
-                                                    <td className="px-4 py-3 text-slate-300">{p.SquadName ?? '—'}</td>
-                                                    <td className="px-4 py-3 text-slate-400">Lv.{p.Level}</td>
-                                                    <td className="px-4 py-3 text-orange-400 font-bold">{p.Exp.toLocaleString()}</td>
-                                                    <td className="px-4 py-3 text-slate-300">{p.Streak}</td>
-                                                    <td className="px-4 py-3">
-                                                        {fineBalance > 0
-                                                            ? <span className="text-red-400 font-bold">NT${fineBalance}</span>
-                                                            : <span className="text-slate-600">—</span>}
-                                                    </td>
+                                                    <td className="px-4 py-3 text-slate-300">{p.BigTeamLeagelName ?? '—'}</td>
+                                                    <td className="px-4 py-3 text-slate-300">{p.LittleTeamLeagelName ?? '—'}</td>
                                                     <td className="px-4 py-3">
                                                         {p.IsCommandant
                                                             ? <span className="text-[10px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-lg">大隊長</span>
@@ -3158,10 +3589,30 @@ export function AdminDashboard({
                                                                 : <span className="text-[10px] text-slate-600">學員</span>}
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <button onClick={() => setMemberDetailTarget(p)}
-                                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 text-[10px] font-black transition-colors">
-                                                            詳情 <ChevronRight size={11} />
-                                                        </button>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {parseQuestRoles(p.QuestRole).length === 0
+                                                                ? <span className="text-[10px] text-slate-700">—</span>
+                                                                : parseQuestRoles(p.QuestRole).map(r => (
+                                                                    <span key={r} className="text-[10px] font-black bg-sky-500/10 text-sky-400 px-1.5 py-0.5 rounded-lg">{r}</span>
+                                                                ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-slate-400">Lv.{p.Level}</td>
+                                                    <td className="px-4 py-3 text-orange-400 font-bold">{p.Exp.toLocaleString()}</td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-1.5">
+                                                            {onQuickLogin && (
+                                                                <button onClick={() => onQuickLogin(p.UserID)}
+                                                                    title={`快捷登入：${p.Name}`}
+                                                                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-[10px] font-black transition-colors border border-emerald-500/20">
+                                                                    <LogIn size={11} />
+                                                                </button>
+                                                            )}
+                                                            <button onClick={() => { setMemberDetailTarget(p); setMemberDetailRoles(parseQuestRoles(p.QuestRole)); }}
+                                                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 text-[10px] font-black transition-colors">
+                                                                詳情 <ChevronRight size={11} />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -3194,10 +3645,18 @@ export function AdminDashboard({
                                             {memberDetailTarget.IsCaptain && !memberDetailTarget.IsCommandant && <span className="text-[10px] font-black bg-violet-500/20 text-violet-400 px-2 py-0.5 rounded-lg">小隊長</span>}
                                             {memberDetailTarget.IsGM && <span className="text-[10px] font-black bg-red-500/20 text-red-400 px-2 py-0.5 rounded-lg">GM</span>}
                                         </div>
-                                        <p className="text-xs text-slate-400">{memberDetailTarget.Role} · {memberDetailTarget.TeamName ?? '—'} / {memberDetailTarget.SquadName ?? '—'}</p>
+                                        <p className="text-xs text-slate-400">{memberDetailTarget.Role} · {memberDetailTarget.BigTeamLeagelName ?? '—'} / {memberDetailTarget.LittleTeamLeagelName ?? '—'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    {onQuickLogin && (
+                                        <button
+                                            onClick={() => onQuickLogin(memberDetailTarget.UserID)}
+                                            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 rounded-xl text-xs font-black transition-colors border border-emerald-600/30"
+                                        >
+                                            <LogIn size={13} /> 快捷登入
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => {
                                             startEditMember(memberDetailTarget);
@@ -3339,6 +3798,67 @@ export function AdminDashboard({
                                                 <span className="text-slate-300 font-mono break-all">{value}</span>
                                             </div>
                                         ))}
+                                    </div>
+                                </div>
+
+                                {/* 任務角色 */}
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Tag size={12} className="text-sky-400" />
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">任務角色</p>
+                                    </div>
+                                    <div className="bg-slate-800 rounded-2xl p-4 space-y-3">
+                                        {/* 目前角色 */}
+                                        <div className="flex flex-wrap gap-2 min-h-[28px]">
+                                            {memberDetailRoles.length === 0
+                                                ? <span className="text-xs text-slate-600">尚未指派角色</span>
+                                                : memberDetailRoles.map(role => (
+                                                    <button key={role}
+                                                        onClick={() => setMemberDetailRoles(prev => prev.filter(r => r !== role))}
+                                                        className="flex items-center gap-1 text-[11px] font-black bg-sky-500/15 text-sky-300 border border-sky-500/30 px-2.5 py-1 rounded-xl hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors group">
+                                                        {role} <X size={9} className="opacity-50 group-hover:opacity-100" />
+                                                    </button>
+                                                ))
+                                            }
+                                        </div>
+                                        {/* 可選角色 */}
+                                        <div className="border-t border-slate-700 pt-3">
+                                            <p className="text-[10px] text-slate-500 mb-2">點擊新增（最多 2 個）</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {questRolesConfig.map(rc => {
+                                                    const active = memberDetailRoles.includes(rc.name);
+                                                    const maxed = memberDetailRoles.length >= 2 && !active;
+                                                    return (
+                                                        <button key={rc.id}
+                                                            disabled={maxed}
+                                                            onClick={() => {
+                                                                if (active) setMemberDetailRoles(prev => prev.filter(r => r !== rc.name));
+                                                                else if (!maxed) setMemberDetailRoles(prev => [...prev, rc.name]);
+                                                            }}
+                                                            className={`text-[11px] font-black px-2.5 py-1 rounded-xl border transition-colors ${
+                                                                active ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                                                                : maxed ? 'opacity-30 cursor-not-allowed bg-slate-700 text-slate-500 border-slate-600'
+                                                                : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-sky-500/15 hover:text-sky-300 hover:border-sky-500/30'
+                                                            }`}>
+                                                            {active ? '✓ ' : ''}{rc.name}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                        {/* 儲存 */}
+                                        <button
+                                            disabled={rolesSaving}
+                                            onClick={async () => {
+                                                setRolesSaving(true);
+                                                const { adminSetMemberQuestRole } = await import('@/app/actions/admin');
+                                                const res = await adminSetMemberQuestRole(memberDetailTarget.UserID, memberDetailRoles);
+                                                setRolesSaving(false);
+                                                if (!res.success) alert('儲存失敗：' + res.error);
+                                            }}
+                                            className="w-full py-2 bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 text-xs font-black rounded-xl border border-sky-600/30 transition-colors disabled:opacity-50">
+                                            {rolesSaving ? '儲存中…' : '✅ 儲存角色'}
+                                        </button>
                                     </div>
                                 </div>
 

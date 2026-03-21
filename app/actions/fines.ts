@@ -3,20 +3,31 @@
 import { connectDb } from '@/lib/db';
 import { logAdminAction } from './admin';
 
+// QuestRole 儲存為 JSON 陣列字串，如 '["role1","role2"]' 或舊格式單一字串
+function parseRoles(questRole: string | null): string[] {
+    if (!questRole) return [];
+    try {
+        const parsed = JSON.parse(questRole);
+        return Array.isArray(parsed) ? parsed : [questRole];
+    } catch {
+        return [questRole];
+    }
+}
+
 // ── 1. 查詢小隊所有成員罰款狀態 ─────────────────────────────────
 // 回傳每位成員：累計罰款、已繳、餘額
 export async function getSquadFineStatus(captainUserId: string) {
     const client = await connectDb();
     try {
-        // 先確認是小隊長，取得 TeamName（小隊）
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        // 先確認是小隊長，取得 LittleTeamLeagelName（小隊）
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
         if (!captainRes.rows[0]?.IsCaptain) {
             return { success: false, error: '僅限小隊長使用此功能' };
         }
-        const squadName = captainRes.rows[0].TeamName;
+        const squadName = captainRes.rows[0].LittleTeamLeagelName;
 
         const membersRes = await client.query<{
             UserID: string;
@@ -26,7 +37,7 @@ export async function getSquadFineStatus(captainUserId: string) {
         }>(
             `SELECT "UserID", "Name", "TotalFines", COALESCE("FinePaid", 0) AS "FinePaid"
              FROM "CharacterStats"
-             WHERE "TeamName" = $1
+             WHERE "LittleTeamLeagelName" = $1
              ORDER BY "Name"`,
             [squadName]
         );
@@ -49,54 +60,108 @@ export async function getSquadFineStatus(captainUserId: string) {
 
 // ── 取得小隊成員（含任務角色）────────────────────────────────────
 export async function getSquadMembersWithRoles(captainUserId: string): Promise<{
-    success: boolean; members?: { userId: string; name: string; questRole: string }[]; error?: string;
+    success: boolean; members?: { userId: string; name: string; questRoles: string[] }[]; error?: string;
 }> {
     const client = await connectDb();
     try {
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean; IsGM: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain", "IsGM" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
-        if (!captainRes.rows[0]?.IsCaptain) return { success: false, error: '僅限小隊長' };
-        const squadName = captainRes.rows[0].TeamName;
-        const res = await client.query<{ UserID: string; Name: string; QuestRole: string | null }>(
-            `SELECT "UserID", "Name", COALESCE("QuestRole", '') AS "QuestRole"
-             FROM "CharacterStats" WHERE "TeamName" = $1 ORDER BY "Name"`,
+        const captain = captainRes.rows[0];
+        if (!captain?.IsCaptain && !captain?.IsGM) return { success: false, error: '僅限小隊長' };
+        const squadName = captain.LittleTeamLeagelName;
+        if (!squadName) return { success: false, error: '無小隊資料' };
+
+        const membersRes = await client.query<{ UserID: string; Name: string; QuestRole: string | null }>(
+            `SELECT "UserID", "Name", "QuestRole" FROM "CharacterStats" WHERE "LittleTeamLeagelName" = $1 ORDER BY "Name"`,
             [squadName]
         );
-        return { success: true, members: res.rows.map(r => ({ userId: r.UserID, name: r.Name, questRole: r.QuestRole ?? '' })) };
-    } catch (e: any) {
-        return { success: false, error: e.message };
+        return {
+            success: true,
+            members: membersRes.rows.map(r => ({ userId: r.UserID, name: r.Name, questRoles: parseRoles(r.QuestRole) })),
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
     } finally {
         await client.end();
     }
 }
 
-// ── 設定隊員任務角色 ──────────────────────────────────────────────
-export async function setMemberQuestRole(captainUserId: string, targetUserId: string, roleId: string): Promise<{
-    success: boolean; error?: string;
-}> {
+// ── 設定隊員任務角色（assign=指派, unassign=移除）────────────────
+// 每位成員最多持有 2 個角色；assign 時會自動移除舊持有者的相同角色
+export async function setMemberQuestRole(
+    captainUserId: string,
+    targetUserId: string,
+    roleId: string,
+    action: 'assign' | 'unassign',
+): Promise<{ success: boolean; error?: string }> {
     const client = await connectDb();
     try {
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        await client.query('BEGIN');
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean; IsGM: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain", "IsGM" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
-        if (!captainRes.rows[0]?.IsCaptain) return { success: false, error: '僅限小隊長' };
-        const squadName = captainRes.rows[0].TeamName;
-        // 確認目標成員在同一小隊
-        const targetRes = await client.query<{ TeamName: string }>(
-            `SELECT "TeamName" FROM "CharacterStats" WHERE "UserID" = $1`,
-            [targetUserId]
+        const captain = captainRes.rows[0];
+        if (!captain?.IsCaptain && !captain?.IsGM) {
+            await client.query('ROLLBACK');
+            return { success: false, error: '僅限小隊長' };
+        }
+        const squadName = captain.LittleTeamLeagelName;
+
+        if (action === 'unassign') {
+            const tgtRes = await client.query<{ QuestRole: string | null }>(
+                `SELECT "QuestRole" FROM "CharacterStats" WHERE "UserID" = $1`, [targetUserId]
+            );
+            const newRoles = parseRoles(tgtRes.rows[0]?.QuestRole).filter(r => r !== roleId);
+            await client.query(
+                `UPDATE "CharacterStats" SET "QuestRole" = $1 WHERE "UserID" = $2`,
+                [newRoles.length ? JSON.stringify(newRoles) : null, targetUserId]
+            );
+            await client.query('COMMIT');
+            return { success: true };
+        }
+
+        // assign: 先移除舊持有者的此角色
+        const allMembersRes = await client.query<{ UserID: string; QuestRole: string | null }>(
+            `SELECT "UserID", "QuestRole" FROM "CharacterStats" WHERE "LittleTeamLeagelName" = $1`, [squadName]
         );
-        if (targetRes.rows[0]?.TeamName !== squadName) return { success: false, error: '目標成員不在本小隊' };
+        for (const m of allMembersRes.rows) {
+            if (m.UserID !== targetUserId && parseRoles(m.QuestRole).includes(roleId)) {
+                const cleaned = parseRoles(m.QuestRole).filter(r => r !== roleId);
+                await client.query(
+                    `UPDATE "CharacterStats" SET "QuestRole" = $1 WHERE "UserID" = $2`,
+                    [cleaned.length ? JSON.stringify(cleaned) : null, m.UserID]
+                );
+            }
+        }
+
+        // 確認目標成員在同一小隊且角色數 < 2
+        const targetRes = await client.query<{ LittleTeamLeagelName: string; QuestRole: string | null }>(
+            `SELECT "LittleTeamLeagelName", "QuestRole" FROM "CharacterStats" WHERE "UserID" = $1`, [targetUserId]
+        );
+        const target = targetRes.rows[0];
+        if (target?.LittleTeamLeagelName !== squadName) {
+            await client.query('ROLLBACK');
+            return { success: false, error: '目標成員不在本小隊' };
+        }
+        const existingRoles = parseRoles(target?.QuestRole).filter(r => r !== roleId);
+        if (existingRoles.length >= 2) {
+            await client.query('ROLLBACK');
+            return { success: false, error: '此成員已持有 2 個角色，請先移除一個' };
+        }
+
+        const newRoles = [...existingRoles, roleId];
         await client.query(
             `UPDATE "CharacterStats" SET "QuestRole" = $1 WHERE "UserID" = $2`,
-            [roleId || null, targetUserId]
+            [JSON.stringify(newRoles), targetUserId]
         );
+        await client.query('COMMIT');
         return { success: true };
-    } catch (e: any) {
-        return { success: false, error: e.message };
+    } catch (error: any) {
+        await client.query('ROLLBACK');
+        return { success: false, error: error.message };
     } finally {
         await client.end();
     }
@@ -120,24 +185,24 @@ export async function recordFinePayment(
         await client.query('BEGIN');
 
         // 權限確認：captainUserId 是同小隊長
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
         if (!captainRes.rows[0]?.IsCaptain) {
             await client.query('ROLLBACK');
             return { success: false, error: '僅限小隊長使用此功能' };
         }
-        const squadName = captainRes.rows[0].TeamName;
+        const squadName = captainRes.rows[0].LittleTeamLeagelName;
 
         // 確認目標隊員在同小隊
-        const targetRes = await client.query<{ Name: string; TotalFines: number; FinePaid: number; TeamName: string }>(
-            `SELECT "Name", "TotalFines", COALESCE("FinePaid", 0) AS "FinePaid", "TeamName"
+        const targetRes = await client.query<{ Name: string; TotalFines: number; FinePaid: number; LittleTeamLeagelName: string }>(
+            `SELECT "Name", "TotalFines", COALESCE("FinePaid", 0) AS "FinePaid", "LittleTeamLeagelName"
              FROM "CharacterStats" WHERE "UserID" = $1`,
             [targetUserId]
         );
         const target = targetRes.rows[0];
-        if (!target || target.TeamName !== squadName) {
+        if (!target || target.LittleTeamLeagelName !== squadName) {
             await client.query('ROLLBACK');
             return { success: false, error: '目標隊員不在同一小隊' };
         }
@@ -197,8 +262,8 @@ export async function setPaidToCaptainDate(
     const client = await connectDb();
     try {
         // 確認是小隊長且此筆 payment 屬於同小隊
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
         if (!captainRes.rows[0]?.IsCaptain) return { success: false, error: '僅限小隊長使用' };
@@ -207,7 +272,7 @@ export async function setPaidToCaptainDate(
             `UPDATE "FinePayments"
              SET paid_to_captain_at = $1
              WHERE id = $2 AND squad_name = $3`,
-            [date, paymentId, captainRes.rows[0].TeamName]
+            [date, paymentId, captainRes.rows[0].LittleTeamLeagelName]
         );
         if (!rowCount) return { success: false, error: '找不到該繳款紀錄或不屬於本小隊' };
 
@@ -229,8 +294,8 @@ export async function setSubmittedToOrgDate(
 
     const client = await connectDb();
     try {
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
         if (!captainRes.rows[0]?.IsCaptain) return { success: false, error: '僅限小隊長使用' };
@@ -239,7 +304,7 @@ export async function setSubmittedToOrgDate(
             `UPDATE "FinePayments"
              SET submitted_to_org_at = $1
              WHERE id = $2 AND squad_name = $3`,
-            [date, paymentId, captainRes.rows[0].TeamName]
+            [date, paymentId, captainRes.rows[0].LittleTeamLeagelName]
         );
         if (!rowCount) return { success: false, error: '找不到該繳款紀錄或不屬於本小隊' };
 
@@ -261,14 +326,14 @@ export async function checkSquadW3Compliance(
     const client = await connectDb();
     try {
         // 驗證小隊長身份
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
         if (!captainRes.rows[0]?.IsCaptain) {
             return { success: false, error: '僅限小隊長使用此功能' };
         }
-        const teamName = captainRes.rows[0].TeamName;
+        const teamName = captainRes.rows[0].LittleTeamLeagelName;
 
         // 計算上週範圍（台灣時間，週一00:00 ~ 週一00:00）
         let weekStart: Date;
@@ -300,7 +365,7 @@ export async function checkSquadW3Compliance(
 
         // 查小隊所有成員
         const membersRes = await client.query<{ UserID: string; Name: string }>(
-            `SELECT "UserID", "Name" FROM "CharacterStats" WHERE "TeamName" = $1`,
+            `SELECT "UserID", "Name" FROM "CharacterStats" WHERE "LittleTeamLeagelName" = $1`,
             [teamName]
         );
 
@@ -356,12 +421,12 @@ export async function recordOrgSubmission(
 
     const client = await connectDb();
     try {
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
         if (!captainRes.rows[0]?.IsCaptain) return { success: false, error: '僅限小隊長使用' };
-        const squadName = captainRes.rows[0].TeamName;
+        const squadName = captainRes.rows[0].LittleTeamLeagelName;
 
         const insertRes = await client.query<{ id: string }>(
             `INSERT INTO "SquadFineSubmissions" (squad_name, amount, submitted_at, recorded_by, notes)
@@ -382,12 +447,12 @@ export async function recordOrgSubmission(
 export async function getSquadOrgSubmissions(captainUserId: string) {
     const client = await connectDb();
     try {
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
         if (!captainRes.rows[0]?.IsCaptain) return { success: false, error: '僅限小隊長使用' };
-        const squadName = captainRes.rows[0].TeamName;
+        const squadName = captainRes.rows[0].LittleTeamLeagelName;
 
         const res = await client.query(
             `SELECT id, squad_name, amount, submitted_at::text, recorded_by, notes,
@@ -409,13 +474,13 @@ export async function getSquadOrgSubmissions(captainUserId: string) {
 export async function getSquadFinePaymentHistory(captainUserId: string) {
     const client = await connectDb();
     try {
-        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
-            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+        const captainRes = await client.query<{ LittleTeamLeagelName: string; IsCaptain: boolean }>(
+            `SELECT "LittleTeamLeagelName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
         if (!captainRes.rows[0]?.IsCaptain) return { success: false, error: '僅限小隊長使用' };
 
-        const squadName = captainRes.rows[0].TeamName;
+        const squadName = captainRes.rows[0].LittleTeamLeagelName;
         const histRes = await client.query(
             `SELECT id, user_id, user_name, amount, period_label,
                     paid_to_captain_at::text, submitted_to_org_at::text,

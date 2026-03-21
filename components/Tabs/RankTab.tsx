@@ -38,11 +38,11 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
     const squadRank = useMemo<SquadRankEntry[]>(() => {
         const map = new Map<string, SquadRankEntry>();
         for (const p of leaderboard) {
-            const key = p.TeamName || `__solo_${p.UserID}`;
+            const key = p.BigTeamLeagelName || `__solo_${p.UserID}`;
             if (!map.has(key)) {
                 map.set(key, {
-                    squadName: p.TeamName || p.Name,
-                    teamName: p.SquadName,
+                    squadName: p.BigTeamLeagelName || p.Name,
+                    teamName: p.LittleTeamLeagelName,
                     totalExp: 0,
                     memberCount: 0,
                     members: [],
@@ -122,7 +122,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                             })()}
                                         </div>
                                         <p className="text-[10px] text-slate-500 italic uppercase tracking-widest">
-                                            {p.Role}{p.TeamName ? ` · ${p.TeamName}` : (p.SquadName ? ` · ${p.SquadName}` : '')}
+                                            {p.Role}{p.BigTeamLeagelName ? ` · ${p.BigTeamLeagelName}` : (p.LittleTeamLeagelName ? ` · ${p.LittleTeamLeagelName}` : '')}
                                         </p>
                                     </div>
                                     {/* 修為 */}

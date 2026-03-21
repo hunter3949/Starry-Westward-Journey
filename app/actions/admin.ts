@@ -23,7 +23,7 @@ export async function logAdminAction(
     } catch (_) { /* log failure should never break the main flow */ }
 }
 
-export async function triggerWeeklySnapshot() {
+export async function triggerWeeklySnapshot(actor = 'admin') {
     
     const client = await connectDb();
     try {
@@ -150,19 +150,19 @@ export async function triggerWeeklySnapshot() {
         }
 
         await client.query('COMMIT');
-        await logAdminAction('weekly_snapshot', 'admin', undefined, undefined, { worldState, rate: Math.round(rate * 100) + '%' });
+        await logAdminAction('weekly_snapshot', actor, undefined, undefined, { worldState, rate: Math.round(rate * 100) + '%' });
         return { success: true, worldState, rate, message: stateMsg };
 
     } catch (error: any) {
         await client.query('ROLLBACK');
-        await logAdminAction('weekly_snapshot', 'admin', undefined, undefined, { error: error.message }, 'error');
+        await logAdminAction('weekly_snapshot', actor, undefined, undefined, { error: error.message }, 'error');
         return { success: false, error: error.message };
     } finally {
         await client.end();
     }
 }
 
-export async function checkWeeklyW3Compliance(startMondayISO?: string, endMondayISO?: string) {
+export async function checkWeeklyW3Compliance(startMondayISO?: string, endMondayISO?: string, actor = 'admin') {
 
     const client = await connectDb();
     try {
@@ -223,7 +223,7 @@ export async function checkWeeklyW3Compliance(startMondayISO?: string, endMonday
         }
         await client.query('COMMIT');
 
-        await logAdminAction('w3_compliance', 'admin', undefined, periodLabel, {
+        await logAdminAction('w3_compliance', actor, undefined, periodLabel, {
             totalUsers: usersRes.rowCount || 0,
             violatorCount: violators.length,
             violators: violators.map(v => v.name),
@@ -238,7 +238,7 @@ export async function checkWeeklyW3Compliance(startMondayISO?: string, endMonday
         };
     } catch (error: any) {
         await client.query('ROLLBACK');
-        await logAdminAction('w3_compliance', 'admin', undefined, undefined, { error: error.message }, 'error');
+        await logAdminAction('w3_compliance', actor, undefined, undefined, { error: error.message }, 'error');
         return { success: false, error: error.message };
     } finally {
         await client.end();
@@ -296,7 +296,7 @@ export async function autoAssignSquadsForTesting(
                 const isCaptain = mi === 0;
                 await client.query(
                     `UPDATE "CharacterStats"
-                     SET "SquadName" = $1, "TeamName" = $2, "IsCaptain" = $3
+                     SET "BigTeamLeagelName" = $1, "LittleTeamLeagelName" = $2, "IsCaptain" = $3
                      WHERE "UserID" = $4`,
                     [squad.battalionName, squad.squadName, isCaptain, user.UserID]
                 );
@@ -335,7 +335,7 @@ export async function autoAssignSquadsForTesting(
     }
 }
 
-export async function importRostersData(csvContent: string) {
+export async function importRostersData(csvContent: string, actor = 'admin') {
     
     const client = await connectDb();
 
@@ -347,47 +347,47 @@ export async function importRostersData(csvContent: string) {
 
         for (const row of rows) {
             const cols = row.split(',').map(c => c.trim());
-            // Expecting: email, name, birthday, squad_name(大隊), team_name(小隊), is_captain, is_commandant
+            // Expecting: email, name, birthday, big_team_name(大隊), little_team_name(小隊), is_captain, is_commandant
             const email = cols[0]?.toLowerCase();
             if (!email || !email.includes('@')) continue;
 
             const name = cols[1] || null;
             const birthday = cols[2] && /^\d{4}-\d{2}-\d{2}$/.test(cols[2]) ? cols[2] : null;
-            const squad_name = cols[3] || null;
-            const team_name = cols[4] || null;
+            const big_team_name = cols[3] || null;    // 大隊法定名稱
+            const little_team_name = cols[4] || null; // 小隊法定名稱
             const is_captain = String(cols[5]).toLowerCase() === 'true';
             const is_commandant = String(cols[6]).toLowerCase() === 'true';
 
             await client.query(`
-                INSERT INTO "Rosters" (email, name, birthday, squad_name, team_name, is_captain, is_commandant)
+                INSERT INTO "Rosters" (email, name, birthday, big_team_name, little_team_name, is_captain, is_commandant)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ON CONFLICT (email)
                 DO UPDATE SET
                     name = EXCLUDED.name,
                     birthday = EXCLUDED.birthday,
-                    squad_name = EXCLUDED.squad_name,
-                    team_name = EXCLUDED.team_name,
+                    big_team_name = EXCLUDED.big_team_name,
+                    little_team_name = EXCLUDED.little_team_name,
                     is_captain = EXCLUDED.is_captain,
                     is_commandant = EXCLUDED.is_commandant
-            `, [email, name, birthday, squad_name, team_name, is_captain, is_commandant]);
+            `, [email, name, birthday, big_team_name, little_team_name, is_captain, is_commandant]);
 
             // If they already created a CharacterStat, automatically sync all fields
             await client.query(`
                 UPDATE "CharacterStats"
-                SET "SquadName" = $2, "TeamName" = $3, "IsCaptain" = $4, "IsCommandant" = $5,
+                SET "BigTeamLeagelName" = $2, "LittleTeamLeagelName" = $3, "IsCaptain" = $4, "IsCommandant" = $5,
                     "Birthday" = COALESCE($6, "Birthday")
                 WHERE "Email" = $1
-            `, [email, squad_name, team_name, is_captain, is_commandant, birthday]);
+            `, [email, big_team_name, little_team_name, is_captain, is_commandant, birthday]);
 
             count++;
         }
 
         await client.query('COMMIT');
-        await logAdminAction('roster_import', 'admin', undefined, undefined, { count });
+        await logAdminAction('roster_import', actor, undefined, undefined, { count });
         return { success: true, count };
     } catch (error: any) {
         await client.query('ROLLBACK');
-        await logAdminAction('roster_import', 'admin', undefined, undefined, { error: error.message }, 'error');
+        await logAdminAction('roster_import', actor, undefined, undefined, { error: error.message }, 'error');
         return { success: false, error: error.message };
     } finally {
         await client.end();
@@ -420,8 +420,8 @@ export async function adminCreateMember(data: {
         Streak: 0, LastCheckIn: null, TotalFines: 0, FinePaid: 0,
         CurrentQ: 0, CurrentR: 0, HP: null, MaxHP: null,
         Email: data.email?.trim()?.toLowerCase() || null,
-        TeamName: data.teamName?.trim() || null,
-        SquadName: data.isCommandant ? null : (data.squadName?.trim() || null),
+        BigTeamLeagelName: data.teamName?.trim() || null,
+        LittleTeamLeagelName: data.isCommandant ? null : (data.squadName?.trim() || null),
         IsCaptain: !!data.isCaptain,
         IsCommandant: !!data.isCommandant,
     };
@@ -440,7 +440,7 @@ export async function updateMemberAssignment(
     isGM?: boolean,
 ): Promise<{ success: boolean; error?: string }> {
     const supabase = createClient(_supabaseUrl, _supabaseKey);
-    const updateData: Record<string, unknown> = { TeamName: teamName || null, SquadName: squadName || null, IsCaptain: isCaptain, IsCommandant: isCommandant };
+    const updateData: Record<string, unknown> = { BigTeamLeagelName: teamName || null, LittleTeamLeagelName: squadName || null, IsCaptain: isCaptain, IsCommandant: isCommandant };
     if (isGM !== undefined) updateData.IsGM = isGM;
     const { error } = await supabase
         .from('CharacterStats')
@@ -448,6 +448,26 @@ export async function updateMemberAssignment(
         .eq('UserID', userId);
     if (error) return { success: false, error: error.message };
     return { success: true };
+}
+
+// ── 管理員設定任務角色 ────────────────────────────────────────
+export async function adminSetMemberQuestRole(
+    targetUserId: string,
+    roles: string[],
+): Promise<{ success: boolean; error?: string }> {
+    const client = await connectDb();
+    try {
+        const value = roles.length > 0 ? JSON.stringify(roles) : null;
+        await client.query(
+            `UPDATE "CharacterStats" SET "QuestRole" = $1 WHERE "UserID" = $2`,
+            [value, targetUserId]
+        );
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    } finally {
+        await client.end();
+    }
 }
 
 // ── 玩家設定生日 ────────────────────────────────────────
@@ -812,4 +832,70 @@ export async function unbindLine(userId: string): Promise<{ success: boolean; er
         .eq('UserID', userId);
     if (error) return { success: false, error: error.message };
     return { success: true };
+}
+
+// ── 儀表板統計 ────────────────────────────────────────────
+export async function getDashboardStats(): Promise<{
+    success: boolean;
+    total: number;
+    active: number;
+    fallen: number;
+    fallenUsers: { name: string; teamName: string | null; squadName: string | null }[];
+    error?: string;
+}> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+
+    // 邏輯日期：中午12點前算前一天
+    const now = new Date();
+    const logicalNow = new Date(now);
+    if (now.getHours() < 12) logicalNow.setDate(logicalNow.getDate() - 1);
+    logicalNow.setHours(12, 0, 0, 0);
+
+    // 活躍門檻：邏輯今天往前2天的中午
+    const activeCutoff = new Date(logicalNow);
+    activeCutoff.setDate(activeCutoff.getDate() - 2);
+
+    // 陣亡門檻：邏輯今天往前3天的中午
+    const fallenCutoff = new Date(logicalNow);
+    fallenCutoff.setDate(fallenCutoff.getDate() - 3);
+
+    // 1. 所有玩家（含姓名、大隊、小隊）
+    const { data: allUsers, error: usersErr } = await supabase
+        .from('CharacterStats')
+        .select('UserID, Name, BigTeamLeagelName, LittleTeamLeagelName');
+    if (usersErr) return { success: false, total: 0, active: 0, fallen: 0, fallenUsers: [], error: usersErr.message };
+
+    const total = allUsers?.length ?? 0;
+
+    // 2. 活躍：在 activeCutoff 之後有 DailyLogs 回報
+    const { data: activeLogs } = await supabase
+        .from('DailyLogs')
+        .select('UserID')
+        .gte('Timestamp', activeCutoff.toISOString());
+    const activeIds = new Set(activeLogs?.map(l => l.UserID) ?? []);
+
+    // 3. 陣亡：在 fallenCutoff 之後完全沒有 DailyLogs
+    const { data: recentLogs } = await supabase
+        .from('DailyLogs')
+        .select('UserID')
+        .gte('Timestamp', fallenCutoff.toISOString());
+    const hasRecentActivity = new Set(recentLogs?.map(l => l.UserID) ?? []);
+
+    const active = (allUsers ?? []).filter(u => activeIds.has(u.UserID)).length;
+    const fallenList = (allUsers ?? []).filter(u => !hasRecentActivity.has(u.UserID));
+    const fallen = fallenList.length;
+
+    // 排序：大隊 → 小隊 → 姓名
+    fallenList.sort((a, b) => {
+        const t = (a.BigTeamLeagelName ?? '').localeCompare(b.BigTeamLeagelName ?? '');
+        if (t !== 0) return t;
+        const s = (a.LittleTeamLeagelName ?? '').localeCompare(b.LittleTeamLeagelName ?? '');
+        if (s !== 0) return s;
+        return (a.Name ?? '').localeCompare(b.Name ?? '');
+    });
+
+    return {
+        success: true, total, active, fallen,
+        fallenUsers: fallenList.map(u => ({ name: u.Name, teamName: u.BigTeamLeagelName ?? null, squadName: u.LittleTeamLeagelName ?? null })),
+    };
 }

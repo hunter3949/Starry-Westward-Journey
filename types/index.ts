@@ -21,8 +21,10 @@ export interface CharacterStats {
   CurrentQ: number;
   CurrentR: number;
   Email?: string;
-  SquadName?: string;
-  TeamName?: string;
+  LittleTeamLeagelName?: string;  // 小隊系統法定名稱
+  BigTeamLeagelName?: string;     // 大隊系統法定名稱
+  LittleTeamNickName?: string;    // 小隊暱稱（由小隊長自行設定）
+  BigTeamNickName?: string;       // 大隊暱稱（由大隊長自行設定）
   IsCaptain?: boolean;
   Inventory: string[]; // Changed from optional to required as per instruction
   InitialFortunes?: Record<string, number>;
@@ -37,17 +39,17 @@ export interface CharacterStats {
   IsCommandant?: boolean; // 大隊長
   IsGM?: boolean;         // GM 遊戲管理員
   LineUserId?: string;
-  QuestRole?: string;    // LINE Login 綁定 ID
+  QuestRole?: string;    // 任務角色 JSON 陣列（如 ["先鋒","守護"]）
 }
 
 export interface Roster {
   email: string;
   name?: string;
   birthday?: string;
-  squad_name?: string;    // 大隊
-  team_name?: string;     // 小隊
-  is_captain?: boolean;   // 小隊長
-  is_commandant?: boolean; // 大隊長
+  big_team_name?: string;    // 大隊法定名稱
+  little_team_name?: string; // 小隊法定名稱
+  is_captain?: boolean;      // 小隊長
+  is_commandant?: boolean;   // 大隊長
 }
 
 export interface TeamSettings {

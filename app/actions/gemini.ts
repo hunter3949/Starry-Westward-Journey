@@ -170,13 +170,13 @@ export async function generateCaptainBriefing(
     try {
         // 1. Verify captain + get team name
         const captainRes = await client.query(
-            `SELECT "TeamName", "IsCaptain", "Name" FROM "CharacterStats" WHERE "UserID" = $1`,
+            `SELECT "LittleTeamLeagelName", "IsCaptain", "Name" FROM "CharacterStats" WHERE "UserID" = $1`,
             [captainUserId]
         );
         if (captainRes.rowCount === 0) throw new Error('無效的使用者');
         const captain = captainRes.rows[0];
         if (!captain.IsCaptain) return { success: false, error: '非隊長無法使用此功能' };
-        if (!captain.TeamName) return { success: false, error: '尚未分配小隊' };
+        if (!captain.LittleTeamLeagelName) return { success: false, error: '尚未分配小隊' };
 
         // 2. Compute this week's label (Taiwan timezone Monday)
         const now = new Date();
@@ -199,8 +199,8 @@ export async function generateCaptainBriefing(
 
         // 4. Fetch all team members
         const membersRes = await client.query(
-            `SELECT * FROM "CharacterStats" WHERE "TeamName" = $1 ORDER BY "Level" DESC`,
-            [captain.TeamName]
+            `SELECT * FROM "CharacterStats" WHERE "LittleTeamLeagelName" = $1 ORDER BY "Level" DESC`,
+            [captain.LittleTeamLeagelName]
         );
         const members = membersRes.rows;
         if (members.length === 0) return { success: false, error: '小隊目前無成員' };
@@ -240,7 +240,7 @@ export async function generateCaptainBriefing(
 請根據以下資料，對小隊過去 7 天的修行表現進行分析，並給予隊長具體可行的建議。
 
 【小隊資訊】
-小隊名稱：${captain.TeamName}
+小隊名稱：${captain.LittleTeamLeagelName}
 隊長：${captain.Name}
 隊員人數：${members.length} 人
 
