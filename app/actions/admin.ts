@@ -757,6 +757,41 @@ export async function saveQuestRoles(roles: QuestRole[]): Promise<{ success: boo
     return { success: true };
 }
 
+// ── 卡牌座右銘 ───────────────────────────────────────────────────
+export async function getCardMottos(): Promise<string[]> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { data } = await supabase.from('SystemSettings').select('Value').eq('SettingName', 'CardMottos').single();
+    if (!data?.Value) return [];
+    try { return JSON.parse(data.Value) as string[]; } catch { return []; }
+}
+
+export async function saveCardMottos(mottos: string[]): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase.from('SystemSettings').upsert(
+        { SettingName: 'CardMottos', Value: JSON.stringify(mottos) },
+        { onConflict: 'SettingName' }
+    );
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ── 卡牌背面圖片 ────────────────────────────────────────────────
+export async function getCardBackImage(): Promise<string | null> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { data } = await supabase.from('SystemSettings').select('Value').eq('SettingName', 'CardBackImage').single();
+    return data?.Value ?? null;
+}
+
+export async function saveCardBackImage(dataUrl: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase.from('SystemSettings').upsert(
+        { SettingName: 'CardBackImage', Value: dataUrl },
+        { onConflict: 'SettingName' }
+    );
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
 // ── LINE 取消綁定 ─────────────────────────────────────────────────
 // ── 志工密碼輪換 ────────────────────────────────────────
 export async function rotateVolunteerPassword(): Promise<{ success: boolean; newPassword?: string; error?: string }> {

@@ -1001,6 +1001,10 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    document.title = systemSettings.SiteName || '大無限開運西遊';
+  }, [systemSettings.SiteName]);
+
   // One-time static data load — world map terrain, settings, history
   // Separated from the login useEffect so userData changes don't re-fetch and potentially clobber mapData
   useEffect(() => {
@@ -1030,6 +1034,10 @@ export default function App() {
           VolunteerPassword: sObj.VolunteerPassword,
           DefinedSquads: sObj.DefinedSquads,
           DefinedBattalions: sObj.DefinedBattalions,
+          SiteName: sObj.SiteName,
+          SiteLogo: sObj.SiteLogo,
+          CardMottos: sObj.CardMottos,
+          CardBackImage: sObj.CardBackImage,
         });
         try {
           setQuestRoleDefs(sObj.QuestRoles ? JSON.parse(sObj.QuestRoles) : DEFAULT_QUEST_ROLES);
@@ -1283,6 +1291,9 @@ export default function App() {
             onCheckIn={handleCheckInAction}
             onUndo={setUndoTarget}
             formatCheckInTime={formatCheckInTime}
+            userId={userData?.UserID}
+            cardMottos={systemSettings.CardMottos ? (() => { try { return JSON.parse(systemSettings.CardMottos!); } catch { return undefined; } })() : undefined}
+            cardBackImage={systemSettings.CardBackImage || undefined}
           />
         )}
         {activeTab === 'weekly' && (
@@ -1411,6 +1422,8 @@ export default function App() {
           onGoToAdmin={() => setView('admin')}
           isSyncing={isSyncing}
           registrationMode={systemSettings.RegistrationMode}
+          siteName={systemSettings.SiteName}
+          siteLogo={systemSettings.SiteLogo}
         />
       )}
 

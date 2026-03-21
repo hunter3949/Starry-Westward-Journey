@@ -104,6 +104,10 @@ export interface SystemSettings {
   VolunteerPassword?: string;
   DefinedSquads?: string; // JSON: {teamId: string, squadId: string}[]
   DefinedBattalions?: string; // JSON: string[]
+  SiteName?: string;
+  SiteLogo?: string; // base64 data URL
+  CardMottos?: string; // JSON: string[]
+  CardBackImage?: string; // base64 data URL
 }
 
 export interface W4Application {

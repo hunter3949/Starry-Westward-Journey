@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import { Quest, DailyLog } from '@/types';
 import { DAILY_QUEST_CONFIG } from '@/lib/constants';
 import { getLogicalDateStr } from '@/lib/utils/time';
+import { LifeHintCard } from '@/components/LifeHintCard';
 
 function QuestIcon({ questId, isDone }: { questId: string; isDone: boolean }) {
     if (isDone) {
@@ -25,6 +26,9 @@ interface DailyQuestsTabProps {
     logicalTodayStr: string;
     userInventory: string[];
     teamInventory?: string[];
+    cardMottos?: string[];
+    cardBackImage?: string;
+    userId?: string;
     onCheckIn: (q: Quest) => void;
     onUndo: (q: Quest) => void;
     formatCheckInTime: (timestamp: string) => string;
@@ -98,8 +102,30 @@ function Q1Card({ q, isDone, questLog, isDawn, setIsDawn, hasMirror, activeManda
     );
 }
 
-export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInventory, teamInventory = [], onCheckIn, onUndo, formatCheckInTime }: DailyQuestsTabProps) {
+export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInventory, teamInventory = [], cardMottos, cardBackImage, userId, onCheckIn, onUndo, formatCheckInTime }: DailyQuestsTabProps) {
     const [isDawnMode, setIsDawnMode] = useState(false);
+    const [showLifeCard, setShowLifeCard] = useState(false);
+    const [todayCardText, setTodayCardText] = useState<string | null>(null);
+
+    const cardKey = `life_hint_card_${userId || 'guest'}`;
+
+    // 讀取今日已抽的卡
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(cardKey);
+            if (raw) {
+                const { text, date } = JSON.parse(raw);
+                if (date === logicalTodayStr) setTodayCardText(text);
+            }
+        } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [logicalTodayStr, cardKey]);
+
+    const handleDraw = (text: string) => {
+        setTodayCardText(text);
+        setShowLifeCard(false);
+        try { localStorage.setItem(cardKey, JSON.stringify({ text, date: logicalTodayStr })); } catch { /* ignore */ }
+    };
     const hasMirror = userInventory.includes('a2');
     const weeklyQuestName = DAILY_QUEST_CONFIG.find(q => q.id === weeklyQuestId)?.title;
 
@@ -113,6 +139,29 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
 
     return (
         <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500 text-center mx-auto">
+            {showLifeCard && <LifeHintCard onClose={() => setShowLifeCard(false)} onDraw={handleDraw} texts={cardMottos} cardBackImage={cardBackImage} />}
+
+            {todayCardText ? (
+                /* 今日已抽：展示卡片 */
+                <div
+                    className="w-full rounded-3xl p-6 text-center space-y-2 shadow-xl"
+                    style={{
+                        background: 'linear-gradient(135deg,#a8edea 0%,#fed6e3 25%,#d299c2 50%,#fef9d7 75%,#667eea 100%)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                    }}
+                >
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">🃏 今日人生提示卡</p>
+                    <p className="text-xl font-black text-slate-800 leading-relaxed whitespace-pre-line">{todayCardText}</p>
+                </div>
+            ) : (
+                /* 今日未抽：顯示按鈕 */
+                <button
+                    onClick={() => setShowLifeCard(true)}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-3xl border-2 border-purple-500/40 bg-purple-950/20 text-purple-300 font-black text-sm hover:bg-purple-900/30 active:scale-95 transition-all"
+                >
+                    🃏 人生提示卡
+                </button>
+            )}
             <div className="bg-indigo-900/20 border-2 border-indigo-500/30 rounded-4xl p-6 shadow-2xl text-center mx-auto">
                 <div className="flex items-center gap-2 justify-center text-indigo-400 font-black text-xs uppercase mb-2 tracking-widest"><Sparkles size={16} /> 本週推薦定課</div>
                 {weeklyQuestName
