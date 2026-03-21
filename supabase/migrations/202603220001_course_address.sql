@@ -1,0 +1,1 @@
+ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS address TEXT;

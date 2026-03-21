@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/auto-draw",
       "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/cron/rotate-vol-password",
+      "schedule": "0 16 * * *"
     }
   ]
 }

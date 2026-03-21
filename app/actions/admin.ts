@@ -394,6 +394,62 @@ export async function importRostersData(csvContent: string) {
     }
 }
 
+// ── 手動新增人員 ────────────────────────────────────────
+export async function adminCreateMember(data: {
+    name: string;
+    phone: string;
+    email?: string;
+    role: string;
+    teamName?: string;
+    squadName?: string;
+    isCaptain?: boolean;
+    isCommandant?: boolean;
+}): Promise<{ success: boolean; userId?: string; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const userId = data.phone.replace(/\D/g, '');
+    if (!userId) return { success: false, error: '手機號碼格式錯誤' };
+    const { data: existing } = await supabase.from('CharacterStats').select('UserID').eq('UserID', userId).single();
+    if (existing) return { success: false, error: `UserID「${userId}」已存在` };
+    const newChar = {
+        UserID: userId,
+        Name: data.name.trim(),
+        Role: data.role,
+        Level: 1, Exp: 0, Coins: 0, GameGold: 0,
+        Inventory: [], EnergyDice: 3, GoldenDice: 0,
+        Savvy: 10, Luck: 10, Charisma: 10, Spirit: 10, Physique: 10, Potential: 10,
+        Streak: 0, LastCheckIn: null, TotalFines: 0, FinePaid: 0,
+        CurrentQ: 0, CurrentR: 0, HP: null, MaxHP: null,
+        Email: data.email?.trim()?.toLowerCase() || null,
+        TeamName: data.teamName?.trim() || null,
+        SquadName: data.isCommandant ? null : (data.squadName?.trim() || null),
+        IsCaptain: !!data.isCaptain,
+        IsCommandant: !!data.isCommandant,
+    };
+    const { error } = await supabase.from('CharacterStats').insert([newChar]);
+    if (error) return { success: false, error: error.message };
+    return { success: true, userId };
+}
+
+// ── 大小隊分組管理 ────────────────────────────────────────
+export async function updateMemberAssignment(
+    userId: string,
+    teamName: string,
+    squadName: string,
+    isCaptain: boolean,
+    isCommandant: boolean,
+    isGM?: boolean,
+): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const updateData: Record<string, unknown> = { TeamName: teamName || null, SquadName: squadName || null, IsCaptain: isCaptain, IsCommandant: isCommandant };
+    if (isGM !== undefined) updateData.IsGM = isGM;
+    const { error } = await supabase
+        .from('CharacterStats')
+        .update(updateData)
+        .eq('UserID', userId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
 // ── 玩家設定生日 ────────────────────────────────────────
 export async function saveBirthday(userId: string, birthday: string) {
     // Validate format YYYY-MM-DD
@@ -402,6 +458,322 @@ export async function saveBirthday(userId: string, birthday: string) {
     const { error } = await supabase
         .from('CharacterStats')
         .update({ Birthday: birthday })
+        .eq('UserID', userId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ── 大小隊自訂隊名 ────────────────────────────────────────
+export async function getGroupDisplayNames(): Promise<{
+    squads: { team_name: string; display_name: string | null }[];
+    battalions: { battalion_name: string; display_name: string | null }[];
+}> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const [{ data: squads }, { data: battalions }] = await Promise.all([
+        supabase.from('TeamSettings').select('team_name, display_name'),
+        supabase.from('BattalionSettings').select('battalion_name, display_name'),
+    ]);
+    return {
+        squads: (squads ?? []) as { team_name: string; display_name: string | null }[],
+        battalions: (battalions ?? []) as { battalion_name: string; display_name: string | null }[],
+    };
+}
+
+export async function setSquadDisplayName(squadName: string, displayName: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase
+        .from('TeamSettings')
+        .upsert({ team_name: squadName, display_name: displayName.trim() || null }, { onConflict: 'team_name' });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+export async function setBattalionDisplayName(battalionName: string, displayName: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase
+        .from('BattalionSettings')
+        .upsert({ battalion_name: battalionName, display_name: displayName.trim() || null }, { onConflict: 'battalion_name' });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ── 修行定課管理 ──────────────────────────────────────────────────────────────
+
+export interface DailyQuestConfigRow {
+    id: string;
+    title: string;
+    sub: string | null;
+    desc: string | null;
+    reward: number;
+    coins: number | null; // null = 使用預設規則（exp * 0.1）
+    dice: number;
+    icon: string | null;
+    limit: number | null;
+    sort_order: number;
+    is_active: boolean;
+    created_at: string;
+}
+
+export async function listDailyQuestConfig(): Promise<DailyQuestConfigRow[]> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { data, error } = await supabase
+        .from('DailyQuestConfig')
+        .select('*')
+        .order('sort_order', { ascending: true });
+    if (error || !data) return [];
+    return data as DailyQuestConfigRow[];
+}
+
+export async function upsertDailyQuestConfig(
+    row: Omit<DailyQuestConfigRow, 'created_at'>
+): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase
+        .from('DailyQuestConfig')
+        .upsert(row, { onConflict: 'id' });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+export async function deleteDailyQuestConfig(id: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase.from('DailyQuestConfig').delete().eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ── 天庭藏寶閣法寶管理 ────────────────────────────────────────────────────────
+
+export interface ArtifactConfigRow {
+    id: string;
+    name: string;
+    description: string;
+    effect: string;
+    icon: string | null;
+    price: number;
+    is_team_binding: boolean;
+    limit: number;
+    exclusive_with: string | null;
+    exp_multiplier_personal: number | null;
+    exp_multiplier_team: number | null;
+    exp_bonus_personal: number | null;
+    exp_bonus_team: number | null;
+    is_active: boolean;
+    sort_order: number;
+    created_at: string;
+}
+
+export async function listArtifactConfig(): Promise<ArtifactConfigRow[]> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { data, error } = await supabase
+        .from('ArtifactConfig')
+        .select('*')
+        .order('sort_order', { ascending: true });
+    if (error || !data) return [];
+    return data as ArtifactConfigRow[];
+}
+
+export async function upsertArtifactConfig(
+    row: Omit<ArtifactConfigRow, 'created_at'>
+): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase
+        .from('ArtifactConfig')
+        .upsert(row, { onConflict: 'id' });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+export async function deleteArtifactConfig(id: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase.from('ArtifactConfig').delete().eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+export async function uploadQuestIcon(formData: FormData): Promise<{ success: boolean; url?: string; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const file = formData.get('file') as File | null;
+    if (!file) return { success: false, error: '無效檔案' };
+
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png';
+    const fileName = `quest-icons/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const arrayBuffer = await file.arrayBuffer();
+
+    const { error } = await supabase.storage
+        .from('public')
+        .upload(fileName, arrayBuffer, { contentType: file.type, upsert: true });
+
+    if (error) return { success: false, error: error.message };
+
+    const { data } = supabase.storage.from('public').getPublicUrl(fileName);
+    return { success: true, url: data.publicUrl };
+}
+
+// ── 成就殿堂管理 ──────────────────────────────────────────────────────────────
+
+export interface AchievementConfigRow {
+    id: string;
+    name: string;
+    rarity: 'common' | 'rare' | 'epic' | 'legendary';
+    icon: string;
+    hint: string;
+    description: string;
+    role_exclusive: string | null;
+    is_active: boolean;
+    sort_order: number;
+    created_at: string;
+}
+
+export async function listAchievementConfig(): Promise<AchievementConfigRow[]> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { data, error } = await supabase
+        .from('AchievementConfig')
+        .select('*')
+        .order('sort_order', { ascending: true });
+    if (error || !data) return [];
+    return data as AchievementConfigRow[];
+}
+
+export async function upsertAchievementConfig(
+    row: Omit<AchievementConfigRow, 'created_at'>
+): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase
+        .from('AchievementConfig')
+        .upsert(row, { onConflict: 'id' });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+export async function deleteAchievementConfig(id: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase.from('AchievementConfig').delete().eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ── 圖片庫（Supabase Storage）─────────────────────────────────────────────────
+
+export interface StorageFileItem {
+    name: string;
+    fullPath: string;   // e.g. "gallery/hero.png"
+    publicUrl: string;
+    size: number;       // bytes
+    createdAt: string;
+}
+
+const GALLERY_BUCKET = 'public';
+
+/** List files under a given folder prefix (empty = root). */
+export async function listStorageFiles(folder: string = 'gallery'): Promise<StorageFileItem[]> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { data, error } = await supabase.storage
+        .from(GALLERY_BUCKET)
+        .list(folder, { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
+    if (error || !data) return [];
+
+    return data
+        .filter(f => f.name !== '.emptyFolderPlaceholder' && f.id)   // skip placeholder & folders
+        .map(f => {
+            const fullPath = folder ? `${folder}/${f.name}` : f.name;
+            const { data: urlData } = supabase.storage.from(GALLERY_BUCKET).getPublicUrl(fullPath);
+            return {
+                name: f.name,
+                fullPath,
+                publicUrl: urlData.publicUrl,
+                size: f.metadata?.size ?? 0,
+                createdAt: f.created_at ?? '',
+            };
+        });
+}
+
+/** List all top-level folders in the bucket. */
+export async function listStorageFolders(): Promise<string[]> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { data } = await supabase.storage.from(GALLERY_BUCKET).list('', { limit: 100 });
+    if (!data) return [];
+    // Folders have no id / metadata; files have an id
+    const folders = data.filter(f => !f.id && f.name !== '.emptyFolderPlaceholder').map(f => f.name);
+    return folders;
+}
+
+/** Upload one file to Supabase Storage. FormData must contain 'file' and 'folder'. */
+export async function uploadStorageFile(
+    formData: FormData
+): Promise<{ success: boolean; item?: StorageFileItem; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const file = formData.get('file') as File | null;
+    const folder = (formData.get('folder') as string | null) ?? 'gallery';
+    if (!file) return { success: false, error: '無效檔案' };
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const fullPath = `${folder}/${Date.now()}-${safeName}`;
+    const buf = await file.arrayBuffer();
+
+    const { error } = await supabase.storage
+        .from(GALLERY_BUCKET)
+        .upload(fullPath, buf, { contentType: file.type, upsert: false });
+    if (error) return { success: false, error: error.message };
+
+    const { data: urlData } = supabase.storage.from(GALLERY_BUCKET).getPublicUrl(fullPath);
+    return {
+        success: true,
+        item: { name: file.name, fullPath, publicUrl: urlData.publicUrl, size: file.size, createdAt: new Date().toISOString() },
+    };
+}
+
+/** Delete a file by its full path (e.g. "gallery/foo.png"). */
+export async function deleteStorageFile(
+    fullPath: string
+): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase.storage.from(GALLERY_BUCKET).remove([fullPath]);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ── 任務角色管理 ──────────────────────────────────────────
+export interface QuestRole {
+    id: string;
+    name: string;
+    duties: string[];
+}
+
+export async function getQuestRoles(): Promise<QuestRole[]> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { data } = await supabase.from('SystemSettings').select('Value').eq('SettingName', 'QuestRoles').single();
+    if (!data?.Value) return [];
+    try { return JSON.parse(data.Value) as QuestRole[]; } catch { return []; }
+}
+
+export async function saveQuestRoles(roles: QuestRole[]): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase.from('SystemSettings').upsert(
+        { SettingName: 'QuestRoles', Value: JSON.stringify(roles) },
+        { onConflict: 'SettingName' }
+    );
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ── LINE 取消綁定 ─────────────────────────────────────────────────
+// ── 志工密碼輪換 ────────────────────────────────────────
+export async function rotateVolunteerPassword(): Promise<{ success: boolean; newPassword?: string; error?: string }> {
+    const newPassword = String(Math.floor(100000 + Math.random() * 900000));
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase
+        .from('SystemSettings')
+        .upsert({ SettingName: 'VolunteerPassword', Value: newPassword }, { onConflict: 'SettingName' });
+    if (error) return { success: false, error: error.message };
+    return { success: true, newPassword };
+}
+
+export async function unbindLine(userId: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase
+        .from('CharacterStats')
+        .update({ LineUserId: null })
         .eq('UserID', userId);
     if (error) return { success: false, error: error.message };
     return { success: true };

@@ -2,6 +2,15 @@ import React from 'react';
 import { Snowflake, EyeOff, Flame, Droplets, Wind, Ghost } from 'lucide-react';
 import { Quest, ZoneInfo, CharacterStats } from '@/types';
 
+export const DEFAULT_QUEST_ROLES = [
+    { id: 'vice_captain',  name: '副隊長',   duties: ['小隊長的副手', '協助提醒小組活動'] },
+    { id: 'dindin',        name: '叮叮隊長', duties: ['管理共同定課', '提醒上傳定課'] },
+    { id: 'lele',          name: '樂樂隊長', duties: ['歡樂群組氣氛'] },
+    { id: 'chongchong',    name: '衝衝隊長', duties: ['協助小隊長加分規劃', '鼓勵參加實體課程'] },
+    { id: 'jingjing',      name: '驚驚隊長', duties: ['提醒計分回報', '計分問題排解'] },
+    { id: 'baobao',        name: '抱抱隊長', duties: ['關心夥伴', '給予支持鼓勵'] },
+];
+
 export const BASE_START_DATE_STR = "2026-02-01";
 export const END_DATE = "2026-06-28";
 export const PENALTY_PER_DAY = 50;

@@ -8,10 +8,10 @@ import {
   Dice5, Loader2, RotateCcw
 } from 'lucide-react';
 
-import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, FinePaymentRecord, AchievementRecord } from '@/types';
+import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, FinePaymentRecord, AchievementRecord, Course } from '@/types';
 import { getLogicalDateStr, getWeeklyMonday } from '@/lib/utils/time';
 import { standardizePhone } from '@/lib/utils/phone';
-import { ROLE_CURE_MAP, DEFAULT_CONFIG, ADVENTURE_COST, ADMIN_PASSWORD, calculateLevelFromExp, ROLE_GROWTH_RATES } from '@/lib/constants';
+import { ROLE_CURE_MAP, DEFAULT_CONFIG, ADVENTURE_COST, ADMIN_PASSWORD, calculateLevelFromExp, ROLE_GROWTH_RATES, DEFAULT_QUEST_ROLES } from '@/lib/constants';
 import { WorldMap } from '@/components/Map/WorldMap';
 
 import { Header } from '@/components/Layout/Header';
@@ -32,12 +32,13 @@ import { getUserAchievements } from '@/app/actions/achievements';
 import { AdminDashboard } from '@/components/Admin/AdminDashboard';
 import { processCheckInTransaction } from '@/app/actions/quest';
 import { triggerWeeklySnapshot, importRostersData, checkWeeklyW3Compliance, autoAssignSquadsForTesting, logAdminAction } from '@/app/actions/admin';
+import { listCourses, upsertCourse, deleteCourse } from '@/app/actions/course';
 import { getTestimonies } from '@/app/actions/testimonies_admin';
 import { drawWeeklyQuestForSquad, autoDrawAllSquads } from '@/app/actions/team';
 import { submitW4Application, reviewW4BySquadLeader, reviewW4ByAdmin, getW4Applications, getAdminActivityLog } from '@/app/actions/w4';
 import { generateWeeklyReview, generateCaptainBriefing } from '@/app/actions/gemini';
 import { handleChestOpen } from '@/app/actions/map';
-import { getSquadFineStatus, recordFinePayment, setPaidToCaptainDate, getSquadFinePaymentHistory, checkSquadW3Compliance, recordOrgSubmission, getSquadOrgSubmissions } from '@/app/actions/fines';
+import { getSquadFineStatus, recordFinePayment, setPaidToCaptainDate, getSquadFinePaymentHistory, checkSquadW3Compliance, recordOrgSubmission, getSquadOrgSubmissions, getSquadMembersWithRoles, setMemberQuestRole } from '@/app/actions/fines';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -71,6 +72,22 @@ export default function App() {
   const [modalMessage, setModalMessage] = useState<{ text: string, type: 'info' | 'error' | 'success' } | null>(null);
   const [undoTarget, setUndoTarget] = useState<Quest | null>(null);
   const [adminAuth, setAdminAuth] = useState(false);
+
+  // 字體大小設定（存 localStorage，套用於 <html>）
+  const FONT_SIZES = [100, 112, 125, 140] as const;
+  type FontSizeValue = typeof FONT_SIZES[number];
+  const [fontSize, setFontSizeState] = useState<FontSizeValue>(100);
+  useEffect(() => {
+    const saved = parseInt(localStorage.getItem('font_size_pref') || '100', 10);
+    const valid = FONT_SIZES.includes(saved as FontSizeValue) ? saved as FontSizeValue : 100;
+    setFontSizeState(valid);
+    document.documentElement.style.fontSize = `${valid}%`;
+  }, []);
+  const setFontSize = (size: FontSizeValue) => {
+    setFontSizeState(size);
+    localStorage.setItem('font_size_pref', String(size));
+    document.documentElement.style.fontSize = `${size}%`;
+  };
   const [mapData, setMapData] = useState<Record<string, string>>({});
   const [mapEntities, setMapEntities] = useState<any[]>([]);
   const [teamSettings, setTeamSettings] = useState<any>(null);
@@ -96,6 +113,7 @@ export default function App() {
   const [squadApprovedW4Apps, setSquadApprovedW4Apps] = useState<W4Application[]>([]);
   const [adminLogs, setAdminLogs] = useState<AdminLog[]>([]);
   const [testimonies, setTestimonies] = useState<Testimony[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
 
   // 罰款管理 state
   interface SquadMemberFine { userId: string; name: string; totalFines: number; finePaid: number; balance: number; }
@@ -103,6 +121,10 @@ export default function App() {
   const [fineHistory, setFineHistory] = useState<FinePaymentRecord[]>([]);
   const [isLoadingFines, setIsLoadingFines] = useState(false);
   const [orgSubmissions, setOrgSubmissions] = useState<import('@/types').SquadFineSubmission[]>([]);
+  interface SquadMemberWithRole { userId: string; name: string; questRole: string; }
+  const [squadMembersWithRoles, setSquadMembersWithRoles] = useState<SquadMemberWithRole[]>([]);
+  interface QuestRoleDef { id: string; name: string; duties: string[] }
+  const [questRoleDefs, setQuestRoleDefs] = useState<QuestRoleDef[]>([]);
   const [userAchievements, setUserAchievements] = useState<AchievementRecord[]>([]);
   const [achievementQueue, setAchievementQueue] = useState<AchievementDef[]>([]);
   const [isCheckingCompliance, setIsCheckingCompliance] = useState(false);
@@ -321,16 +343,28 @@ export default function App() {
     if (!userData?.TeamName) return;
     setIsLoadingFines(true);
     try {
-      const [summaryRes, histRes, orgRes] = await Promise.all([
+      const [summaryRes, histRes, orgRes, rolesRes] = await Promise.all([
         getSquadFineStatus(userData.UserID),
         getSquadFinePaymentHistory(userData.UserID),
         getSquadOrgSubmissions(userData.UserID),
+        getSquadMembersWithRoles(userData.UserID),
       ]);
       if (summaryRes.success && summaryRes.members) setSquadFineMembers(summaryRes.members as SquadMemberFine[]);
       if (histRes.success && histRes.records) setFineHistory(histRes.records as FinePaymentRecord[]);
       if (orgRes.success && orgRes.records) setOrgSubmissions(orgRes.records as import('@/types').SquadFineSubmission[]);
+      if (rolesRes.success && rolesRes.members) setSquadMembersWithRoles(rolesRes.members as SquadMemberWithRole[]);
     } catch (_) { /* silent */ } finally {
       setIsLoadingFines(false);
+    }
+  };
+
+  const handleSetQuestRole = async (targetUserId: string, roleId: string) => {
+    if (!userData?.UserID) return;
+    const res = await setMemberQuestRole(userData.UserID, targetUserId, roleId);
+    if (res.success) {
+      setSquadMembersWithRoles(prev => prev.map(m => m.userId === targetUserId ? { ...m, questRole: roleId } : m));
+    } else {
+      setModalMessage({ text: res.error || '設定失敗', type: 'error' });
     }
   };
 
@@ -483,6 +517,28 @@ export default function App() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const handleUpsertCourse = async (course: Course) => {
+    const res = await upsertCourse(course);
+    if (!res.success) { setModalMessage({ text: `課程儲存失敗：${res.error}`, type: 'error' }); return; }
+    setCourses(await listCourses());
+  };
+
+  const handleDeleteCourse = async (id: string) => {
+    if (!confirm(`確定要刪除課程「${id}」嗎？相關報名紀錄也會一併刪除。`)) return;
+    const res = await deleteCourse(id);
+    if (!res.success) { setModalMessage({ text: `刪除課程失敗：${res.error}`, type: 'error' }); return; }
+    setCourses(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleUpdateMemberAssignment = async (userId: string, teamName: string, squadName: string, isCaptain: boolean, isCommandant: boolean, isGM: boolean) => {
+    const { updateMemberAssignment } = await import('@/app/actions/admin');
+    const res = await updateMemberAssignment(userId, teamName, squadName, isCaptain, isCommandant, isGM);
+    if (!res.success) { setModalMessage({ text: `更新失敗：${res.error}`, type: 'error' }); return; }
+    // 刷新 leaderboard
+    const { data } = await supabase.from('CharacterStats').select('*').order('Exp', { ascending: false });
+    if (data) setLeaderboard(data as CharacterStats[]);
   };
 
   const handleSubmitW4 = async (data: { interviewTarget: string; interviewDate: string; description: string }) => {
@@ -887,6 +943,18 @@ export default function App() {
 
   const handleLogout = () => { localStorage.removeItem('starry_session_uid'); localStorage.removeItem('starry_session_expiry'); setUserData(null); setView('login'); };
 
+  const handleUnbindLine = async () => {
+    if (!userData?.UserID) return;
+    const { unbindLine } = await import('@/app/actions/admin');
+    const res = await unbindLine(userData.UserID);
+    if (res.success) {
+      setUserData(prev => prev ? { ...prev, LineUserId: undefined } : prev);
+      setModalMessage({ text: 'LINE 綁定已取消', type: 'success' });
+    } else {
+      setModalMessage({ text: res.error || '取消綁定失敗', type: 'error' });
+    }
+  };
+
   // One-time static data load — world map terrain, settings, history
   // Separated from the login useEffect so userData changes don't re-fetch and potentially clobber mapData
   useEffect(() => {
@@ -910,7 +978,12 @@ export default function App() {
           WorldState: sObj.WorldState,
           WorldStateMsg: sObj.WorldStateMsg,
           VolunteerPassword: sObj.VolunteerPassword,
+          DefinedSquads: sObj.DefinedSquads,
+          DefinedBattalions: sObj.DefinedBattalions,
         });
+        try {
+          setQuestRoleDefs(sObj.QuestRoles ? JSON.parse(sObj.QuestRoles) : DEFAULT_QUEST_ROLES);
+        } catch { setQuestRoleDefs(DEFAULT_QUEST_ROLES); }
       }
 
       const { data: historyData } = await supabase.from('TopicHistory').select('*').order('created_at', { ascending: false });
@@ -921,6 +994,9 @@ export default function App() {
         const parsed = tempQuestsData.map((t: any) => ({ ...t, limit: t.limit_count }));
         setTemporaryQuests(parsed as TemporaryQuest[]);
       }
+
+      const courseData = await listCourses();
+      setCourses(courseData);
     };
     loadStaticData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1107,7 +1183,7 @@ export default function App() {
 
   const HomeView = () => (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-40 text-center animate-in fade-in">
-      <Header userData={userData} onLogout={handleLogout} />
+      <Header userData={userData} onLogout={handleLogout} fontSize={fontSize} onFontSizeChange={setFontSize} questRoleName={questRoleDefs.find(r => r.id === userData?.QuestRole)?.name} onUnbindLine={handleUnbindLine} />
       <GmToolbar />
 
       {/* LINE 綁定提示 Banner */}
@@ -1176,7 +1252,7 @@ export default function App() {
             onSubmitW4={handleSubmitW4}
           />
         )}
-        {activeTab === 'rank' && <RankTab leaderboard={leaderboard} currentUserId={userData?.UserID} />}
+        {activeTab === 'rank' && <RankTab leaderboard={leaderboard} currentUserId={userData?.UserID} questRoleDefs={questRoleDefs} />}
         {activeTab === 'stats' && userData && <StatsTab userData={userData} roleTrait={roleTrait} />}
         {activeTab === 'shop' && userData && (
           <ShopTab
@@ -1189,6 +1265,7 @@ export default function App() {
         )}
         {activeTab === 'captain' && showCaptainTab && userData && (
           <CaptainTab
+            captainUserId={userData.UserID}
             teamName={userData.TeamName || '未編組'}
             teamSettings={teamSettings}
             pendingW4Apps={pendingW4Apps}
@@ -1207,6 +1284,9 @@ export default function App() {
             onCheckW3Compliance={handleCaptainCheckW3Compliance}
             isCheckingCompliance={isCheckingCompliance}
             complianceResult={complianceResult}
+            squadMembersWithRoles={squadMembersWithRoles}
+            onSetQuestRole={handleSetQuestRole}
+            questRoleDefs={questRoleDefs}
           />
         )}
         {activeTab === 'commandant' && showCommandantTab && userData && (
@@ -1224,7 +1304,7 @@ export default function App() {
           <AchievementsTab achievements={userAchievements} userData={userData} />
         )}
         {activeTab === 'course' && userData && (
-          <CourseTab userData={userData} volunteerPassword={systemSettings.VolunteerPassword ?? ''} />
+          <CourseTab courses={courses} volunteerPassword={systemSettings.VolunteerPassword ?? ''} userId={userData.UserID} userName={userData.Name} />
         )}
       </main>
 
@@ -1280,6 +1360,7 @@ export default function App() {
           onGoToRegister={() => setView('register')}
           onGoToAdmin={() => setView('admin')}
           isSyncing={isSyncing}
+          registrationMode={systemSettings.RegistrationMode}
         />
       )}
 
@@ -1337,6 +1418,14 @@ export default function App() {
           onAutoDrawAllSquads={handleAutoDrawAllSquads}
           onImportRoster={handleImportRoster}
           onFinalReviewW4={handleFinalReviewW4}
+          courses={courses}
+          onUpsertCourse={handleUpsertCourse}
+          onDeleteCourse={handleDeleteCourse}
+          onUpdateMemberAssignment={handleUpdateMemberAssignment}
+          onRefreshLeaderboard={async () => {
+            const { data } = await supabase.from('CharacterStats').select('*').order('Exp', { ascending: false });
+            if (data) setLeaderboard(data as CharacterStats[]);
+          }}
           onClose={() => setView('login')}
         />
       )}

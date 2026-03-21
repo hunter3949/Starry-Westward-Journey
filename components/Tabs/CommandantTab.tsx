@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle2, XCircle, RefreshCw, Sword } from 'lucide-react';
+import { CheckCircle2, XCircle, RefreshCw, Sword, ShieldCheck } from 'lucide-react';
 import { CharacterStats, W4Application } from '@/types';
 import { reviewW4ByAdmin } from '@/app/actions/w4';
 
@@ -10,9 +10,10 @@ interface CommandantTabProps {
     apps: W4Application[];
     onRefresh: () => void;
     onShowMessage: (msg: string, type: 'success' | 'error' | 'info') => void;
+    onGoToAdmin?: () => void;
 }
 
-export function CommandantTab({ userData, apps, onRefresh, onShowMessage }: CommandantTabProps) {
+export function CommandantTab({ userData, apps, onRefresh, onShowMessage, onGoToAdmin }: CommandantTabProps) {
     const [reviewingId, setReviewingId] = useState<string | null>(null);
     const [notes, setNotes] = useState<Record<string, string>>({});
 
@@ -39,6 +40,15 @@ export function CommandantTab({ userData, apps, onRefresh, onShowMessage }: Comm
 
     return (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+            {/* GM 一鍵進入後台 */}
+            {onGoToAdmin && (
+                <button
+                    onClick={onGoToAdmin}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-red-900/60 to-rose-900/60 border-2 border-red-500/50 rounded-2xl text-red-300 font-black text-sm hover:from-red-800/60 hover:to-rose-800/60 hover:text-white active:scale-95 transition-all shadow-lg"
+                >
+                    <ShieldCheck size={16} /> 進入大會管理後台 (GM)
+                </button>
+            )}
             {/* Header */}
             <div className="bg-gradient-to-br from-rose-950/40 to-slate-900 border-2 border-rose-500/40 rounded-4xl p-6 shadow-2xl">
                 <div className="flex items-center justify-between">

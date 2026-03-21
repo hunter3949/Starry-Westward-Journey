@@ -2,9 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { Crown, Users, User } from 'lucide-react';
 import { CharacterStats } from '@/types';
 
+interface QuestRoleDef { id: string; name: string; duties: string[] }
+
 interface RankTabProps {
     leaderboard: CharacterStats[];
     currentUserId?: string;
+    questRoleDefs?: QuestRoleDef[];
 }
 
 interface SquadRankEntry {
@@ -22,7 +25,7 @@ const RANK_BADGE: Record<number, string> = {
     2: 'bg-orange-400 text-slate-950',
 };
 
-export function RankTab({ leaderboard, currentUserId }: RankTabProps) {
+export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: RankTabProps) {
     const [tab, setTab] = useState<'personal' | 'squad'>('personal');
 
     // ── 個人排名 ─────────────────────────────────────────────
@@ -109,9 +112,15 @@ export function RankTab({ leaderboard, currentUserId }: RankTabProps) {
                                     </div>
                                     {/* 名字 */}
                                     <div className="flex-1 text-left">
-                                        <p className={`font-bold text-sm ${isSelf ? 'text-orange-400' : 'text-white'}`}>
-                                            {p.Name}{isSelf && ' 🔥'}
-                                        </p>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <p className={`font-bold text-sm ${isSelf ? 'text-orange-400' : 'text-white'}`}>
+                                                {p.Name}{isSelf && ' 🔥'}
+                                            </p>
+                                            {p.QuestRole && (() => {
+                                                const rn = questRoleDefs.find(r => r.id === p.QuestRole)?.name;
+                                                return rn ? <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black text-teal-300 bg-teal-900/50 border border-teal-700/50 shrink-0">{rn}</span> : null;
+                                            })()}
+                                        </div>
                                         <p className="text-[10px] text-slate-500 italic uppercase tracking-widest">
                                             {p.Role}{p.TeamName ? ` · ${p.TeamName}` : (p.SquadName ? ` · ${p.SquadName}` : '')}
                                         </p>

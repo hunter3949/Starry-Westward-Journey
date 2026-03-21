@@ -14,9 +14,10 @@ interface LoginFormProps {
     onGoToRegister: () => void;
     onGoToAdmin: () => void;
     isSyncing: boolean;
+    registrationMode?: 'open' | 'roster';
 }
 
-export function LoginForm({ onLogin, onGoToRegister, onGoToAdmin, isSyncing }: LoginFormProps) {
+export function LoginForm({ onLogin, onGoToRegister, onGoToAdmin, isSyncing, registrationMode }: LoginFormProps) {
     return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-6 py-10 space-y-8">
             <div className="animate-in zoom-in duration-700 text-center mx-auto">
@@ -40,7 +41,9 @@ export function LoginForm({ onLogin, onGoToRegister, onGoToAdmin, isSyncing }: L
                     >
                         <LineIcon /> LINE 帳號登入
                     </a>
-                    <button type="button" onClick={onGoToRegister} className="text-slate-500 text-sm font-bold hover:text-orange-400 transition-colors flex items-center justify-center gap-1 mx-auto mt-2"><UserPlus size={16} /> 尚未啟動轉生？</button>
+                    {registrationMode !== 'roster' && (
+                        <button type="button" onClick={onGoToRegister} className="text-slate-500 text-sm font-bold hover:text-orange-400 transition-colors flex items-center justify-center gap-1 mx-auto mt-2"><UserPlus size={16} /> 尚未啟動轉生？</button>
+                    )}
                     <button type="button" onClick={onGoToAdmin} className="text-slate-800 text-[10px] font-black uppercase tracking-[0.3em] hover:text-orange-900 transition-colors">大會中樞入口</button>
                 </div>
             </form>

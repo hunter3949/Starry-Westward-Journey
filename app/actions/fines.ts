@@ -47,6 +47,61 @@ export async function getSquadFineStatus(captainUserId: string) {
     }
 }
 
+// ── 取得小隊成員（含任務角色）────────────────────────────────────
+export async function getSquadMembersWithRoles(captainUserId: string): Promise<{
+    success: boolean; members?: { userId: string; name: string; questRole: string }[]; error?: string;
+}> {
+    const client = await connectDb();
+    try {
+        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
+            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+            [captainUserId]
+        );
+        if (!captainRes.rows[0]?.IsCaptain) return { success: false, error: '僅限小隊長' };
+        const squadName = captainRes.rows[0].TeamName;
+        const res = await client.query<{ UserID: string; Name: string; QuestRole: string | null }>(
+            `SELECT "UserID", "Name", COALESCE("QuestRole", '') AS "QuestRole"
+             FROM "CharacterStats" WHERE "TeamName" = $1 ORDER BY "Name"`,
+            [squadName]
+        );
+        return { success: true, members: res.rows.map(r => ({ userId: r.UserID, name: r.Name, questRole: r.QuestRole ?? '' })) };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    } finally {
+        await client.end();
+    }
+}
+
+// ── 設定隊員任務角色 ──────────────────────────────────────────────
+export async function setMemberQuestRole(captainUserId: string, targetUserId: string, roleId: string): Promise<{
+    success: boolean; error?: string;
+}> {
+    const client = await connectDb();
+    try {
+        const captainRes = await client.query<{ TeamName: string; IsCaptain: boolean }>(
+            `SELECT "TeamName", "IsCaptain" FROM "CharacterStats" WHERE "UserID" = $1`,
+            [captainUserId]
+        );
+        if (!captainRes.rows[0]?.IsCaptain) return { success: false, error: '僅限小隊長' };
+        const squadName = captainRes.rows[0].TeamName;
+        // 確認目標成員在同一小隊
+        const targetRes = await client.query<{ TeamName: string }>(
+            `SELECT "TeamName" FROM "CharacterStats" WHERE "UserID" = $1`,
+            [targetUserId]
+        );
+        if (targetRes.rows[0]?.TeamName !== squadName) return { success: false, error: '目標成員不在本小隊' };
+        await client.query(
+            `UPDATE "CharacterStats" SET "QuestRole" = $1 WHERE "UserID" = $2`,
+            [roleId || null, targetUserId]
+        );
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    } finally {
+        await client.end();
+    }
+}
+
 // ── 2. 記錄隊員繳款 ──────────────────────────────────────────────
 // amount: 此次繳款金額（NT$）
 // periodLabel: 結算週期標籤，例如 "2026-W19~W20"

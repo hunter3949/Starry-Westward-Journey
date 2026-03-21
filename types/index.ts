@@ -36,7 +36,8 @@ export interface CharacterStats {
   Birthday?: string; // ISO date string YYYY-MM-DD
   IsCommandant?: boolean; // 大隊長
   IsGM?: boolean;         // GM 遊戲管理員
-  LineUserId?: string;    // LINE Login 綁定 ID
+  LineUserId?: string;
+  QuestRole?: string;    // LINE Login 綁定 ID
 }
 
 export interface Roster {
@@ -83,12 +84,26 @@ export interface TemporaryQuest extends Quest {
   created_at?: string;
 }
 
+export interface MainQuestEntry {
+  id: string;
+  title: string;
+  reward: number;
+  coins: number;
+  startDate: string; // YYYY-MM-DD
+}
+
 export interface SystemSettings {
   TopicQuestTitle: string;
+  TopicQuestReward?: string;    // 主線任務修為（預設 1000）
+  TopicQuestCoins?: string;     // 主線任務金幣（預設 100）
+  MainQuestSchedule?: string;   // JSON: MainQuestEntry[]
+  MainQuestAppliedId?: string;  // 最後自動套用的排程 ID
   WorldState?: string;
   WorldStateMsg?: string;
   RegistrationMode?: 'open' | 'roster'; // 'open' = 自由註冊；'roster' = 名單驗證
   VolunteerPassword?: string;
+  DefinedSquads?: string; // JSON: {teamId: string, squadId: string}[]
+  DefinedBattalions?: string; // JSON: string[]
 }
 
 export interface W4Application {
@@ -225,4 +240,17 @@ export interface CourseRegistration {
   user_id: string;
   course_key: string;
   registered_at: string;
+}
+
+export interface Course {
+  id: string;
+  name: string;
+  date: string;
+  date_display: string;
+  time: string;
+  location: string;
+  address?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at?: string;
 }

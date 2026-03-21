@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import QRCode from 'react-qr-code';
-import { registerForCourse } from '@/app/actions/course';
+import { registerForCourseByName as registerForCourse } from '@/app/actions/course';
 import { COURSE_INFO } from '@/lib/courseConfig';
 
 const COURSE_KEY = 'class_c' as const;
