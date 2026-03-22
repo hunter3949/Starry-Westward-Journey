@@ -46,14 +46,14 @@ export interface Roster {
   email: string;
   name?: string;
   birthday?: string;
-  big_team_name?: string;    // 大隊法定名稱
-  little_team_name?: string; // 小隊法定名稱
-  is_captain?: boolean;      // 小隊長
-  is_commandant?: boolean;   // 大隊長
+  BigTeamLeagelName?: string;    // 大隊法定名稱
+  LittleTeamLeagelName?: string; // 小隊法定名稱
+  is_captain?: boolean;          // 小隊長
+  is_commandant?: boolean;       // 大隊長
 }
 
 export interface TeamSettings {
-  team_name: string;
+  LittleTeamLeagelName: string;
   team_coins: number;
   mandatory_quest_id?: string;       // 本週抽出的推薦定課 QuestID
   mandatory_quest_week?: string;     // 本次抽籤週一日期（YYYY-MM-DD）
@@ -76,6 +76,7 @@ export interface Quest {
   sub?: string;   // 任務名稱（特殊仙緣任務的短名稱，如「跟父母三道菜」）
   desc?: string;  // 任務說明（完成標準說明，如「面對面或是視訊」）
   reward: number;
+  coins?: number; // 金幣獎勵（未設定時自動以 reward × 10% 計算）
   dice?: number;
   icon?: string;
   limit?: number;
@@ -86,9 +87,20 @@ export interface TemporaryQuest extends Quest {
   created_at?: string;
 }
 
+export interface BonusQuestRule {
+  id: string;
+  label: string;          // 顯示名稱
+  keywords: string[];     // 任一關鍵字命中即觸發
+  bonusType: 'energy_dice' | 'golden_dice';
+  bonusAmount: number;
+  active: boolean;
+}
+
 export interface MainQuestEntry {
   id: string;
-  title: string;
+  topicTitle?: string;  // 主標題 → TopicQuestTitle
+  title: string;        // 任務名稱（顯示於 UI 的簡短名稱）
+  description?: string; // 任務說明（詳細描述）
   reward: number;
   coins: number;
   startDate: string; // YYYY-MM-DD
@@ -98,8 +110,9 @@ export interface SystemSettings {
   TopicQuestTitle: string;
   TopicQuestReward?: string;    // 主線任務修為（預設 1000）
   TopicQuestCoins?: string;     // 主線任務金幣（預設 100）
-  MainQuestSchedule?: string;   // JSON: MainQuestEntry[]
-  MainQuestAppliedId?: string;  // 最後自動套用的排程 ID
+  MainQuestSchedule?: string;      // JSON: MainQuestEntry[]
+  MainQuestAppliedId?: string;     // 最後自動套用的排程 ID
+  TopicQuestDescription?: string;  // 主線任務說明
   WorldState?: string;
   WorldStateMsg?: string;
   RegistrationMode?: 'open' | 'roster'; // 'open' = 自由註冊；'roster' = 名單驗證
@@ -110,6 +123,7 @@ export interface SystemSettings {
   SiteLogo?: string; // base64 data URL
   CardMottos?: string; // JSON: string[]
   CardBackImage?: string; // base64 data URL
+  BonusQuestConfig?: string; // JSON: BonusQuestRule[]
 }
 
 export interface W4Application {

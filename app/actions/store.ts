@@ -25,7 +25,7 @@ export async function purchaseArtifact(userId: string, artifactId: string, teamN
                 throw new Error("此為團隊專屬法寶，因您尚未加入任何隊伍，無法購買。");
             }
             // Lock TeamSettings
-            const tsRes = await client.query(`SELECT * FROM "TeamSettings" WHERE "team_name" = $1 FOR UPDATE`, [teamName]);
+            const tsRes = await client.query(`SELECT * FROM "TeamSettings" WHERE "LittleTeamLeagelName" = $1 FOR UPDATE`, [teamName]);
             if (tsRes.rowCount === 0) throw new Error("無效的隊伍資料");
 
             const teamData = tsRes.rows[0];
@@ -60,7 +60,7 @@ export async function purchaseArtifact(userId: string, artifactId: string, teamN
             await client.query(`
                 UPDATE "TeamSettings"
                 SET "team_coins" = $1, "inventory" = $2::jsonb
-                WHERE "team_name" = $3
+                WHERE "LittleTeamLeagelName" = $3
             `, [newCoins, JSON.stringify(newInventory), teamName]);
 
         } else {
@@ -147,14 +147,14 @@ export async function transferCoinsToTeam(userId: string, teamName: string, amou
         }
 
         // Lock TeamSettings
-        const tsRes = await client.query(`SELECT "team_coins" FROM "TeamSettings" WHERE "team_name" = $1 FOR UPDATE`, [teamName]);
+        const tsRes = await client.query(`SELECT "team_coins" FROM "TeamSettings" WHERE "LittleTeamLeagelName" = $1 FOR UPDATE`, [teamName]);
         if (tsRes.rowCount === 0) throw new Error("無效的隊伍資料");
 
         const currentTeamCoins = parseInt(tsRes.rows[0].team_coins, 10) || 0;
 
         // Apply changes
         await client.query(`UPDATE "CharacterStats" SET "Coins" = $1 WHERE "UserID" = $2`, [currentCoins - amount, userId]);
-        await client.query(`UPDATE "TeamSettings" SET "team_coins" = $1 WHERE "team_name" = $2`, [currentTeamCoins + amount, teamName]);
+        await client.query(`UPDATE "TeamSettings" SET "team_coins" = $1 WHERE "LittleTeamLeagelName" = $2`, [currentTeamCoins + amount, teamName]);
 
         await client.query('COMMIT');
         return { success: true };

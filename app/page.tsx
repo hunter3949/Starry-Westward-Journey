@@ -93,7 +93,7 @@ export default function App() {
   const [mapEntities, setMapEntities] = useState<any[]>([]);
   const [teamSettings, setTeamSettings] = useState<any>(null);
   const [battalionDisplayName, setBattalionDisplayName] = useState<string | undefined>(undefined);
-  interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; }
+  interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; }
   interface BattalionSquad { squadName: string; members: BattalionSquadMember[]; }
   const [battalionSquads, setBattalionSquads] = useState<BattalionSquad[]>([]);
   const [teamMemberCount, setTeamMemberCount] = useState<number>(1);
@@ -169,9 +169,10 @@ export default function App() {
     if (!due) return;
     if (due.id === systemSettings.MainQuestAppliedId) return;
     updateGlobalSettings({
-      TopicQuestTitle: due.title,
+      TopicQuestTitle: due.topicTitle || due.title,
       TopicQuestReward: String(due.reward),
       TopicQuestCoins: String(due.coins),
+      TopicQuestDescription: due.description || '',
       MainQuestAppliedId: due.id,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -428,7 +429,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from('CharacterStats')
-      .select('UserID, Name, Level, QuestRole, LittleTeamLeagelName, IsCaptain')
+      .select('UserID, Name, Level, QuestRole, LittleTeamLeagelName, IsCaptain, LastCheckIn, HP, MaxHP')
       .eq('BigTeamLeagelName', battalionName);
 
     if (error || !data || data.length === 0) return;
@@ -437,7 +438,7 @@ export default function App() {
     for (const r of data) {
       const sq = r.LittleTeamLeagelName || '（未分隊）';
       if (!squadMap.has(sq)) squadMap.set(sq, []);
-      squadMap.get(sq)!.push({ userId: r.UserID, name: r.Name, level: r.Level || 1, role: r.QuestRole || null, isCaptain: !!r.IsCaptain });
+      squadMap.get(sq)!.push({ userId: r.UserID, name: r.Name, level: r.Level || 1, role: r.QuestRole || null, isCaptain: !!r.IsCaptain, lastCheckIn: r.LastCheckIn ?? null, hp: r.HP ?? null, maxHp: r.MaxHP ?? null });
     }
     setBattalionSquads(Array.from(squadMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
@@ -562,19 +563,33 @@ export default function App() {
     }
   };
 
-  const handleAddTempQuest = async (title: string, sub: string, desc: string, reward: number) => {
+  const handleAddTempQuest = async (title: string, sub: string, desc: string, reward: number, coins?: number) => {
     setIsSyncing(true);
     try {
       const id = `temp_${Date.now()}`;
-      const dbRow = { id, title, sub, desc, reward, limit_count: 1, active: true };
+      const dbRow = { id, title, sub, desc, reward, coins: coins ?? null, limit_count: 1, active: true };
       const { error } = await supabase.from('temporaryquests').insert([dbRow]);
       if (error) throw error;
-      const newQuest: TemporaryQuest = { id, title, sub, desc, reward, limit: 1, active: true };
+      const newQuest: TemporaryQuest = { id, title, sub, desc, reward, coins, limit: 1, active: true };
       setTemporaryQuests(prev => [newQuest, ...prev]);
-      await logAdminAction('temp_quest_add', adminOperator, id, title, { reward });
+      await logAdminAction('temp_quest_add', adminOperator, id, title, { reward, coins });
     } catch (err) {
       console.error(err);
       setModalMessage({ text: "新增臨時任務失敗。", type: 'error' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleUpdateTempQuest = async (id: string, reward: number, coins: number | null) => {
+    setIsSyncing(true);
+    try {
+      const { error } = await supabase.from('temporaryquests').update({ reward, coins: coins ?? null }).eq('id', id);
+      if (error) throw error;
+      setTemporaryQuests(prev => prev.map(q => q.id === id ? { ...q, reward, coins: coins ?? undefined } : q));
+      await logAdminAction('temp_quest_update', adminOperator, id, undefined, { reward, coins });
+    } catch (err) {
+      setModalMessage({ text: "更新臨時任務失敗。", type: 'error' });
     } finally {
       setIsSyncing(false);
     }
@@ -816,7 +831,7 @@ export default function App() {
     if (!userData) return;
     setIsSyncing(true);
     try {
-      const res = await processCheckInTransaction(userData.UserID, quest.id, quest.title, quest.reward, quest.dice);
+      const res = await processCheckInTransaction(userData.UserID, quest.id, quest.title, quest.reward, quest.dice, quest.coins);
 
       if (res.success && res.user) {
         const { data: newLogs } = await supabase.from('DailyLogs').select('*').eq('UserID', userData.UserID);
@@ -910,7 +925,7 @@ export default function App() {
       if (stats) setUserData(prev => ({ ...prev, ...stats }));
 
       if (userData.LittleTeamLeagelName) {
-        const { data: tSettings } = await supabase.from('TeamSettings').select('*').eq('team_name', userData.LittleTeamLeagelName).single();
+        const { data: tSettings } = await supabase.from('TeamSettings').select('*').eq('LittleTeamLeagelName', userData.LittleTeamLeagelName).single();
         if (tSettings) setTeamSettings(tSettings);
       }
     } catch (e) {
@@ -935,7 +950,7 @@ export default function App() {
         const logsArray = (userLogs as DailyLog[]) || [];
 
         if (match.LittleTeamLeagelName) {
-          const { data: ts } = await supabase.from('TeamSettings').select('*').eq('team_name', match.LittleTeamLeagelName).single();
+          const { data: ts } = await supabase.from('TeamSettings').select('*').eq('LittleTeamLeagelName', match.LittleTeamLeagelName).single();
           if (ts) setTeamSettings(ts);
         }
 
@@ -996,8 +1011,8 @@ export default function App() {
       if (email) {
         const { data: rosterMatch } = await supabase.from('Rosters').select('*').eq('email', email).single();
         if (rosterMatch) {
-          newChar.BigTeamLeagelName = rosterMatch.big_team_name;
-          newChar.LittleTeamLeagelName = rosterMatch.little_team_name;
+          newChar.BigTeamLeagelName = rosterMatch.BigTeamLeagelName;
+          newChar.LittleTeamLeagelName = rosterMatch.LittleTeamLeagelName;
           newChar.IsCaptain = rosterMatch.is_captain;
         }
       }
@@ -1081,6 +1096,7 @@ export default function App() {
           TopicQuestCoins: sObj.TopicQuestCoins || '100',
           MainQuestSchedule: sObj.MainQuestSchedule,
           MainQuestAppliedId: sObj.MainQuestAppliedId,
+          TopicQuestDescription: sObj.TopicQuestDescription,
           RegistrationMode: (sObj.RegistrationMode as 'open' | 'roster') || 'open',
           WorldState: sObj.WorldState,
           WorldStateMsg: sObj.WorldStateMsg,
@@ -1091,6 +1107,7 @@ export default function App() {
           SiteLogo: sObj.SiteLogo,
           CardMottos: sObj.CardMottos,
           CardBackImage: sObj.CardBackImage,
+          BonusQuestConfig: sObj.BonusQuestConfig,
         });
         try {
           setQuestRoleDefs(sObj.QuestRoles ? JSON.parse(sObj.QuestRoles) : DEFAULT_QUEST_ROLES);
@@ -1203,7 +1220,7 @@ export default function App() {
 
           // Fetch TeamSettings if User belongs to a Team
           if (stats.LittleTeamLeagelName) {
-            const { data: tSettings } = await supabase.from('TeamSettings').select('*').eq('team_name', stats.LittleTeamLeagelName).single();
+            const { data: tSettings } = await supabase.from('TeamSettings').select('*').eq('LittleTeamLeagelName', stats.LittleTeamLeagelName).single();
             if (tSettings) setTeamSettings(tSettings);
             // Fetch battalion display name for commandant
             if (stats.BigTeamLeagelName) {
@@ -1223,7 +1240,7 @@ export default function App() {
               const drawRes = await autoDrawAllSquads();
               if (drawRes.success && (drawRes.drawnCount ?? 0) > 0) {
                 // Refresh teamSettings so UI reflects the newly drawn quest
-                const { data: freshTS } = await supabase.from('TeamSettings').select('*').eq('team_name', stats.LittleTeamLeagelName).single();
+                const { data: freshTS } = await supabase.from('TeamSettings').select('*').eq('LittleTeamLeagelName', stats.LittleTeamLeagelName).single();
                 if (freshTS) setTeamSettings(freshTS);
               }
             }
@@ -1576,6 +1593,7 @@ export default function App() {
           onAddTempQuest={handleAddTempQuest}
           onToggleTempQuest={handleToggleTempQuest}
           onDeleteTempQuest={handleDeleteTempQuest}
+          onUpdateTempQuest={handleUpdateTempQuest}
           onTriggerSnapshot={handleTriggerSnapshot}
           onCheckW3Compliance={handleCheckW3Compliance}
           onAutoDrawAllSquads={handleAutoDrawAllSquads}

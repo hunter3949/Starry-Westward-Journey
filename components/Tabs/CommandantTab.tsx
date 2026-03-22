@@ -6,7 +6,7 @@ import { CharacterStats, W4Application } from '@/types';
 import { reviewW4ByAdmin } from '@/app/actions/w4';
 import { setBattalionDisplayName } from '@/app/actions/admin';
 
-interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; }
+interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; }
 interface BattalionSquad { squadName: string; members: BattalionSquadMember[]; }
 
 interface CommandantTabProps {
@@ -59,6 +59,16 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
             setReviewingId(null);
         }
     };
+
+    // 活躍判斷：與後台儀表板相同 — 近 2 邏輯天（邏輯今日 = 12:00 前算前一天）內有回報
+    const now = new Date();
+    const logicalNow = new Date(now);
+    if (now.getHours() < 12) logicalNow.setDate(logicalNow.getDate() - 1);
+    logicalNow.setHours(12, 0, 0, 0);
+    const activeCutoff = new Date(logicalNow);
+    activeCutoff.setDate(activeCutoff.getDate() - 2);
+    const isMemberActive = (lastCheckIn?: string | null) =>
+        lastCheckIn ? new Date(lastCheckIn) >= activeCutoff : false;
 
     return (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
@@ -114,9 +124,9 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
                 </div>
             </div>
 
-            {/* 小隊列表 */}
-            <div className="space-y-2">
-                <div className="flex items-center gap-2 px-1">
+            {/* 所轄小隊（含卡片框線） */}
+            <div className="bg-slate-900 border-2 border-rose-500/20 rounded-4xl p-5 space-y-3 shadow-xl">
+                <div className="flex items-center gap-2">
                     <Users size={15} className="text-rose-400" />
                     <p className="text-white font-black text-base">所轄小隊</p>
                     <span className="text-xs text-slate-500 ml-auto">{squads.length} 隊・共 {squads.reduce((s, q) => s + q.members.length, 0)} 人</span>
@@ -127,28 +137,39 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
                     squads.map(squad => {
                         const isOpen = expandedSquad === squad.squadName;
                         const captain = squad.members.find(m => m.isCaptain);
+                        const activeCount = squad.members.filter(m => isMemberActive(m.lastCheckIn)).length;
+                        const activeRate = squad.members.length > 0 ? Math.round((activeCount / squad.members.length) * 100) : 0;
                         return (
-                            <div key={squad.squadName} className="bg-slate-900/60 border border-slate-700/40 rounded-2xl overflow-hidden">
+                            <div key={squad.squadName} className="bg-slate-800/60 border border-slate-700/40 rounded-2xl overflow-hidden">
                                 <button
                                     onClick={() => setExpandedSquad(isOpen ? null : squad.squadName)}
-                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800/60 transition-colors text-left"
+                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700/60 transition-colors text-left"
                                 >
                                     <div className="flex-1 min-w-0">
                                         <span className="font-black text-white text-sm">{squad.squadName}</span>
                                         {captain && <span className="text-[11px] text-slate-400 ml-2">隊長：{captain.name}</span>}
+                                        <span className={`text-[10px] font-black ml-2 ${activeRate >= 70 ? 'text-emerald-400' : activeRate >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                            活躍率 {activeRate}%
+                                        </span>
                                     </div>
                                     <span className="text-[11px] text-slate-500 shrink-0">{squad.members.length} 人</span>
                                     <ChevronDown size={14} className={`text-slate-500 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isOpen && (
                                     <div className="border-t border-slate-700/40 px-4 py-3 space-y-2">
-                                        {squad.members.map(m => (
-                                            <div key={m.userId} className="flex items-center gap-2">
-                                                <span className="text-sm text-white font-bold flex-1">{m.name}</span>
-                                                {m.isCaptain && <span className="text-[10px] font-black text-rose-400 bg-rose-400/10 px-2 py-0.5 rounded-lg">隊長</span>}
-                                                <span className="text-[11px] text-slate-500">Lv.{m.level}</span>
-                                            </div>
-                                        ))}
+                                        {squad.members.map(m => {
+                                            const active = isMemberActive(m.lastCheckIn);
+                                            return (
+                                                <div key={m.userId} className="flex items-center gap-2">
+                                                    <span className={`text-sm font-bold flex-1 ${active ? 'text-white' : 'text-slate-500'}`}>{m.name}</span>
+                                                    {m.isCaptain && <span className="text-[10px] font-black text-rose-400 bg-rose-400/10 px-2 py-0.5 rounded-lg">隊長</span>}
+                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${active ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-700/50'}`}>
+                                                        {active ? '活躍' : '沉寂'}
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-500">Lv.{m.level}</span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>

@@ -164,16 +164,11 @@ export function CaptainTab({
                 <h2 className="text-2xl font-black text-white italic mx-auto">{teamDisplayName || teamName || '未知小隊'}</h2>
                 <p className="text-xs text-slate-500 mt-0.5">{teamName}</p>
                 <p className="text-xs text-indigo-300 mt-2 font-black">你擁有點亮同伴前行的提燈。請謹慎決策。</p>
-                {/* 小隊名稱設定 */}
                 <div className="mt-4 border-t border-indigo-500/20 pt-4">
                     {editingName ? (
                         <div className="flex gap-2">
-                            <input
-                                value={nameInput}
-                                onChange={e => setNameInput(e.target.value)}
-                                placeholder={teamName}
-                                className="flex-1 bg-slate-950 border border-indigo-500/50 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-400"
-                            />
+                            <input value={nameInput} onChange={e => setNameInput(e.target.value)} placeholder={teamName}
+                                className="flex-1 bg-slate-950 border border-indigo-500/50 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-400" />
                             <button onClick={handleSaveName} disabled={savingName}
                                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-colors">
                                 {savingName ? '…' : '儲存'}
@@ -240,6 +235,84 @@ export function CaptainTab({
                             <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-1">本週建議</p>
                             <p className="text-xs text-slate-300 leading-relaxed">{aiBriefing.suggestion}</p>
                         </div>
+                    </div>
+                )}
+            </section>
+
+
+            {/* ── 本週推薦定課抽籤 ── */}
+            <section className="bg-slate-900 border-2 border-slate-800 p-8 rounded-4xl space-y-6 shadow-xl text-center">
+                <h3 className="text-lg font-black text-white border-b border-white/10 pb-4 text-left">🎲 本週推薦定課抽籤</h3>
+                {alreadyDrawnThisWeek && currentQuestName ? (
+                    <div className="space-y-3">
+                        <p className="text-xs text-slate-400 font-bold">本週已抽出</p>
+                        <div className="bg-indigo-900/30 border-2 border-indigo-500/50 rounded-3xl p-6">
+                            <p className="text-3xl font-black text-white">「{currentQuestName}」</p>
+                            <p className="text-xs text-indigo-400 mt-2 font-bold">週一 {weekMondayStr} 起生效</p>
+                        </div>
+                        <p className="text-xs text-slate-500">下週一前無法再次抽籤</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <p className="text-xs text-slate-400 font-bold leading-relaxed">
+                            每週一 12:00 前抽選本週推薦定課。<br />
+                            已抽過的定課不重複，{remaining.length > 0 ? `尚餘 ${remaining.length} 項可抽` : '本輪已全部抽完，下次抽籤將重置循環'}。
+                        </p>
+                        <button disabled={isDrawing} onClick={handleDraw}
+                            className="w-full flex items-center justify-center gap-3 bg-indigo-600 p-5 rounded-2xl text-white font-black text-lg shadow-lg hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50">
+                            <Dices size={22} /> {isDrawing ? '命運抽籤中...' : '🎲 抽選本週定課'}
+                        </button>
+                    </div>
+                )}
+                {drawHistory.length > 0 && (
+                    <div className="text-left space-y-2 mt-2">
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">本輪已抽歷程</p>
+                        <div className="flex flex-wrap gap-2">
+                            {drawHistory.map(id => {
+                                const name = DAILY_QUEST_CONFIG.find(q => q.id === id)?.title || id;
+                                return (
+                                    <span key={id} className={`px-3 py-1 rounded-xl text-xs font-bold ${id === currentQuestId ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                                        {name}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </section>
+
+            {/* ── 傳愛分數審核（小隊長初審）── */}
+            <section className="bg-slate-900 border-2 border-pink-500/30 p-8 rounded-4xl space-y-6 shadow-xl">
+                <h3 className="text-lg font-black text-white border-b border-white/10 pb-4">❤️ 傳愛分數審核（小隊長初審）</h3>
+                {pendingW4Apps.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">目前無待審申請</p>
+                ) : (
+                    <div className="space-y-4">
+                        {pendingW4Apps.map(app => (
+                            <div key={app.id} className="bg-slate-800 rounded-2xl p-5 space-y-3">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-black text-white">{app.user_name}</p>
+                                        <p className="text-xs text-slate-400">訪談：{app.interview_target} · {app.interview_date}</p>
+                                    </div>
+                                    <span className="text-[10px] font-black text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-lg">待初審</span>
+                                </div>
+                                {app.description && <p className="text-xs text-slate-400 italic">{app.description}</p>}
+                                <textarea placeholder="備註（選填）" value={reviewNotes[app.id] || ''}
+                                    onChange={e => setReviewNotes(prev => ({ ...prev, [app.id]: e.target.value }))}
+                                    rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-xl p-3 text-white text-xs outline-none focus:border-pink-500 resize-none" />
+                                <div className="flex gap-3">
+                                    <button disabled={reviewingId === app.id} onClick={() => handleReview(app.id, false)}
+                                        className="flex-1 py-2 bg-red-600/20 text-red-400 font-black rounded-xl text-sm border border-red-600/30 active:scale-95 transition-all disabled:opacity-50">
+                                        ❌ 駁回
+                                    </button>
+                                    <button disabled={reviewingId === app.id} onClick={() => handleReview(app.id, true)}
+                                        className="flex-2 py-2 bg-emerald-600 text-white font-black rounded-xl text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50">
+                                        ✅ 初審通過
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </section>
@@ -482,51 +555,6 @@ export function CaptainTab({
                 )}
             </section>
 
-            <section className="bg-slate-900 border-2 border-slate-800 p-8 rounded-4xl space-y-6 shadow-xl text-center">
-                <h3 className="text-lg font-black text-white border-b border-white/10 pb-4 text-left">🎲 本週推薦定課抽籤</h3>
-
-                {alreadyDrawnThisWeek && currentQuestName ? (
-                    <div className="space-y-3">
-                        <p className="text-xs text-slate-400 font-bold">本週已抽出</p>
-                        <div className="bg-indigo-900/30 border-2 border-indigo-500/50 rounded-3xl p-6">
-                            <p className="text-3xl font-black text-white">「{currentQuestName}」</p>
-                            <p className="text-xs text-indigo-400 mt-2 font-bold">週一 {weekMondayStr} 起生效</p>
-                        </div>
-                        <p className="text-xs text-slate-500">下週一前無法再次抽籤</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        <p className="text-xs text-slate-400 font-bold leading-relaxed">
-                            每週一 12:00 前抽選本週推薦定課。<br />
-                            已抽過的定課不重複，{remaining.length > 0 ? `尚餘 ${remaining.length} 項可抽` : '本輪已全部抽完，下次抽籤將重置循環'}。
-                        </p>
-                        <button
-                            disabled={isDrawing}
-                            onClick={handleDraw}
-                            className="w-full flex items-center justify-center gap-3 bg-indigo-600 p-5 rounded-2xl text-white font-black text-lg shadow-lg hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50"
-                        >
-                            <Dices size={22} /> {isDrawing ? '命運抽籤中...' : '🎲 抽選本週定課'}
-                        </button>
-                    </div>
-                )}
-
-                {drawHistory.length > 0 && (
-                    <div className="text-left space-y-2 mt-2">
-                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">本輪已抽歷程</p>
-                        <div className="flex flex-wrap gap-2">
-                            {drawHistory.map(id => {
-                                const name = DAILY_QUEST_CONFIG.find(q => q.id === id)?.title || id;
-                                return (
-                                    <span key={id} className={`px-3 py-1 rounded-xl text-xs font-bold ${id === currentQuestId ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                                        {name}
-                                    </span>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-            </section>
-
             {/* 🎭 任務角色指派 */}
             <section className="bg-slate-900 border-2 border-slate-800 p-8 rounded-4xl space-y-4 shadow-xl">
                 <h3 className="text-lg font-black text-white border-b border-white/10 pb-4 flex items-center gap-2">
@@ -600,52 +628,6 @@ export function CaptainTab({
                 )}
             </section>
 
-            {/* ❤️ 傳愛分數初審 */}
-            <section className="bg-slate-900 border-2 border-pink-500/30 p-8 rounded-4xl space-y-6 shadow-xl">
-                <h3 className="text-lg font-black text-white border-b border-white/10 pb-4">❤️ 傳愛分數審核（小隊長初審）</h3>
-
-                {pendingW4Apps.length === 0 ? (
-                    <p className="text-sm text-slate-500 text-center py-4">目前無待審申請</p>
-                ) : (
-                    <div className="space-y-4">
-                        {pendingW4Apps.map(app => (
-                            <div key={app.id} className="bg-slate-800 rounded-2xl p-5 space-y-3">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="font-black text-white">{app.user_name}</p>
-                                        <p className="text-xs text-slate-400">訪談：{app.interview_target} · {app.interview_date}</p>
-                                    </div>
-                                    <span className="text-[10px] font-black text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-lg">待初審</span>
-                                </div>
-                                {app.description && <p className="text-xs text-slate-400 italic">{app.description}</p>}
-                                <textarea
-                                    placeholder="備註（選填）"
-                                    value={reviewNotes[app.id] || ''}
-                                    onChange={e => setReviewNotes(prev => ({ ...prev, [app.id]: e.target.value }))}
-                                    rows={2}
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-xl p-3 text-white text-xs outline-none focus:border-pink-500 resize-none"
-                                />
-                                <div className="flex gap-3">
-                                    <button
-                                        disabled={reviewingId === app.id}
-                                        onClick={() => handleReview(app.id, false)}
-                                        className="flex-1 py-2 bg-red-600/20 text-red-400 font-black rounded-xl text-sm border border-red-600/30 active:scale-95 transition-all disabled:opacity-50"
-                                    >
-                                        ❌ 駁回
-                                    </button>
-                                    <button
-                                        disabled={reviewingId === app.id}
-                                        onClick={() => handleReview(app.id, true)}
-                                        className="flex-2 py-2 bg-emerald-600 text-white font-black rounded-xl text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50"
-                                    >
-                                        ✅ 初審通過
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
         </div>
     );
 }

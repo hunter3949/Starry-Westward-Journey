@@ -4,6 +4,14 @@ import { connectDb } from '@/lib/db';
 import { getLogicalDateStr } from '@/lib/utils/time';
 import { ROLE_CURE_MAP, ROLE_GROWTH_RATES, calculateLevelFromExp } from '@/lib/constants';
 import { checkAndUnlockAchievements } from './achievements';
+import type { BonusQuestRule } from '@/types';
+
+const DEFAULT_BONUS_RULES: BonusQuestRule[] = [
+    { id: 'b1', label: '家人互動親證', keywords: ['小天使通話', '與家人互動', '親證圓夢'], bonusType: 'energy_dice', bonusAmount: 1, active: true },
+    { id: 'b2', label: '參加心成活動', keywords: ['心成', '同學會', '定聚'], bonusType: 'energy_dice', bonusAmount: 2, active: true },
+    { id: 'b3', label: '傳愛分數', keywords: ['傳愛'], bonusType: 'energy_dice', bonusAmount: 1, active: true },
+    { id: 'b4', label: '大會主題活動', keywords: ['主題親證', '會長交接', '大會'], bonusType: 'golden_dice', bonusAmount: 1, active: true },
+];
 
 // We import ROLE_CURE_MAP directly from constants now
 export async function processCheckInTransaction(
@@ -11,7 +19,8 @@ export async function processCheckInTransaction(
     questId: string,
     questTitle: string,
     questReward: number,
-    questDice: number = 0
+    questDice: number = 0,
+    questCoins?: number
 ) {
     const client = await connectDb();
 
@@ -87,7 +96,7 @@ export async function processCheckInTransaction(
         let teamInventory: string[] = [];
 
         if (userData.LittleTeamLeagelName) {
-            const tsRes = await client.query(`SELECT inventory FROM "TeamSettings" WHERE "team_name" = $1`, [userData.LittleTeamLeagelName]);
+            const tsRes = await client.query(`SELECT inventory FROM "TeamSettings" WHERE "LittleTeamLeagelName" = $1`, [userData.LittleTeamLeagelName]);
             if (tsRes.rowCount && tsRes.rowCount > 0) {
                 const tsData = tsRes.rows[0];
                 teamInventory = typeof tsData.inventory === 'string' ? JSON.parse(tsData.inventory) : (tsData.inventory || []);
@@ -122,30 +131,30 @@ export async function processCheckInTransaction(
         const newLevel = calculateLevelFromExp(newExp);
         const levelDelta = newLevel - currentLevel;
 
-        let gainedCoins = Math.floor(baseReward * 0.1);
+        let gainedCoins = questCoins !== undefined ? questCoins : Math.floor(baseReward * 0.1);
 
         const newCoins = currentCoins + gainedCoins;
 
         let bonusDice = 0;
         let goldenDiceGain = 0;
 
-        // --- 額外能量骰子獲取與機制 (Bonus Dice Systems) ---
-        // 1. 每週加分項目骰子
-        // 小天使通話與家人互動（社交骰子)
-        if (questTitle.includes('小天使通話') || questTitle.includes('與家人互動') || questTitle.includes('親證圓夢')) {
-            bonusDice += 1;
-        }
-        // 參加心成活動（活躍骰子）
-        if (questTitle.includes('心成') || questTitle.includes('同學會') || questTitle.includes('定聚')) {
-            bonusDice += 2;
-        }
-        // 無上限的傳愛分數（奇蹟骰子）
-        if (questTitle.includes('傳愛')) {
-            bonusDice += 1; // Assuming we add it to normal energy dice for now
-        }
-        // 參與「大會主題活動」的黃金骰子
-        if (questTitle.includes('主題親證') || questTitle.includes('會長交接') || questTitle.includes('大會')) {
-            goldenDiceGain += 1;
+        // --- 額外骰子：讀取 BonusQuestConfig，fallback 到預設規則 ---
+        {
+            let bonusRules = DEFAULT_BONUS_RULES;
+            try {
+                const bcRes = await client.query(
+                    `SELECT "Value" FROM "SystemSettings" WHERE "SettingName" = 'BonusQuestConfig' LIMIT 1`
+                );
+                if (bcRes.rows[0]?.Value) {
+                    bonusRules = JSON.parse(bcRes.rows[0].Value);
+                }
+            } catch { /* fallback */ }
+            for (const rule of bonusRules) {
+                if (!rule.active) continue;
+                if (!rule.keywords.some(kw => questTitle.includes(kw))) continue;
+                if (rule.bonusType === 'energy_dice') bonusDice += rule.bonusAmount;
+                else if (rule.bonusType === 'golden_dice') goldenDiceGain += rule.bonusAmount;
+            }
         }
 
         const newEnergyDice = currentEnergyDice + questDice + bonusDice;

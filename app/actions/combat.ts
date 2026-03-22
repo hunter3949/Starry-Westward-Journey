@@ -164,7 +164,7 @@ export async function resolveCombat(params: CombatParams) {
             const teamBonus = Math.floor(coinReward * 0.2); // 20% bonus to team pool
             await supabase.from('TeamSettings')
                 .update({ team_coins: supabase.rpc('increment', { x: teamBonus }) })
-                .eq('team_name', attacker.LittleTeamLeagelName);
+                .eq('LittleTeamLeagelName', attacker.LittleTeamLeagelName);
         }
 
         rewardMsg = ` 獲得 ${coinReward} 金幣`;

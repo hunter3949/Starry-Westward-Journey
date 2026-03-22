@@ -32,13 +32,13 @@ export async function drawWeeklyQuestForSquad(squadName: string, captainUserId: 
     let { data: ts } = await supabase
         .from('TeamSettings')
         .select('mandatory_quest_id, mandatory_quest_week, quest_draw_history')
-        .eq('team_name', squadName)
+        .eq('LittleTeamLeagelName', squadName)
         .maybeSingle();
 
     if (!ts) {
         const { data: inserted, error: insertErr } = await supabase
             .from('TeamSettings')
-            .insert({ team_name: squadName, team_coins: 0 })
+            .insert({ LittleTeamLeagelName: squadName, team_coins: 0 })
             .select('mandatory_quest_id, mandatory_quest_week, quest_draw_history')
             .single();
         if (insertErr) return { success: false, error: '小隊設定建立失敗：' + insertErr.message };
@@ -63,7 +63,7 @@ export async function drawWeeklyQuestForSquad(squadName: string, captainUserId: 
             mandatory_quest_week: weekMondayStr,
             quest_draw_history: updatedHistory,
         })
-        .eq('team_name', squadName);
+        .eq('LittleTeamLeagelName', squadName);
 
     if (updateErr) return { success: false, error: '更新失敗：' + updateErr.message };
 
@@ -87,9 +87,9 @@ export async function autoDrawAllSquads() {
         const distinctNames = [...new Set(squadsInStats.map((r: any) => r.LittleTeamLeagelName).filter(Boolean))];
         for (const name of distinctNames) {
             const { data: exists } = await supabase
-                .from('TeamSettings').select('team_name').eq('team_name', name).maybeSingle();
+                .from('TeamSettings').select('LittleTeamLeagelName').eq('LittleTeamLeagelName', name).maybeSingle();
             if (!exists) {
-                await supabase.from('TeamSettings').insert({ team_name: name, team_coins: 0 });
+                await supabase.from('TeamSettings').insert({ LittleTeamLeagelName: name, team_coins: 0 });
             }
         }
     }
@@ -112,10 +112,10 @@ export async function autoDrawAllSquads() {
             mandatory_quest_id: questId,
             mandatory_quest_week: weekMondayStr,
             quest_draw_history: updatedHistory,
-        }).eq('team_name', ts.team_name);
+        }).eq('LittleTeamLeagelName', ts.LittleTeamLeagelName);
 
         const questName = DAILY_QUEST_CONFIG.find(q => q.id === questId)?.title || questId;
-        drawn.push({ squadName: ts.team_name, questId, questName });
+        drawn.push({ squadName: ts.LittleTeamLeagelName, questId, questName });
     }
 
     if (drawn.length > 0) {

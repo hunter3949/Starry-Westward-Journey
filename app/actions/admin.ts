@@ -302,9 +302,9 @@ export async function autoAssignSquadsForTesting(
                 );
             }
             await client.query(
-                `INSERT INTO "TeamSettings" (team_name, team_coins)
+                `INSERT INTO "TeamSettings" ("LittleTeamLeagelName", team_coins)
                  VALUES ($1, 0)
-                 ON CONFLICT (team_name) DO NOTHING`,
+                 ON CONFLICT ("LittleTeamLeagelName") DO NOTHING`,
                 [squad.squadName]
             );
         }
@@ -345,39 +345,44 @@ export async function importRostersData(csvContent: string, actor = 'admin') {
         const rows = csvContent.split('\n');
         let count = 0;
 
+        // parseBool: 支援 true/false、1/0、Y/N
+        const parseBool = (s: string) => ['true', '1', 'y', 'yes'].includes(String(s).toLowerCase().trim());
+
         for (const row of rows) {
             const cols = row.split(',').map(c => c.trim());
-            // Expecting: email, name, birthday, big_team_name(大隊), little_team_name(小隊), is_captain, is_commandant
-            const email = cols[0]?.toLowerCase();
-            if (!email || !email.includes('@')) continue;
+            // 格式：電話, 姓名, 生日(YYYY-MM-DD), 大隊, 是否大隊長, 小隊, 是否小隊長
+            const rawPhone = cols[0]?.replace(/\D/g, '');         // 去除非數字
+            if (!rawPhone || rawPhone.length < 8) continue;
+            const userId = rawPhone.replace(/^0+/, '');           // 去除開頭 0 → UserID
+            const email = `${userId}@phone.local`;                // Rosters 主鍵用途
 
             const name = cols[1] || null;
             const birthday = cols[2] && /^\d{4}-\d{2}-\d{2}$/.test(cols[2]) ? cols[2] : null;
-            const big_team_name = cols[3] || null;    // 大隊法定名稱
-            const little_team_name = cols[4] || null; // 小隊法定名稱
-            const is_captain = String(cols[5]).toLowerCase() === 'true';
-            const is_commandant = String(cols[6]).toLowerCase() === 'true';
+            const bigTeamName = cols[3] || null;                  // 大隊法定名稱
+            const is_commandant = parseBool(cols[4] || '');       // 是否大隊長
+            const littleTeamName = is_commandant ? null : (cols[5] || null); // 大隊長無小隊
+            const is_captain = parseBool(cols[6] || '');          // 是否小隊長
 
             await client.query(`
-                INSERT INTO "Rosters" (email, name, birthday, big_team_name, little_team_name, is_captain, is_commandant)
+                INSERT INTO "Rosters" (email, name, birthday, "BigTeamLeagelName", "LittleTeamLeagelName", is_captain, is_commandant)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ON CONFLICT (email)
                 DO UPDATE SET
                     name = EXCLUDED.name,
                     birthday = EXCLUDED.birthday,
-                    big_team_name = EXCLUDED.big_team_name,
-                    little_team_name = EXCLUDED.little_team_name,
+                    "BigTeamLeagelName" = EXCLUDED."BigTeamLeagelName",
+                    "LittleTeamLeagelName" = EXCLUDED."LittleTeamLeagelName",
                     is_captain = EXCLUDED.is_captain,
                     is_commandant = EXCLUDED.is_commandant
-            `, [email, name, birthday, big_team_name, little_team_name, is_captain, is_commandant]);
+            `, [email, name, birthday, bigTeamName, littleTeamName, is_captain, is_commandant]);
 
-            // If they already created a CharacterStat, automatically sync all fields
+            // 同步已建立的 CharacterStats（以 UserID 比對）
             await client.query(`
                 UPDATE "CharacterStats"
                 SET "BigTeamLeagelName" = $2, "LittleTeamLeagelName" = $3, "IsCaptain" = $4, "IsCommandant" = $5,
                     "Birthday" = COALESCE($6, "Birthday")
-                WHERE "Email" = $1
-            `, [email, big_team_name, little_team_name, is_captain, is_commandant, birthday]);
+                WHERE "UserID" = $1
+            `, [userId, bigTeamName, littleTeamName, is_captain, is_commandant, birthday]);
 
             count++;
         }
@@ -399,6 +404,7 @@ export async function adminCreateMember(data: {
     name: string;
     phone: string;
     email?: string;
+    birthday?: string;
     role: string;
     teamName?: string;
     squadName?: string;
@@ -406,10 +412,11 @@ export async function adminCreateMember(data: {
     isCommandant?: boolean;
 }): Promise<{ success: boolean; userId?: string; error?: string }> {
     const supabase = createClient(_supabaseUrl, _supabaseKey);
-    const userId = data.phone.replace(/\D/g, '');
+    const userId = data.phone.replace(/\D/g, '').replace(/^0+/, '');
     if (!userId) return { success: false, error: '手機號碼格式錯誤' };
     const { data: existing } = await supabase.from('CharacterStats').select('UserID').eq('UserID', userId).single();
     if (existing) return { success: false, error: `UserID「${userId}」已存在` };
+    const birthday = data.birthday && /^\d{4}-\d{2}-\d{2}$/.test(data.birthday) ? data.birthday : null;
     const newChar = {
         UserID: userId,
         Name: data.name.trim(),
@@ -420,6 +427,7 @@ export async function adminCreateMember(data: {
         Streak: 0, LastCheckIn: null, TotalFines: 0, FinePaid: 0,
         CurrentQ: 0, CurrentR: 0, HP: null, MaxHP: null,
         Email: data.email?.trim()?.toLowerCase() || null,
+        Birthday: birthday,
         BigTeamLeagelName: data.teamName?.trim() || null,
         LittleTeamLeagelName: data.isCommandant ? null : (data.squadName?.trim() || null),
         IsCaptain: !!data.isCaptain,
@@ -485,16 +493,16 @@ export async function saveBirthday(userId: string, birthday: string) {
 
 // ── 大小隊自訂隊名 ────────────────────────────────────────
 export async function getGroupDisplayNames(): Promise<{
-    squads: { team_name: string; display_name: string | null }[];
+    squads: { LittleTeamLeagelName: string; display_name: string | null }[];
     battalions: { battalion_name: string; display_name: string | null }[];
 }> {
     const supabase = createClient(_supabaseUrl, _supabaseKey);
     const [{ data: squads }, { data: battalions }] = await Promise.all([
-        supabase.from('TeamSettings').select('team_name, display_name'),
+        supabase.from('TeamSettings').select('LittleTeamLeagelName, display_name'),
         supabase.from('BattalionSettings').select('battalion_name, display_name'),
     ]);
     return {
-        squads: (squads ?? []) as { team_name: string; display_name: string | null }[],
+        squads: (squads ?? []) as { LittleTeamLeagelName: string; display_name: string | null }[],
         battalions: (battalions ?? []) as { battalion_name: string; display_name: string | null }[],
     };
 }
@@ -503,7 +511,7 @@ export async function setSquadDisplayName(squadName: string, displayName: string
     const supabase = createClient(_supabaseUrl, _supabaseKey);
     const { error } = await supabase
         .from('TeamSettings')
-        .upsert({ team_name: squadName, display_name: displayName.trim() || null }, { onConflict: 'team_name' });
+        .upsert({ LittleTeamLeagelName: squadName, display_name: displayName.trim() || null }, { onConflict: 'LittleTeamLeagelName' });
     if (error) return { success: false, error: error.message };
     return { success: true };
 }

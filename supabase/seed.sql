@@ -131,19 +131,42 @@ BEGIN
     ALTER TABLE public."SystemSettings" ADD COLUMN "TopicQuestCoins" TEXT DEFAULT NULL;
   END IF;
 
-  -- Rosters: 舊欄位重命名（squad_name=大隊, team_name=小隊 → 已修正語義）
+  -- Rosters: 舊欄位逐步重命名至標準欄位名稱
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'Rosters' AND column_name = 'squad_name'
   ) THEN
-    ALTER TABLE public."Rosters" RENAME COLUMN "squad_name" TO "big_team_name";
+    ALTER TABLE public."Rosters" RENAME COLUMN "squad_name" TO "BigTeamLeagelName";
   END IF;
 
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'Rosters' AND column_name = 'team_name'
   ) THEN
-    ALTER TABLE public."Rosters" RENAME COLUMN "team_name" TO "little_team_name";
+    ALTER TABLE public."Rosters" RENAME COLUMN "team_name" TO "LittleTeamLeagelName";
+  END IF;
+
+  -- 中繼名稱也一起處理（若從 big_team_name/little_team_name 過渡）
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'Rosters' AND column_name = 'big_team_name'
+  ) THEN
+    ALTER TABLE public."Rosters" RENAME COLUMN "big_team_name" TO "BigTeamLeagelName";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'Rosters' AND column_name = 'little_team_name'
+  ) THEN
+    ALTER TABLE public."Rosters" RENAME COLUMN "little_team_name" TO "LittleTeamLeagelName";
+  END IF;
+
+  -- TeamSettings: 主鍵欄位 team_name → LittleTeamLeagelName
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'TeamSettings' AND column_name = 'team_name'
+  ) THEN
+    ALTER TABLE public."TeamSettings" RENAME COLUMN "team_name" TO "LittleTeamLeagelName";
   END IF;
 END $$;
 
@@ -178,7 +201,7 @@ VALUES (
 -- ============================================================
 -- 2. TeamSettings（9 個小隊）
 -- ============================================================
-INSERT INTO public."TeamSettings" ("team_name", "team_coins", "mandatory_quest_id", "mandatory_quest_week", "quest_draw_history", "inventory")
+INSERT INTO public."TeamSettings" ("LittleTeamLeagelName", "team_coins", "mandatory_quest_id", "mandatory_quest_week", "quest_draw_history", "inventory")
 VALUES
   ('第一小隊', 1200, 'w1', '2026-W12', '["w1"]'::jsonb,           '[]'::jsonb),
   ('第二小隊', 1500, 'w2', '2026-W12', '["w1","w2"]'::jsonb,      '["a3"]'::jsonb),
@@ -456,7 +479,7 @@ VALUES
 -- ============================================================
 -- 4. Rosters（名冊）
 -- ============================================================
-INSERT INTO public."Rosters" ("email","name","big_team_name","little_team_name","is_captain","is_commandant")
+INSERT INTO public."Rosters" ("email","name","BigTeamLeagelName","LittleTeamLeagelName","is_captain","is_commandant")
 VALUES
   -- GM
   ('gm@bigsmile.com',   '林大統', '指揮部',   '指揮部',   false, true),
