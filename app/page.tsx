@@ -1253,28 +1253,32 @@ export default function App() {
 
           setUserData(stats as CharacterStats);
           setLogs(logsArray);
+          setView('app'); // 先進入畫面，次要資料背景載入，避免任一 fetch 卡住導致永久 loading
 
-          // Fetch w4 applications for this user
-          const w4Res = await getW4Applications({ userId: stats.UserID });
-          if (w4Res.success) setW4Applications(w4Res.applications);
-
-          // If squad leader, fetch pending apps for review
+          // 背景載入次要資料（不阻塞畫面切換）
+          const secondaryFetches: Promise<unknown>[] = [
+            getW4Applications({ userId: stats.UserID }).then(res => {
+              if (res.success) setW4Applications(res.applications);
+            }),
+            getUserAchievements(stats.UserID).then(records => {
+              setUserAchievements(records);
+            }),
+          ];
           if (stats.IsCaptain && stats.LittleTeamLeagelName) {
-            const pendingRes = await getW4Applications({ squadName: stats.LittleTeamLeagelName, status: 'pending' });
-            if (pendingRes.success) setPendingW4Apps(pendingRes.applications);
+            secondaryFetches.push(
+              getW4Applications({ squadName: stats.LittleTeamLeagelName, status: 'pending' }).then(res => {
+                if (res.success) setPendingW4Apps(res.applications);
+              })
+            );
           }
-
-          // If commandant, fetch squad_approved apps for battalion review
           if (stats.IsCommandant) {
-            const commandantRes = await getW4Applications({ status: 'squad_approved' });
-            if (commandantRes.success) setSquadApprovedW4Apps(commandantRes.applications);
+            secondaryFetches.push(
+              getW4Applications({ status: 'squad_approved' }).then(res => {
+                if (res.success) setSquadApprovedW4Apps(res.applications);
+              })
+            );
           }
-
-          // Load achievements
-          const achRecords = await getUserAchievements(stats.UserID);
-          setUserAchievements(achRecords);
-
-          setView('app');
+          Promise.all(secondaryFetches).catch(console.error);
         } else { setView(v => v === 'loading' ? 'login' : v); }
       } else if (!savedUid) { setView(v => v === 'loading' ? 'login' : v); }
     };
