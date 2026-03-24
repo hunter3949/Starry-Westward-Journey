@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { CheckCircle2, XCircle, RefreshCw, Sword, ShieldCheck, Pencil, ChevronDown, Users } from 'lucide-react';
 import { CharacterStats, W4Application } from '@/types';
-import { reviewW4ByAdmin } from '@/app/actions/w4';
+import { reviewW4ByBattalionLeader } from '@/app/actions/w4';
 import { setBattalionDisplayName } from '@/app/actions/admin';
 
 interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; }
@@ -42,7 +42,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
     const handleReview = async (appId: string, action: 'approve' | 'reject') => {
         setReviewingId(appId);
         try {
-            const res = await reviewW4ByAdmin(appId, action, notes[appId] || '', userData.Name);
+            const res = await reviewW4ByBattalionLeader(appId, userData.UserID, action === 'approve', notes[appId] || '');
             if (res.success) {
                 onShowMessage(
                     action === 'approve' ? '✅ 已核准入帳，傳愛修為已發放！' : '已駁回此申請。',
@@ -52,7 +52,6 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
             } else {
                 onShowMessage(res.error || '操作失敗', 'error');
             }
-            if (res.warning) onShowMessage(res.warning, 'info');
         } catch (e: any) {
             onShowMessage('系統異常：' + e.message, 'error');
         } finally {
@@ -178,13 +177,15 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
                 )}
             </div>
 
-            {/* Application list */}
-            {apps.length === 0 ? (
+            {/* Application list — 大隊長不審自己的申請 */}
+            {(() => {
+                const reviewableApps = apps.filter(a => a.user_id !== userData.UserID);
+                return reviewableApps.length === 0 ? (
                 <div className="bg-slate-900/60 border border-slate-700/40 rounded-3xl p-6 text-center space-y-3">
                     <p className="text-white font-black text-base">傳愛申請終審</p>
-                    <p className="text-xs text-slate-400">以下為已通過小隊長初審、待終審的申請</p>
+                    <p className="text-xs text-slate-400">以下為已通過小隊長初審、待大隊長審核的申請</p>
                     <div className="border-t border-slate-700/40 pt-3">
-                        <p className="text-slate-500 font-black text-sm">目前無待終審申請</p>
+                        <p className="text-slate-500 font-black text-sm">目前無待審核申請</p>
                         <p className="text-slate-600 text-xs mt-1">所有申請均已處理完畢</p>
                     </div>
                 </div>
@@ -192,9 +193,9 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
                 <div className="flex flex-col gap-4">
                     <div className="px-1">
                         <p className="text-white font-black text-base">傳愛申請終審</p>
-                        <p className="text-xs text-slate-400 mt-0.5">以下為已通過小隊長初審、待終審的申請</p>
+                        <p className="text-xs text-slate-400 mt-0.5">以下為已通過小隊長初審、待大隊長審核的申請</p>
                     </div>
-                    {apps.map(app => (
+                    {reviewableApps.map(app => (
                         <div key={app.id} className="bg-slate-900 border-2 border-rose-500/20 rounded-3xl p-5 space-y-4 shadow-xl">
                             {/* App info */}
                             <div className="flex items-start justify-between gap-3">
@@ -213,7 +214,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
                                         <p className="text-xs text-slate-400 italic mt-1.5">「{app.description}」</p>
                                     )}
                                 </div>
-                                <span className="shrink-0 text-[10px] font-black text-blue-400 bg-blue-400/10 px-2 py-1 rounded-lg">待終審</span>
+                                <span className="shrink-0 text-[10px] font-black text-blue-400 bg-blue-400/10 px-2 py-1 rounded-lg">待大隊長審核</span>
                             </div>
 
                             {/* Notes */}
@@ -245,7 +246,8 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
                         </div>
                     ))}
                 </div>
-            )}
+            );
+            })()}
         </div>
     );
 }

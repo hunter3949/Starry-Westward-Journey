@@ -20,10 +20,11 @@ interface WeeklyTopicTabProps {
 }
 
 const W4_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-    pending: { label: '🟡 待小隊長審核', color: 'text-yellow-400' },
-    squad_approved: { label: '🔵 待管理員核實', color: 'text-blue-400' },
-    approved: { label: '🟢 已核准（已入帳）', color: 'text-emerald-400' },
-    rejected: { label: '🔴 已駁回', color: 'text-red-400' },
+    pending:             { label: '🟡 待小隊長審核', color: 'text-yellow-400' },
+    squad_approved:      { label: '🔵 待大隊長審核', color: 'text-blue-400' },
+    battalion_approved:  { label: '🟣 待管理員審核', color: 'text-violet-400' },
+    approved:            { label: '🟢 已核准（已入帳）', color: 'text-emerald-400' },
+    rejected:            { label: '🔴 已駁回', color: 'text-red-400' },
 };
 
 export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTopicDone, temporaryQuests, userInventory, teamInventory = [], w4Applications, weeklyReview, isLoadingReview, onCheckIn, onUndo, onSubmitW4 }: WeeklyTopicTabProps) {

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, ChevronUp, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download, Calendar, Zap, Search, LogIn, Tag, RefreshCw } from 'lucide-react';
+import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download, Calendar, Zap, Search, LogIn, Tag, RefreshCw } from 'lucide-react';
 import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course, MainQuestEntry, BonusQuestRule } from '@/types';
+import { RankTab } from '@/components/Tabs/RankTab';
 import { getCourseRegistrations } from '@/app/actions/course';
 
 import { ADMIN_PASSWORD, ARTIFACTS_CONFIG, ROLE_CURE_MAP } from '@/lib/constants';
@@ -2734,7 +2735,7 @@ export function AdminDashboard({
         setW4Notes(prev => { const n = { ...prev }; delete n[appId]; return n; });
     };
 
-    const [adminModule, setAdminModule] = React.useState<'personnel' | 'course' | 'quest' | 'params' | 'gallery' | 'dashboard' | 'logs' | null>(null);
+    const [adminModule, setAdminModule] = React.useState<'personnel' | 'course' | 'quest' | 'params' | 'gallery' | 'dashboard' | 'logs' | 'review' | null>('dashboard');
 
     // 儀表板統計
     type DashStats = { total: number; active: number; fallen: number; fallenUsers: { name: string; teamName: string | null; squadName: string | null }[] };
@@ -2769,7 +2770,7 @@ export function AdminDashboard({
     }, []);
 
     React.useEffect(() => {
-        if (adminModule === 'logs' || adminModule === null) refreshLogs();
+        if (adminModule === 'logs') refreshLogs();
     }, [adminModule, refreshLogs]);
 
     if (!adminAuth) {
@@ -2793,6 +2794,7 @@ export function AdminDashboard({
     const NAV_ITEMS = [
         { key: null as null,             label: '首頁',    icon: <BarChart3 size={17} />, accent: 'slate' },
         { key: 'dashboard' as const,     label: '儀表板',   icon: <BarChart3 size={17} />, accent: 'sky' },
+        { key: 'review' as const,        label: '審核中心', icon: <CheckCircle size={17} />, accent: 'pink' },
         { key: 'personnel' as const,     label: '人員管理', icon: <Users size={17} />,    accent: 'cyan' },
         { key: 'course' as const,        label: '課程管理', icon: <BookOpen size={17} />, accent: 'amber' },
         { key: 'quest' as const,         label: '任務管理', icon: <Settings size={17} />, accent: 'orange' },
@@ -2810,10 +2812,12 @@ export function AdminDashboard({
         teal:   'bg-teal-950/70 text-teal-300 border-teal-700/50',
         sky:    'bg-sky-950/70 text-sky-300 border-sky-700/50',
         rose:   'bg-rose-950/70 text-rose-300 border-rose-700/50',
+        pink:   'bg-pink-950/70 text-pink-300 border-pink-700/50',
     };
     const accentDot: Record<string, string> = {
-        slate: 'bg-slate-400', cyan: 'bg-cyan-400', amber: 'bg-amber-400', orange: 'bg-orange-400', violet: 'bg-violet-400', teal: 'bg-teal-400', sky: 'bg-sky-400', rose: 'bg-rose-400',
+        slate: 'bg-slate-400', cyan: 'bg-cyan-400', amber: 'bg-amber-400', orange: 'bg-orange-400', violet: 'bg-violet-400', teal: 'bg-teal-400', sky: 'bg-sky-400', rose: 'bg-rose-400', pink: 'bg-pink-400',
     };
+    const reviewPendingCount = squadApprovedW4Apps.length;
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-200 flex animate-in fade-in">
@@ -2832,6 +2836,7 @@ export function AdminDashboard({
                 <nav className="flex flex-col gap-1 p-3 flex-1">
                     {NAV_ITEMS.map(item => {
                         const isActive = adminModule === item.key;
+                        const badge = item.key === 'review' && reviewPendingCount > 0 ? reviewPendingCount : 0;
                         return (
                             <button key={String(item.key)} onClick={() => setAdminModule(item.key)}
                                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold border transition-all text-left w-full
@@ -2840,7 +2845,8 @@ export function AdminDashboard({
                                         : 'text-slate-500 border-transparent hover:text-slate-200 hover:bg-white/5'}`}>
                                 {isActive && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${accentDot[item.accent]}`} />}
                                 <span className={isActive ? '' : 'opacity-60'}>{item.icon}</span>
-                                {item.label}
+                                <span className="flex-1">{item.label}</span>
+                                {badge > 0 && <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full px-1">{badge}</span>}
                             </button>
                         );
                     })}
@@ -2861,11 +2867,13 @@ export function AdminDashboard({
                 <div className="md:hidden sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-white/5 flex items-center gap-2 px-3 py-2.5 overflow-x-auto">
                     {NAV_ITEMS.map(item => {
                         const isActive = adminModule === item.key;
+                        const badge = item.key === 'review' && reviewPendingCount > 0 ? reviewPendingCount : 0;
                         return (
                             <button key={String(item.key)} onClick={() => setAdminModule(item.key)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap border shrink-0 transition-all
+                                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap border shrink-0 transition-all
                                     ${isActive ? accentClass[item.accent] + ' border' : 'text-slate-500 border-transparent bg-slate-800'}`}>
                                 {item.icon}{item.label}
+                                {badge > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] flex items-center justify-center bg-red-500 text-white text-[9px] font-black rounded-full px-0.5">{badge}</span>}
                             </button>
                         );
                     })}
@@ -2883,7 +2891,7 @@ export function AdminDashboard({
                         <div className="p-2.5 bg-orange-600 rounded-2xl text-white shadow-lg md:hidden"><Settings size={20} /></div>
                         <div>
                             <h1 className="text-xl md:text-2xl font-black text-white">
-                                {adminModule === null ? '首頁' : adminModule === 'personnel' ? '人員管理' : adminModule === 'course' ? '課程管理' : adminModule === 'quest' ? '任務管理' : adminModule === 'params' ? '參數管理' : adminModule === 'gallery' ? '圖片庫' : adminModule === 'dashboard' ? '儀表板' : 'Log 紀錄'}
+                                {adminModule === null ? '首頁' : adminModule === 'dashboard' ? '儀表板' : adminModule === 'review' ? '審核中心' : adminModule === 'personnel' ? '人員管理' : adminModule === 'course' ? '課程管理' : adminModule === 'quest' ? '任務管理' : adminModule === 'params' ? '參數管理' : adminModule === 'gallery' ? '圖片庫' : 'Log 紀錄'}
                             </h1>
                             <p className="text-[10px] text-slate-600">大會管理後台</p>
                         </div>
@@ -2968,108 +2976,75 @@ export function AdminDashboard({
                         </button>
                     </div>
 
-                    {/* ❤️ w4 傳愛分數終審 */}
-                    <section className="space-y-6">
-                        <div className="flex items-center gap-2 text-pink-500 font-black text-sm uppercase tracking-widest">❤️ 傳愛分數終審（管理員）</div>
-                        <div className="bg-slate-900 border-2 border-pink-500/20 p-8 rounded-4xl shadow-xl space-y-4">
-                            {squadApprovedW4Apps.length === 0 ? (
-                                <p className="text-sm text-slate-500 text-center py-4">目前無待終審申請</p>
-                            ) : (
-                                squadApprovedW4Apps.map(app => (
-                                    <div key={app.id} className="bg-slate-800 rounded-2xl p-5 space-y-3">
-                                        <div className="flex justify-between items-start flex-wrap gap-2">
-                                            <div>
-                                                <p className="font-black text-white">{app.user_name}</p>
-                                                <p className="text-xs text-slate-400">{app.squad_name} · 訪談：{app.interview_target} · {app.interview_date}</p>
-                                                {app.squad_review_notes && <p className="text-xs text-indigo-400 mt-1">小隊長備註：{app.squad_review_notes}</p>}
-                                            </div>
-                                            <span className="text-[10px] font-black text-blue-400 bg-blue-400/10 px-2 py-1 rounded-lg">待終審</span>
-                                        </div>
-                                        {app.description && <p className="text-xs text-slate-400 italic">{app.description}</p>}
-                                        <textarea placeholder="終審備註（選填）" value={w4Notes[app.id] || ''}
-                                            onChange={e => setW4Notes(prev => ({ ...prev, [app.id]: e.target.value }))}
-                                            rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-xl p-3 text-white text-xs outline-none focus:border-pink-500 resize-none" />
-                                        <div className="flex gap-3">
-                                            <button disabled={reviewingW4Id === app.id} onClick={() => handleW4Review(app.id, false)}
-                                                className="flex-1 py-2 bg-red-600/20 text-red-400 font-black rounded-xl text-sm border border-red-600/30 active:scale-95 transition-all disabled:opacity-50">❌ 駁回</button>
-                                            <button disabled={reviewingW4Id === app.id} onClick={() => handleW4Review(app.id, true)}
-                                                className="flex-2 py-2 bg-emerald-600 text-white font-black rounded-xl text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50">✅ 核准入帳</button>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </section>
-
                     {/* LINE 選單設定 */}
                     <LineRichMenuSection />
 
-                    {/* 親證故事列表 */}
-                    <section className="space-y-6">
-                        <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest"><BarChart3 size={16} /> 親證故事存檔（{testimonies.length} 筆）</div>
-                        <div className="bg-slate-900 border-2 border-slate-800 rounded-4xl overflow-hidden shadow-xl max-h-[500px] overflow-y-auto divide-y divide-slate-800">
-                            {testimonies.length === 0 ? (
-                                <p className="text-sm text-slate-500 text-center py-8">尚無親證故事記錄</p>
-                            ) : testimonies.map(t => (
-                                <div key={t.id} className="p-4 hover:bg-white/5 transition-colors space-y-1">
-                                    <div className="flex justify-between items-start gap-2">
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-black text-white">
-                                                {t.parsed_name ?? t.display_name ?? '未知'}
-                                                {t.parsed_category && <span className="ml-2 text-[10px] font-normal bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-lg">{t.parsed_category}</span>}
-                                            </p>
-                                            <p className="text-xs text-slate-400 mt-1 leading-relaxed line-clamp-3">{t.content}</p>
-                                        </div>
-                                        <div className="text-right shrink-0 text-[10px] text-slate-500 space-y-1">
-                                            <p>{t.parsed_date ?? '日期未填'}</p>
-                                            <p>{new Date(t.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
+                </>)}
 
-                    {/* 修為榜 + 操作日誌 */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <section className="space-y-6">
-                            <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest"><Users size={16} /> 修行者修為榜預覽</div>
-                            <div className="bg-slate-900 border-2 border-slate-800 rounded-4xl overflow-hidden divide-y divide-slate-800 shadow-xl max-h-[400px] overflow-y-auto">
-                                {leaderboard.map((p, i) => (
-                                    <div key={p.UserID} className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors">
-                                        <span className="text-xs font-black text-slate-600 w-4 text-center">{i + 1}</span>
-                                        <div className="flex-1 text-left">
-                                            <p className="font-bold text-white text-sm">{p.Name}</p>
-                                            <p className="text-[10px] text-slate-500 italic">{p.Role}</p>
+                {/* ══ 審核中心模組 ══ */}
+                {adminModule === 'review' && (<>
+                    <div className="space-y-8">
+                        <div className="flex items-center gap-2 text-pink-400 font-black text-sm uppercase tracking-widest">
+                            <CheckCircle size={16} /> 審核中心
+                        </div>
+
+                        {/* 傳愛分數終審 */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 text-pink-500 font-black text-sm uppercase tracking-widest">
+                                ❤️ 傳愛分數終審（管理員）
+                                {reviewPendingCount > 0 && <span className="text-[10px] font-black text-white bg-red-500 px-2 py-0.5 rounded-full">{reviewPendingCount} 待審</span>}
+                            </div>
+                            <div className="bg-slate-900 border-2 border-pink-500/20 p-8 rounded-4xl shadow-xl space-y-4">
+                                {squadApprovedW4Apps.length === 0 ? (
+                                    <p className="text-sm text-slate-500 text-center py-4">目前無待審核申請</p>
+                                ) : (
+                                    squadApprovedW4Apps.map(app => (
+                                        <div key={app.id} className="bg-slate-800 rounded-2xl p-5 space-y-3">
+                                            <div className="flex justify-between items-start flex-wrap gap-2">
+                                                <div>
+                                                    <p className="font-black text-white">{app.user_name}</p>
+                                                    <p className="text-xs text-slate-400">{app.squad_name} · 訪談：{app.interview_target} · {app.interview_date}</p>
+                                                    {app.squad_review_notes && <p className="text-xs text-indigo-400 mt-1">小隊長備註：{app.squad_review_notes}</p>}
+                                                </div>
+                                                <span className="text-[10px] font-black text-violet-400 bg-violet-400/10 px-2 py-1 rounded-lg">待管理員審核</span>
+                                            </div>
+                                            {app.description && <p className="text-xs text-slate-400 italic">{app.description}</p>}
+                                            <textarea placeholder="終審備註（選填）" value={w4Notes[app.id] || ''}
+                                                onChange={e => setW4Notes(prev => ({ ...prev, [app.id]: e.target.value }))}
+                                                rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-xl p-3 text-white text-xs outline-none focus:border-pink-500 resize-none" />
+                                            <div className="flex gap-3">
+                                                <button disabled={reviewingW4Id === app.id} onClick={() => handleW4Review(app.id, false)}
+                                                    className="flex-1 py-2 bg-red-600/20 text-red-400 font-black rounded-xl text-sm border border-red-600/30 active:scale-95 transition-all disabled:opacity-50">❌ 駁回</button>
+                                                <button disabled={reviewingW4Id === app.id} onClick={() => handleW4Review(app.id, true)}
+                                                    className="flex-2 py-2 bg-emerald-600 text-white font-black rounded-xl text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50">✅ 核准入帳</button>
+                                            </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-xs font-black text-orange-500">{p.Exp} 修為</p>
-                                            <p className="text-[10px] text-red-500">罰金 NT${p.TotalFines}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
                         </section>
-                        <section className="space-y-6">
-                            <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest"><BarChart3 size={16} /> 管理操作日誌</div>
-                            <div className="bg-slate-900 border-2 border-slate-800 rounded-4xl overflow-hidden shadow-xl max-h-[400px] overflow-y-auto divide-y divide-slate-800">
-                                {freshLogs.length === 0 ? (
-                                    <p className="text-sm text-slate-500 text-center py-8">尚無操作記錄</p>
-                                ) : freshLogs.map(log => (
-                                    <div key={log.id} className={`p-4 hover:bg-white/5 transition-colors ${log.result === 'error' ? 'bg-red-950/20' : ''}`}>
+
+                        {/* 親證故事存檔 */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest">
+                                <BarChart3 size={16} /> 親證故事存檔（{testimonies.length} 筆）
+                            </div>
+                            <div className="bg-slate-900 border-2 border-slate-800 rounded-4xl overflow-hidden shadow-xl max-h-[500px] overflow-y-auto divide-y divide-slate-800">
+                                {testimonies.length === 0 ? (
+                                    <p className="text-sm text-slate-500 text-center py-8">尚無親證故事記錄</p>
+                                ) : testimonies.map(t => (
+                                    <div key={t.id} className="p-4 hover:bg-white/5 transition-colors space-y-1">
                                         <div className="flex justify-between items-start gap-2">
                                             <div className="flex-1 min-w-0">
-                                                <p className={`text-xs font-black ${log.result === 'error' ? 'text-red-400' : 'text-slate-200'}`}>{ACTION_LABELS[log.action] || log.action}</p>
-                                                {log.target_name && <p className="text-[10px] text-slate-500 truncate">對象：{log.target_name}</p>}
-                                                {log.details && Object.keys(log.details).length > 0 && (
-                                                    <p className="text-[10px] text-slate-600 truncate">{Object.entries(log.details).map(([k, v]) => `${DETAIL_LABELS[k] ?? k}: ${typeof v === 'boolean' ? (v ? '是' : '否') : v}`).join('・')}</p>
-                                                )}
+                                                <p className="text-sm font-black text-white">
+                                                    {t.parsed_name ?? t.display_name ?? '未知'}
+                                                    {t.parsed_category && <span className="ml-2 text-[10px] font-normal bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-lg">{t.parsed_category}</span>}
+                                                </p>
+                                                <p className="text-xs text-slate-400 mt-1 leading-relaxed line-clamp-3">{t.content}</p>
                                             </div>
-                                            <div className="text-right shrink-0">
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${log.result === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                                                    {log.result === 'error' ? '失敗' : '成功'}
-                                                </span>
-                                                <p className="text-[10px] text-slate-600 mt-1">{new Date(log.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                                            <div className="text-right shrink-0 text-[10px] text-slate-500 space-y-1">
+                                                <p>{t.parsed_date ?? '日期未填'}</p>
+                                                <p>{new Date(t.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -3077,7 +3052,6 @@ export function AdminDashboard({
                             </div>
                         </section>
                     </div>
-
                 </>)}
 
                 {/* ══ 儀表板模組 ══ */}
@@ -3133,18 +3107,18 @@ export function AdminDashboard({
                                 <p className="text-[10px] text-slate-500">近 2 日有回報</p>
                             </div>
 
-                            {/* 陣亡人數 */}
+                            {/* 沉寂人數 */}
                             <div className="bg-gradient-to-br from-red-950/60 to-slate-900 border-2 border-red-800/30 rounded-3xl p-6 flex flex-col items-center justify-center gap-2 text-center shadow-xl min-h-[140px]">
                                 <div className="w-10 h-10 bg-red-900/40 rounded-2xl flex items-center justify-center text-red-400 mb-1">
                                     <Shield size={20} />
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                    <p className="text-[11px] font-black text-red-400 uppercase tracking-widest">陣亡人數</p>
+                                    <p className="text-[11px] font-black text-red-400 uppercase tracking-widest">沉寂人數</p>
                                     <button
                                         onClick={() => { if (dashStats && dashStats.fallen > 0) setShowFallenModal(true); }}
                                         disabled={dashLoading || !dashStats || dashStats.fallen === 0}
                                         className="p-1 rounded-lg text-red-400/60 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-30 disabled:cursor-default"
-                                        title="查看陣亡名單">
+                                        title="查看沉寂名單">
                                         <Search size={12} />
                                     </button>
                                 </div>
@@ -3158,7 +3132,7 @@ export function AdminDashboard({
                         </div>
                     </div>
 
-                    {/* ── 陣亡名單彈窗 ── */}
+                    {/* ── 沉寂名單彈窗 ── */}
                     {showFallenModal && dashStats && (
                         <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-6 bg-black/80 backdrop-blur-sm"
                             onClick={() => setShowFallenModal(false)}>
@@ -3168,7 +3142,7 @@ export function AdminDashboard({
                                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 shrink-0">
                                     <div className="flex items-center gap-2">
                                         <Shield size={15} className="text-red-400" />
-                                        <p className="font-black text-white text-sm">陣亡名單</p>
+                                        <p className="font-black text-white text-sm">沉寂名單</p>
                                         <span className="text-[10px] font-black bg-red-500/20 text-red-400 px-2 py-0.5 rounded-lg">{dashStats.fallen} 人</span>
                                     </div>
                                     <button onClick={() => setShowFallenModal(false)}
@@ -3195,6 +3169,11 @@ export function AdminDashboard({
                             </div>
                         </div>
                     )}
+
+                    {/* ── 修行者修為榜 ── */}
+                    <div>
+                        <RankTab leaderboard={leaderboard} />
+                    </div>
                 </>)}
 
                 {/* ══ Log 紀錄模組 ══ */}
@@ -3844,7 +3823,6 @@ export function AdminDashboard({
                                         {filteredMembers.length === 0 ? (
                                             <tr><td colSpan={10} className="text-center py-8 text-slate-500">無符合條件的成員</td></tr>
                                         ) : filteredMembers.map((p, i) => {
-                                            const fineBalance = p.TotalFines - p.FinePaid;
                                             return (
                                                 <tr key={p.UserID} className="hover:bg-white/5 transition-colors">
                                                     <td className="px-4 py-3 text-slate-600">{i + 1}</td>
@@ -4339,33 +4317,39 @@ export function AdminDashboard({
                             <div className="space-y-2 border-t border-slate-800 pt-5">
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">排程列表</p>
                                 {mainQuestSchedule.length > 0 ? (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                         {mainQuestSchedule.map(entry => {
                                             const isActive = activeMqEntry?.id === entry.id;
-                                            const isPast = entry.startDate <= today;
+                                            const isPast = !isActive && entry.startDate <= today;
                                             return (
-                                                <div key={entry.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${isActive ? 'border-yellow-500/60 bg-yellow-500/10' : isPast ? 'border-slate-700 bg-slate-800/50 opacity-60' : 'border-slate-700 bg-slate-800/50'}`}>
-                                                    <div className="text-xs font-black text-slate-400 w-24 shrink-0">{entry.startDate}</div>
-                                                    <div className="flex-1 min-w-0">
-                                                        {entry.topicTitle && (
-                                                            <p className="text-[10px] font-black text-yellow-400 truncate">{entry.topicTitle}</p>
-                                                        )}
-                                                        <p className="text-sm font-bold text-white truncate">{entry.title}</p>
-                                                        <p className="text-[10px] text-slate-400">+{entry.reward} 修為 · +{entry.coins} 🪙</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 shrink-0">
-                                                        {isActive && <span className="text-[10px] font-black text-yellow-400 bg-yellow-500/20 px-2 py-0.5 rounded-lg">當前</span>}
+                                                <div key={entry.id} className={`bg-slate-950 p-4 rounded-2xl border space-y-2 transition-all ${isActive ? 'border-yellow-500/50' : isPast ? 'border-slate-800 opacity-50' : 'border-slate-800'}`}>
+                                                    <div className="flex justify-between items-start gap-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                {entry.topicTitle && (
+                                                                    <span className="text-[10px] font-black text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded-lg">{entry.topicTitle}</span>
+                                                                )}
+                                                                <span className="text-[10px] font-black text-slate-500 bg-slate-800 px-2 py-0.5 rounded-lg">{entry.startDate}</span>
+                                                                {isActive && <span className="text-[10px] font-black text-yellow-400 bg-yellow-500/20 px-2 py-0.5 rounded-lg">✦ 當前</span>}
+                                                            </div>
+                                                            <h4 className="font-bold text-slate-200">{entry.title}</h4>
+                                                            {entry.description && <p className="text-xs text-slate-500 mt-0.5">{entry.description}</p>}
+                                                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                                <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-lg">+{entry.reward} 修為</span>
+                                                                <span className="text-[10px] font-black text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-lg">+{entry.coins} 🪙</span>
+                                                            </div>
+                                                        </div>
                                                         {!isActive && (
-                                                            <>
+                                                            <div className="flex items-center gap-2 shrink-0">
                                                                 <button onClick={() => handleApplyMqEntry(entry)}
-                                                                    className="text-[10px] font-black text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded-lg transition-colors">
+                                                                    className="text-[10px] font-black text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-xl transition-colors">
                                                                     套用
                                                                 </button>
                                                                 <button onClick={() => handleRemoveMqEntry(entry.id)}
-                                                                    className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                                                                    className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-colors">
                                                                     <Trash2 size={13} />
                                                                 </button>
-                                                            </>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>

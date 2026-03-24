@@ -136,7 +136,7 @@ export interface W4Application {
   interview_date: string;
   description?: string;
   quest_id: string;
-  status: 'pending' | 'squad_approved' | 'approved' | 'rejected';
+  status: 'pending' | 'squad_approved' | 'battalion_approved' | 'approved' | 'rejected';
   squad_review_by?: string;
   squad_review_at?: string;
   squad_review_notes?: string;

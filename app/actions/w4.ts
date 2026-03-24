@@ -36,6 +36,18 @@ export async function submitW4Application(
         return { success: false, error: `已有「${interviewTarget.trim()}」的同日申請（待審或已核准），無法重複提交` };
     }
 
+    // 查申請人角色，決定初始狀態
+    const { data: applicant } = await supabase
+        .from('CharacterStats')
+        .select('IsCaptain, IsCommandant')
+        .eq('UserID', userId)
+        .single();
+
+    // 大隊長申請 → 直接進管理員終審；小隊長申請 → 略過小隊長初審進大隊長二審
+    const initialStatus = applicant?.IsCommandant ? 'battalion_approved'
+        : applicant?.IsCaptain ? 'squad_approved'
+        : 'pending';
+
     const { data, error } = await supabase
         .from('W4Applications')
         .insert({
@@ -47,13 +59,13 @@ export async function submitW4Application(
             interview_date: interviewDate,
             description,
             quest_id: questId,
-            status: 'pending',
+            status: initialStatus,
         })
         .select()
         .single();
 
     if (error) return { success: false, error: '提交失敗：' + error.message };
-    return { success: true, application: data as W4Application };
+    return { success: true, application: data as W4Application, initialStatus };
 }
 
 // ── 小隊長：初審 ─────────────────────────────────────────
@@ -98,6 +110,47 @@ export async function reviewW4BySquadLeader(
     return { success: true, newStatus: approve ? 'squad_approved' : 'rejected' };
 }
 
+// ── 大隊長：二審 ─────────────────────────────────────────
+export async function reviewW4ByBattalionLeader(
+    appId: string,
+    reviewerId: string,
+    approve: boolean,
+    notes: string = ''
+) {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: reviewer } = await supabase
+        .from('CharacterStats')
+        .select('IsCommandant, BigTeamLeagelName, Name')
+        .eq('UserID', reviewerId)
+        .single();
+
+    if (!reviewer?.IsCommandant) return { success: false, error: '僅限大隊長進行二審' };
+
+    const { data: app } = await supabase
+        .from('W4Applications')
+        .select('battalion_name, status, user_id')
+        .eq('id', appId)
+        .single();
+
+    if (!app) return { success: false, error: '找不到申請記錄' };
+    if (app.status !== 'squad_approved') return { success: false, error: '此申請尚未通過初審，無法進行二審' };
+    if (app.user_id === reviewerId) return { success: false, error: '不能審核自己的申請' };
+
+    const { error } = await supabase
+        .from('W4Applications')
+        .update({
+            status: approve ? 'battalion_approved' : 'rejected',
+            squad_review_by: reviewerId,
+            squad_review_at: new Date().toISOString(),
+            squad_review_notes: notes,
+        })
+        .eq('id', appId);
+
+    if (error) return { success: false, error: '二審更新失敗：' + error.message };
+    return { success: true, newStatus: approve ? 'battalion_approved' : 'rejected' };
+}
+
 // ── 管理員：終審 ──────────────────────────────────────────
 export async function reviewW4ByAdmin(
     appId: string,
@@ -114,7 +167,7 @@ export async function reviewW4ByAdmin(
         .single();
 
     if (!app) return { success: false, error: '找不到申請記錄' };
-    if (app.status !== 'squad_approved') return { success: false, error: '此申請尚未通過小隊長初審' };
+    if (app.status !== 'battalion_approved') return { success: false, error: '此申請尚未通過大隊長二審' };
 
     const newStatus = action === 'approve' ? 'approved' : 'rejected';
 

@@ -35,7 +35,7 @@ import { triggerWeeklySnapshot, importRostersData, checkWeeklyW3Compliance, auto
 import { listCourses, upsertCourse, deleteCourse } from '@/app/actions/course';
 import { getTestimonies } from '@/app/actions/testimonies_admin';
 import { drawWeeklyQuestForSquad, autoDrawAllSquads } from '@/app/actions/team';
-import { submitW4Application, reviewW4BySquadLeader, reviewW4ByAdmin, getW4Applications, getAdminActivityLog, deleteAdminLog } from '@/app/actions/w4';
+import { submitW4Application, reviewW4BySquadLeader, reviewW4ByAdmin, reviewW4ByBattalionLeader, getW4Applications, getAdminActivityLog, deleteAdminLog } from '@/app/actions/w4';
 import { generateWeeklyReview, generateCaptainBriefing } from '@/app/actions/gemini';
 import { handleChestOpen } from '@/app/actions/map';
 import { getSquadFineStatus, recordFinePayment, setPaidToCaptainDate, getSquadFinePaymentHistory, checkSquadW3Compliance, recordOrgSubmission, getSquadOrgSubmissions, setMemberQuestRole } from '@/app/actions/fines';
@@ -201,7 +201,7 @@ export default function App() {
       setAdminAuth(true);
       // Fetch admin data on auth
       const [w4Res, logsRes] = await Promise.all([
-        getW4Applications({ status: 'squad_approved' }),
+        getW4Applications({ status: 'battalion_approved' }),
         getAdminActivityLog(30),
       ]);
       if (w4Res.success) setSquadApprovedW4Apps(w4Res.applications);
@@ -655,7 +655,12 @@ export default function App() {
     );
     if (res.success && res.application) {
       setW4Applications(prev => [res.application as W4Application, ...prev]);
-      setModalMessage({ text: '傳愛申請已提交，待小隊長審核。', type: 'success' });
+      const msg = res.initialStatus === 'battalion_approved'
+        ? '傳愛申請已提交，已略過初審，直接進入管理員終審。'
+        : res.initialStatus === 'squad_approved'
+        ? '傳愛申請已提交，已略過小隊長初審，待大隊長二審。'
+        : '傳愛申請已提交，待小隊長初審。';
+      setModalMessage({ text: msg, type: 'success' });
     } else {
       setModalMessage({ text: res.error || '提交失敗', type: 'error' });
     }
@@ -1259,7 +1264,7 @@ export default function App() {
             if (pendingRes.success) setPendingW4Apps(pendingRes.applications);
           }
 
-          // If commandant, fetch squad_approved apps for final review
+          // If commandant, fetch squad_approved apps for battalion review
           if (stats.IsCommandant) {
             const commandantRes = await getW4Applications({ status: 'squad_approved' });
             if (commandantRes.success) setSquadApprovedW4Apps(commandantRes.applications);
