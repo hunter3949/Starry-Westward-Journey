@@ -5,7 +5,9 @@ import { connectDb } from '@/lib/db';
 import { getWeeklyMonday } from '@/lib/utils/time';
 import type { WeeklyReview, CaptainBriefing } from '@/types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+function getAI() {
+    return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AI 修行週報
@@ -125,7 +127,7 @@ ${thisLogs.map(l => `- ${new Date(l.Timestamp).toLocaleDateString('zh-TW', { mon
 }
 `;
 
-        const response = await ai.models.generateContent({
+        const response = await getAI().models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: { responseMimeType: 'application/json' },
@@ -266,7 +268,7 @@ ${memberStats.map((m: any) => `- ${m.name}（${m.role}，Lv${m.level}）：完�
 }
 `;
 
-        const response = await ai.models.generateContent({
+        const response = await getAI().models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: { responseMimeType: 'application/json' },

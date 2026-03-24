@@ -399,6 +399,23 @@ export async function importRostersData(csvContent: string, actor = 'admin') {
     }
 }
 
+// ── 批量匯入前置查重 ────────────────────────────────────
+// 傳入 userId 陣列（去除開頭 0 後的號碼），回傳已存在於 Rosters 的 userId 集合
+export async function checkExistingRosterPhones(userIds: string[]): Promise<string[]> {
+    if (!userIds.length) return [];
+    const client = await connectDb();
+    try {
+        const emails = userIds.map(id => `${id}@phone.local`);
+        const res = await client.query(
+            `SELECT email FROM "Rosters" WHERE email = ANY($1)`,
+            [emails]
+        );
+        return res.rows.map((r: { email: string }) => r.email.replace('@phone.local', ''));
+    } finally {
+        await client.end();
+    }
+}
+
 // ── 手動新增人員 ────────────────────────────────────────
 export async function adminCreateMember(data: {
     name: string;

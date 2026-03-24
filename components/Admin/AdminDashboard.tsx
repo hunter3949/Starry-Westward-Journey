@@ -4,8 +4,23 @@ import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Applica
 import { getCourseRegistrations } from '@/app/actions/course';
 
 import { ADMIN_PASSWORD, ARTIFACTS_CONFIG, ROLE_CURE_MAP } from '@/lib/constants';
-import { logAdminAction } from '@/app/actions/admin';
+import { logAdminAction, checkExistingRosterPhones } from '@/app/actions/admin';
 import type { DailyQuestConfigRow, ArtifactConfigRow, AchievementConfigRow } from '@/app/actions/admin';
+
+// ── 名冊預覽列型別 ───────────────────────────────────────────────────────────
+interface ParsedRosterRow {
+    rawPhone: string;
+    userId: string;
+    name: string;
+    birthday: string;
+    bigTeam: string;
+    isCommandant: boolean;
+    littleTeam: string;
+    isCaptain: boolean;
+    phoneError: string | null;   // 格式錯誤 → 該列匯入時將被跳過
+    isDupInBatch: boolean;       // 批次內重複（同一電話出現多次）
+    isDupInDb: boolean;          // DB 已存在（將覆蓋）
+}
 
 // ── 共用：圖示選擇器 ─────────────────────────────────────────────────────────
 
@@ -310,7 +325,7 @@ function DailyQuestConfigSection() {
                 <button onClick={() => setCollapsed(c => !c)}
                     className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest hover:text-orange-400 transition-colors">
                     <Settings size={16} /> 定課管理
-                    {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {!collapsed && (
                 <div className="flex items-center gap-2">
@@ -627,7 +642,7 @@ function GameItemConfigSection() {
                 <button onClick={() => setCollapsed(c => !c)}
                     className="flex items-center gap-2 text-violet-400 font-black text-sm uppercase tracking-widest hover:text-violet-300 transition-colors">
                     <Save size={16} /> 天庭藏寶閣・法寶管理
-                    {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {!collapsed && (
                 <div className="flex items-center gap-2">
@@ -1110,7 +1125,7 @@ function AchievementConfigSection() {
                 <button onClick={() => setCollapsed(c => !c)}
                     className="flex items-center gap-2 text-yellow-400 font-black text-sm uppercase tracking-widest hover:text-yellow-300 transition-colors">
                     <Trophy size={16} /> 成就殿堂管理
-                    {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {!collapsed && (
                 <div className="flex items-center gap-2">
@@ -1299,7 +1314,7 @@ function RoleConfigSection() {
                 className="flex items-center gap-2 text-teal-400 font-black text-sm uppercase tracking-widest w-full">
                 <Users size={16} />
                 角色管理
-                <ChevronDown size={14} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+                {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
             </button>
             {!collapsed && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1734,7 +1749,7 @@ function QuestRoleSection() {
                 className="flex items-center gap-2 text-teal-400 font-black text-sm uppercase tracking-widest w-full">
                 <Shield size={16} />
                 任務角色管理
-                <ChevronDown size={14} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+                {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
             </button>
             {!collapsed && (
                 <div className="space-y-4">
@@ -2223,6 +2238,9 @@ export function AdminDashboard({
 }: AdminDashboardProps) {
     const [csvInput, setCsvInput] = React.useState("");
     const [isImporting, setIsImporting] = React.useState(false);
+    const [rosterPreviewRows, setRosterPreviewRows] = React.useState<ParsedRosterRow[]>([]);
+    const [showRosterPreview, setShowRosterPreview] = React.useState(false);
+    const [rosterCheckLoading, setRosterCheckLoading] = React.useState(false);
     const [w4Notes, setW4Notes] = React.useState<Record<string, string>>({});
     const [reviewingW4Id, setReviewingW4Id] = React.useState<string | null>(null);
     const [volunteerPwd, setVolunteerPwd] = React.useState('');
@@ -2594,6 +2612,14 @@ export function AdminDashboard({
     const [courseForm, setCourseForm] = React.useState<CourseFormState>(emptyCourseForm);
     const [editingCourseId, setEditingCourseId] = React.useState<string | null>(null);
     const [courseSubmitting, setCourseSubmitting] = React.useState(false);
+    const [showCourseModal, setShowCourseModal] = React.useState(false);
+    const [showMqModal, setShowMqModal] = React.useState(false);
+    const [showTqModal, setShowTqModal] = React.useState(false);
+    const [tqFormTitle, setTqFormTitle] = React.useState('');
+    const [tqFormSub, setTqFormSub] = React.useState('');
+    const [tqFormDesc, setTqFormDesc] = React.useState('');
+    const [tqFormReward, setTqFormReward] = React.useState('500');
+    const [tqFormCoins, setTqFormCoins] = React.useState('');
 
     const handleCourseSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -2616,12 +2642,14 @@ export function AdminDashboard({
         setCourseSubmitting(false);
         setCourseForm(emptyCourseForm);
         setEditingCourseId(null);
+        setShowCourseModal(false);
     };
 
     const handleEditCourse = (c: Course) => {
         const [startTime = '', endTime = ''] = c.time.split('–');
         setCourseForm({ id: c.id, name: c.name, date: c.date, startTime: startTime.trim(), endTime: endTime.trim(), location: c.location, address: c.address ?? '', is_active: c.is_active, sort_order: c.sort_order });
         setEditingCourseId(c.id);
+        setShowCourseModal(true);
     };
 
     const handleImportSubmit = async (e: { preventDefault: () => void }) => {
@@ -2631,6 +2659,71 @@ export function AdminDashboard({
         await onImportRoster(csvInput);
         setIsImporting(false);
         setCsvInput("");
+        setShowRosterPreview(false);
+    };
+
+    const parseBoolLocal = (s: string) => ['true', '1', 'y', 'yes'].includes(String(s).toLowerCase().trim());
+
+    const handlePreviewRoster = async () => {
+        if (!csvInput.trim()) return;
+        setRosterCheckLoading(true);
+        const lines = csvInput.split('\n').map(l => l.trim()).filter(Boolean);
+        const rows: ParsedRosterRow[] = [];
+        const phonesSeen = new Map<string, number>(); // userId → first occurrence index
+
+        for (const line of lines) {
+            const cols = line.split(',').map(c => c.trim());
+            const rawPhone = cols[0]?.replace(/\D/g, '') ?? '';
+            // 格式驗證：10碼首位為0，或 9碼首位為9
+            const isValidPhone = /^0\d{9}$/.test(rawPhone) || /^9\d{8}$/.test(rawPhone);
+            const userId = rawPhone.replace(/^0+/, '');
+
+            // 跳過表頭行
+            if (!rawPhone || rawPhone === '電話' || cols[0]?.includes('電話')) continue;
+
+            const phoneError = !isValidPhone
+                ? (rawPhone ? `格式錯誤（${rawPhone.length} 碼）` : '電話欄位空白')
+                : null;
+
+            const isDupInBatch = !phoneError && phonesSeen.has(userId);
+            if (!phoneError) {
+                if (!phonesSeen.has(userId)) phonesSeen.set(userId, rows.length);
+                else {
+                    // 標記先前那筆也重複
+                    const prevIdx = phonesSeen.get(userId)!;
+                    rows[prevIdx].isDupInBatch = true;
+                }
+            }
+
+            const isCommandant = parseBoolLocal(cols[4] || '');
+            rows.push({
+                rawPhone: cols[0] ?? '',
+                userId,
+                name: cols[1] ?? '',
+                birthday: cols[2] ?? '',
+                bigTeam: cols[3] ?? '',
+                isCommandant,
+                littleTeam: isCommandant ? '' : (cols[5] ?? ''),
+                isCaptain: parseBoolLocal(cols[6] || ''),
+                phoneError,
+                isDupInBatch,
+                isDupInDb: false,
+            });
+        }
+
+        // 查詢 DB 重複
+        const validIds = rows.filter(r => !r.phoneError).map(r => r.userId);
+        try {
+            const existingIds = await checkExistingRosterPhones(validIds);
+            const existingSet = new Set(existingIds);
+            for (const r of rows) {
+                if (!r.phoneError && existingSet.has(r.userId)) r.isDupInDb = true;
+            }
+        } catch { /* 查詢失敗不阻斷預覽 */ }
+
+        setRosterPreviewRows(rows);
+        setRosterCheckLoading(false);
+        setShowRosterPreview(true);
     };
 
     const handleW4Review = async (appId: string, approve: boolean) => {
@@ -3255,8 +3348,13 @@ export function AdminDashboard({
                                 <textarea value={csvInput} onChange={(e) => setCsvInput(e.target.value)}
                                     placeholder={`ex:\n0912340001,王小明,1960-03-15,第一大隊,N,第一小隊,N\n0912340002,李大華,1985-07-22,第一大隊,N,第一小隊,Y\n0912340003,張美玲,1970-11-08,第一大隊,Y,,N`}
                                     className="w-full h-36 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-mono text-xs outline-none focus:border-orange-500 resize-none" />
-                                <button disabled={isImporting || !csvInput} className="w-full bg-emerald-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-emerald-500 active:scale-95 transition-all disabled:opacity-50">
-                                    {isImporting ? '匯入中...' : '📥 批量匯入名冊'}
+                                <button
+                                    type="button"
+                                    disabled={rosterCheckLoading || !csvInput.trim()}
+                                    onClick={handlePreviewRoster}
+                                    className="w-full bg-orange-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-orange-500 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    <Search size={15} /> {rosterCheckLoading ? '檢查中…' : '🔍 預覽並檢查錯誤'}
                                 </button>
                             </form>
                         </div>
@@ -4163,56 +4261,12 @@ export function AdminDashboard({
                     <section className="space-y-6">
                         <div className="flex items-center gap-2 text-amber-500 font-black text-sm uppercase tracking-widest">
                             <BookOpen size={16} /> 課程管理
+                            <button onClick={() => { setCourseForm(emptyCourseForm); setEditingCourseId(null); setShowCourseModal(true); }}
+                                className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black rounded-xl transition-colors">
+                                <Plus size={13} /> 新增課程
+                            </button>
                         </div>
                         <div className="bg-slate-900 border-2 border-amber-500/20 p-8 rounded-4xl space-y-6 shadow-xl">
-                            <form onSubmit={handleCourseSubmit} className="space-y-4">
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                                    {editingCourseId ? `✏️ 編輯課程：${editingCourseId}` : '➕ 新增課程'}
-                                </p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <input required placeholder="課程代碼（唯一，如 class_d）" value={courseForm.id} disabled={!!editingCourseId}
-                                        onChange={e => setCourseForm(f => ({ ...f, id: e.target.value.trim() }))}
-                                        className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500 disabled:opacity-40" />
-                                    <input required placeholder="課程名稱（如 課後課）" value={courseForm.name}
-                                        onChange={e => setCourseForm(f => ({ ...f, name: e.target.value }))}
-                                        className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500" />
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">日期</label>
-                                        <input type="date" required value={courseForm.date} onChange={e => setCourseForm(f => ({ ...f, date: e.target.value }))}
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500 [color-scheme:dark]" />
-                                        {courseForm.date && <p className="text-[10px] text-amber-400 font-bold px-1">{genDateDisplay(courseForm.date)}</p>}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">時間區間</label>
-                                        <div className="flex items-center gap-2">
-                                            <input type="time" required value={courseForm.startTime} onChange={e => setCourseForm(f => ({ ...f, startTime: e.target.value }))}
-                                                className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500 [color-scheme:dark]" />
-                                            <span className="text-slate-500 font-black">–</span>
-                                            <input type="time" value={courseForm.endTime} onChange={e => setCourseForm(f => ({ ...f, endTime: e.target.value }))}
-                                                className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500 [color-scheme:dark]" />
-                                        </div>
-                                    </div>
-                                    <input required placeholder="地點名稱（如 Ticc 國際會議中心 201室）" value={courseForm.location}
-                                        onChange={e => setCourseForm(f => ({ ...f, location: e.target.value }))}
-                                        className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500" />
-                                    <input placeholder="詳細地址（選填，如 台北市中山區…）" value={courseForm.address}
-                                        onChange={e => setCourseForm(f => ({ ...f, address: e.target.value }))}
-                                        className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500" />
-                                    <input type="number" placeholder="排序（數字越小越前面）" value={courseForm.sort_order}
-                                        onChange={e => setCourseForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
-                                        className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500" />
-                                </div>
-                                <div className="flex gap-3">
-                                    {editingCourseId && (
-                                        <button type="button" onClick={() => { setCourseForm(emptyCourseForm); setEditingCourseId(null); }}
-                                            className="px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl font-black text-sm">取消</button>
-                                    )}
-                                    <button type="submit" disabled={courseSubmitting}
-                                        className="flex-1 bg-amber-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-amber-500 transition-colors disabled:opacity-50">
-                                        {courseSubmitting ? '儲存中...' : editingCourseId ? '💾 更新課程' : '➕ 新增課程'}
-                                    </button>
-                                </div>
-                            </form>
                             <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                                 {courses.length === 0 && <p className="text-xs text-slate-500 text-center py-4">尚無課程</p>}
                                 {courses.map(c => (
@@ -4251,7 +4305,13 @@ export function AdminDashboard({
 
                     {/* ── 主線任務管理（統一版） ── */}
                     <section className="space-y-6">
-                        <div className="flex items-center gap-2 text-yellow-500 font-black text-sm uppercase tracking-widest"><Calendar size={16} /> 主線任務管理</div>
+                        <div className="flex items-center gap-2 text-yellow-500 font-black text-sm uppercase tracking-widest">
+                            <Calendar size={16} /> 主線任務管理
+                            <button onClick={() => { setMqFormEntry({ topicTitle: '', title: '', description: '', reward: '1000', coins: '100', startDate: '' }); setShowMqModal(true); }}
+                                className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-black rounded-xl transition-colors">
+                                <Plus size={13} /> 新增排程
+                            </button>
+                        </div>
                         <div className="bg-slate-900 border-2 border-yellow-500/20 p-6 rounded-4xl space-y-6 shadow-xl">
 
                             {/* 1. 當前主線任務（唯讀） */}
@@ -4317,51 +4377,6 @@ export function AdminDashboard({
                                 )}
                             </div>
 
-                            {/* 3. 新增排程 */}
-                            <div className="border-t border-slate-800 pt-5 space-y-3">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">新增排程</p>
-                                <div className="space-y-3">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-slate-500 font-bold">主標題（TopicQuestTitle，顯示於主畫面標題）</label>
-                                        <input value={mqFormEntry.topicTitle} onChange={e => setMqFormEntry(p => ({ ...p, topicTitle: e.target.value }))}
-                                            placeholder="例：感恩月·大道至簡" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-slate-500 font-bold">任務名稱（顯示於 UI 的簡短名稱）<span className="text-red-400 ml-1">*</span></label>
-                                        <input value={mqFormEntry.title} onChange={e => setMqFormEntry(p => ({ ...p, title: e.target.value }))}
-                                            placeholder="例：感恩修行實踐" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-slate-500 font-bold">任務說明（詳細描述）</label>
-                                        <textarea value={mqFormEntry.description} onChange={e => setMqFormEntry(p => ({ ...p, description: e.target.value }))}
-                                            placeholder="例：每日對家人說三句感謝的話，記錄於修行日誌。" rows={2}
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm resize-none" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] text-slate-500 font-bold">修為獎勵</label>
-                                            <input type="number" value={mqFormEntry.reward} onChange={e => setMqFormEntry(p => ({ ...p, reward: e.target.value }))}
-                                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm text-center" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] text-slate-500 font-bold">金幣獎勵</label>
-                                            <input type="number" value={mqFormEntry.coins} onChange={e => setMqFormEntry(p => ({ ...p, coins: e.target.value }))}
-                                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm text-center" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-slate-500 font-bold flex items-center gap-1"><Calendar size={10} /> 開始日期（到期自動套用）<span className="text-red-400 ml-1">*</span></label>
-                                        <input type="date" value={mqFormEntry.startDate} onChange={e => setMqFormEntry(p => ({ ...p, startDate: e.target.value }))}
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
-                                    </div>
-                                </div>
-                                <button onClick={handleAddMqEntry}
-                                    disabled={!mqFormEntry.title.trim() || !mqFormEntry.startDate}
-                                    className="w-full flex items-center justify-center gap-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 text-white p-3 rounded-2xl font-black text-sm shadow-lg transition-colors">
-                                    <Plus size={15} /> 加入排程列表
-                                </button>
-                            </div>
-
                             {/* 4. 歷史排程紀錄 */}
                             {topicHistory.length > 0 && (
                                 <div className="border-t border-slate-800 pt-5 space-y-2">
@@ -4397,36 +4412,14 @@ export function AdminDashboard({
                     </section>
 
                     <section className="space-y-6">
-                        <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest"><Settings size={16} /> 臨時加分任務管理</div>
+                        <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest">
+                            <Settings size={16} /> 臨時加分任務管理
+                            <button onClick={() => { setTqFormTitle(''); setTqFormSub(''); setTqFormDesc(''); setTqFormReward('500'); setTqFormCoins(''); setShowTqModal(true); }}
+                                className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-black rounded-xl transition-colors">
+                                <Plus size={13} /> 新增任務
+                            </button>
+                        </div>
                         <div className="bg-slate-900 border-2 border-slate-800 p-8 rounded-4xl space-y-6 shadow-xl">
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                const fd = new FormData(e.currentTarget);
-                                const title = fd.get('title') as string;
-                                const sub = fd.get('sub') as string;
-                                const desc = fd.get('desc') as string;
-                                const reward = parseInt(fd.get('reward') as string, 10);
-                                const coinsRaw = fd.get('coins') as string;
-                                const coins = coinsRaw ? parseInt(coinsRaw, 10) : undefined;
-                                if (title && reward) { onAddTempQuest(title, sub, desc, reward, coins); e.currentTarget.reset(); }
-                            }} className="space-y-4">
-                                <div className="grid grid-cols-1 gap-3">
-                                    <input name="title" required placeholder="主標題（固定顯示：特殊仙緣任務）" className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-orange-500" />
-                                    <input name="sub" required placeholder="任務名稱（例：跟父母三道菜）" className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-orange-500" />
-                                    <input name="desc" placeholder="任務說明（例：面對面或是視訊）" className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-orange-500" />
-                                </div>
-                                <div className="flex gap-3 items-center">
-                                    <div className="space-y-1 flex-1">
-                                        <label className="text-[10px] text-slate-500 font-bold">修為</label>
-                                        <input name="reward" type="number" required defaultValue={500} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold text-center outline-none focus:border-orange-500" />
-                                    </div>
-                                    <div className="space-y-1 flex-1">
-                                        <label className="text-[10px] text-slate-500 font-bold">金幣（空白 = 修為 × 10%）</label>
-                                        <input name="coins" type="number" placeholder="自動" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold text-center outline-none focus:border-orange-500" />
-                                    </div>
-                                    <button type="submit" className="mt-5 flex-none bg-orange-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-orange-500 transition-colors whitespace-nowrap">➕ 新增</button>
-                                </div>
-                            </form>
                             <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
                                 {temporaryQuests.map(tq => {
                                     const isEditing = tqEditId === tq.id;
@@ -4611,6 +4604,317 @@ export function AdminDashboard({
             </div>
                 </div>
             </div>
+
+            {/* ── 課程管理彈窗 ── */}
+            {showCourseModal && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+                    <div className="w-full max-w-lg bg-slate-900 border-2 border-amber-500/30 rounded-4xl shadow-2xl my-4">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                            <p className="font-black text-white text-base">
+                                {editingCourseId ? `✏️ 編輯課程：${editingCourseId}` : '➕ 新增課程'}
+                            </p>
+                            <button onClick={() => { setShowCourseModal(false); setCourseForm(emptyCourseForm); setEditingCourseId(null); }}
+                                className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleCourseSubmit} className="p-6 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <input required placeholder="課程代碼（唯一，如 class_d）" value={courseForm.id} disabled={!!editingCourseId}
+                                    onChange={e => setCourseForm(f => ({ ...f, id: e.target.value.trim() }))}
+                                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500 disabled:opacity-40" />
+                                <input required placeholder="課程名稱（如 課後課）" value={courseForm.name}
+                                    onChange={e => setCourseForm(f => ({ ...f, name: e.target.value }))}
+                                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500" />
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">日期</label>
+                                    <input type="date" required value={courseForm.date} onChange={e => setCourseForm(f => ({ ...f, date: e.target.value }))}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500 [color-scheme:dark]" />
+                                    {courseForm.date && <p className="text-[10px] text-amber-400 font-bold px-1">{genDateDisplay(courseForm.date)}</p>}
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">時間區間</label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="time" required value={courseForm.startTime} onChange={e => setCourseForm(f => ({ ...f, startTime: e.target.value }))}
+                                            className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500 [color-scheme:dark]" />
+                                        <span className="text-slate-500 font-black">–</span>
+                                        <input type="time" value={courseForm.endTime} onChange={e => setCourseForm(f => ({ ...f, endTime: e.target.value }))}
+                                            className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500 [color-scheme:dark]" />
+                                    </div>
+                                </div>
+                                <input required placeholder="地點名稱（如 Ticc 國際會議中心 201室）" value={courseForm.location}
+                                    onChange={e => setCourseForm(f => ({ ...f, location: e.target.value }))}
+                                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500" />
+                                <input placeholder="詳細地址（選填，如 台北市中山區…）" value={courseForm.address}
+                                    onChange={e => setCourseForm(f => ({ ...f, address: e.target.value }))}
+                                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500" />
+                                <input type="number" placeholder="排序（數字越小越前面）" value={courseForm.sort_order}
+                                    onChange={e => setCourseForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
+                                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500" />
+                            </div>
+                            <div className="flex gap-3">
+                                <button type="button" onClick={() => { setShowCourseModal(false); setCourseForm(emptyCourseForm); setEditingCourseId(null); }}
+                                    className="px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl font-black text-sm">取消</button>
+                                <button type="submit" disabled={courseSubmitting}
+                                    className="flex-1 bg-amber-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-amber-500 transition-colors disabled:opacity-50">
+                                    {courseSubmitting ? '儲存中...' : editingCourseId ? '💾 更新課程' : '➕ 新增課程'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── 主線任務排程彈窗 ── */}
+            {showMqModal && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+                    <div className="w-full max-w-lg bg-slate-900 border-2 border-yellow-500/30 rounded-4xl shadow-2xl my-4">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                            <p className="font-black text-white text-base">➕ 新增主線排程</p>
+                            <button onClick={() => setShowMqModal(false)}
+                                className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-slate-500 font-bold">主標題（TopicQuestTitle，顯示於主畫面標題）</label>
+                                <input value={mqFormEntry.topicTitle} onChange={e => setMqFormEntry(p => ({ ...p, topicTitle: e.target.value }))}
+                                    placeholder="例：感恩月·大道至簡" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-slate-500 font-bold">任務名稱（顯示於 UI 的簡短名稱）<span className="text-red-400 ml-1">*</span></label>
+                                <input value={mqFormEntry.title} onChange={e => setMqFormEntry(p => ({ ...p, title: e.target.value }))}
+                                    placeholder="例：感恩修行實踐" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-slate-500 font-bold">任務說明（詳細描述）</label>
+                                <textarea value={mqFormEntry.description} onChange={e => setMqFormEntry(p => ({ ...p, description: e.target.value }))}
+                                    placeholder="例：每日對家人說三句感謝的話，記錄於修行日誌。" rows={2}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm resize-none" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">修為獎勵</label>
+                                    <input type="number" value={mqFormEntry.reward} onChange={e => setMqFormEntry(p => ({ ...p, reward: e.target.value }))}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm text-center" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">金幣獎勵</label>
+                                    <input type="number" value={mqFormEntry.coins} onChange={e => setMqFormEntry(p => ({ ...p, coins: e.target.value }))}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm text-center" />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-slate-500 font-bold flex items-center gap-1"><Calendar size={10} /> 開始日期（到期自動套用）<span className="text-red-400 ml-1">*</span></label>
+                                <input type="date" value={mqFormEntry.startDate} onChange={e => setMqFormEntry(p => ({ ...p, startDate: e.target.value }))}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm [color-scheme:dark]" />
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowMqModal(false)}
+                                    className="px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl font-black text-sm">取消</button>
+                                <button onClick={() => { handleAddMqEntry(); setShowMqModal(false); }}
+                                    disabled={!mqFormEntry.title.trim() || !mqFormEntry.startDate}
+                                    className="flex-1 flex items-center justify-center gap-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 text-white p-3 rounded-2xl font-black text-sm shadow-lg transition-colors">
+                                    <Plus size={15} /> 加入排程列表
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── 臨時加分任務彈窗 ── */}
+            {showTqModal && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+                    <div className="w-full max-w-lg bg-slate-900 border-2 border-orange-500/30 rounded-4xl shadow-2xl my-4">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                            <p className="font-black text-white text-base">➕ 新增臨時加分任務</p>
+                            <button onClick={() => setShowTqModal(false)}
+                                className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="space-y-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">主標題</label>
+                                    <input value={tqFormTitle} onChange={e => setTqFormTitle(e.target.value)}
+                                        required placeholder="固定顯示：特殊仙緣任務" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-orange-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">任務名稱<span className="text-red-400 ml-1">*</span></label>
+                                    <input value={tqFormSub} onChange={e => setTqFormSub(e.target.value)}
+                                        required placeholder="例：跟父母三道菜" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-orange-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">任務說明（選填）</label>
+                                    <input value={tqFormDesc} onChange={e => setTqFormDesc(e.target.value)}
+                                        placeholder="例：面對面或是視訊" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-orange-500" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">修為</label>
+                                    <input type="number" value={tqFormReward} onChange={e => setTqFormReward(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold text-center outline-none focus:border-orange-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">金幣（空白 = × 10%）</label>
+                                    <input type="number" value={tqFormCoins} onChange={e => setTqFormCoins(e.target.value)}
+                                        placeholder="自動" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold text-center outline-none focus:border-orange-500" />
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowTqModal(false)}
+                                    className="px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl font-black text-sm">取消</button>
+                                <button
+                                    disabled={!tqFormTitle.trim() || !tqFormSub.trim() || !tqFormReward}
+                                    onClick={() => {
+                                        const reward = parseInt(tqFormReward, 10);
+                                        const coins = tqFormCoins.trim() ? parseInt(tqFormCoins, 10) : undefined;
+                                        if (tqFormTitle && tqFormSub && reward) {
+                                            onAddTempQuest(tqFormTitle, tqFormSub, tqFormDesc, reward, coins);
+                                            setShowTqModal(false);
+                                        }
+                                    }}
+                                    className="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white p-4 rounded-2xl font-black shadow-lg transition-colors">
+                                    ➕ 新增
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── 名冊預覽彈窗 ── */}
+            {showRosterPreview && (() => {
+                const errorRows = rosterPreviewRows.filter(r => r.phoneError);
+                const dupBatchRows = rosterPreviewRows.filter(r => !r.phoneError && r.isDupInBatch);
+                const dupDbRows = rosterPreviewRows.filter(r => !r.phoneError && !r.isDupInBatch && r.isDupInDb);
+                const okRows = rosterPreviewRows.filter(r => !r.phoneError && !r.isDupInBatch && !r.isDupInDb);
+                const importableCount = rosterPreviewRows.filter(r => !r.phoneError).length;
+                return (
+                    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+                        <div className="w-full max-w-3xl bg-slate-900 border-2 border-orange-500/30 rounded-4xl shadow-2xl my-4">
+                            {/* 標題列 */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                                <div>
+                                    <p className="font-black text-white text-base">名冊預覽 · 糾錯報告</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">共 {rosterPreviewRows.length} 筆</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {errorRows.length > 0 && (
+                                        <span className="text-[11px] font-black text-red-400 bg-red-400/10 px-2 py-1 rounded-lg">{errorRows.length} 格式錯誤</span>
+                                    )}
+                                    {dupBatchRows.length > 0 && (
+                                        <span className="text-[11px] font-black text-orange-400 bg-orange-400/10 px-2 py-1 rounded-lg">{dupBatchRows.length} 批次重複</span>
+                                    )}
+                                    {dupDbRows.length > 0 && (
+                                        <span className="text-[11px] font-black text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-lg">{dupDbRows.length} 將覆蓋</span>
+                                    )}
+                                    {okRows.length > 0 && (
+                                        <span className="text-[11px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-lg">{okRows.length} 正常</span>
+                                    )}
+                                    <button onClick={() => setShowRosterPreview(false)}
+                                        className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 圖例 */}
+                            <div className="flex flex-wrap gap-3 px-6 py-3 border-b border-white/5 text-[10px] font-black">
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-red-500/30 border border-red-500/50 inline-block" /> 格式錯誤（匯入時跳過）</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-orange-500/30 border border-orange-500/50 inline-block" /> 批次內重複（後列覆蓋前列）</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-yellow-500/20 border border-yellow-500/40 inline-block" /> DB 已存在（覆蓋舊資料）</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500/20 border border-emerald-500/40 inline-block" /> 正常新增</span>
+                            </div>
+
+                            {/* 表格 */}
+                            <div className="overflow-x-auto px-2 pb-2">
+                                <table className="w-full text-[11px]">
+                                    <thead>
+                                        <tr className="text-slate-500 font-black uppercase tracking-wider">
+                                            <th className="px-3 py-2 text-left">#</th>
+                                            <th className="px-3 py-2 text-left">電話</th>
+                                            <th className="px-3 py-2 text-left">姓名</th>
+                                            <th className="px-3 py-2 text-left">生日</th>
+                                            <th className="px-3 py-2 text-left">大隊</th>
+                                            <th className="px-3 py-2 text-left">小隊</th>
+                                            <th className="px-3 py-2 text-left">職</th>
+                                            <th className="px-3 py-2 text-left">狀態</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/60">
+                                        {rosterPreviewRows.map((r, i) => {
+                                            const rowBg = r.phoneError
+                                                ? 'bg-red-950/30'
+                                                : r.isDupInBatch
+                                                    ? 'bg-orange-950/30'
+                                                    : r.isDupInDb
+                                                        ? 'bg-yellow-950/20'
+                                                        : '';
+                                            return (
+                                                <tr key={i} className={rowBg}>
+                                                    <td className="px-3 py-2 text-slate-500">{i + 1}</td>
+                                                    <td className={`px-3 py-2 font-mono ${r.phoneError ? 'text-red-400' : 'text-white'}`}>
+                                                        {r.rawPhone}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-white">{r.name || <span className="text-slate-600">—</span>}</td>
+                                                    <td className="px-3 py-2 text-slate-400">{r.birthday || <span className="text-slate-600">—</span>}</td>
+                                                    <td className="px-3 py-2 text-slate-300">{r.bigTeam || <span className="text-slate-600">—</span>}</td>
+                                                    <td className="px-3 py-2 text-slate-300">{r.littleTeam || <span className="text-slate-600">—</span>}</td>
+                                                    <td className="px-3 py-2">
+                                                        {r.isCommandant && <span className="text-rose-400 font-black">大</span>}
+                                                        {r.isCaptain && <span className="text-amber-400 font-black">小</span>}
+                                                        {!r.isCommandant && !r.isCaptain && <span className="text-slate-600">—</span>}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        {r.phoneError ? (
+                                                            <span className="text-red-400 font-black">{r.phoneError}</span>
+                                                        ) : r.isDupInBatch ? (
+                                                            <span className="text-orange-400 font-black">批次重複</span>
+                                                        ) : r.isDupInDb ? (
+                                                            <span className="text-yellow-400 font-black">覆蓋</span>
+                                                        ) : (
+                                                            <span className="text-emerald-400 font-black">新增</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* 底部操作 */}
+                            <div className="px-6 py-4 border-t border-white/5 flex flex-col sm:flex-row gap-3 items-center">
+                                {errorRows.length > 0 && (
+                                    <p className="text-[11px] text-red-400 flex-1">⚠️ {errorRows.length} 筆格式錯誤將自動跳過，其餘 {importableCount} 筆將正常匯入。</p>
+                                )}
+                                {errorRows.length === 0 && (
+                                    <p className="text-[11px] text-slate-400 flex-1">共 {importableCount} 筆資料將匯入，其中 {dupDbRows.length + dupBatchRows.length} 筆覆蓋舊資料。</p>
+                                )}
+                                <div className="flex gap-3 shrink-0">
+                                    <button onClick={() => setShowRosterPreview(false)}
+                                        className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-black text-sm rounded-2xl transition-colors">
+                                        取消
+                                    </button>
+                                    <button
+                                        disabled={isImporting || importableCount === 0}
+                                        onClick={handleImportSubmit.bind(null, { preventDefault: () => {} })}
+                                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-sm rounded-2xl transition-colors flex items-center gap-2 shadow-lg shadow-emerald-900/30"
+                                    >
+                                        {isImporting ? '匯入中…' : `📥 確認匯入 ${importableCount} 筆`}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
         </div>
     );
 }
