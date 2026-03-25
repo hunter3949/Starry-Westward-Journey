@@ -301,6 +301,7 @@ export interface PeakTrialReview {
   reward_per_person: number;
   total_members: number;
   photo_data?: string;
+  video_url?: string;
   status: 'pending' | 'approved' | 'rejected';
   reviewed_by?: string;
   reviewed_at?: string;

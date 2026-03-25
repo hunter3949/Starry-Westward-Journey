@@ -241,7 +241,7 @@ export async function getBattalionTrialStatus(battalionName: string, trialId: st
 export async function submitPeakTrialReview(data: {
     trialId: string; trialTitle: string; battalionName: string; submittedBy: string;
     ownParticipants: number; crossParticipants: number; rewardPerPerson: number;
-    totalMembers: number; photoData?: string;
+    totalMembers: number; photoData?: string; videoUrl?: string;
 }) {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { error } = await supabase.from('PeakTrialReviews').upsert({
@@ -249,7 +249,7 @@ export async function submitPeakTrialReview(data: {
         battalion_name: data.battalionName, submitted_by: data.submittedBy,
         own_participants: data.ownParticipants, cross_participants: data.crossParticipants,
         reward_per_person: data.rewardPerPerson, total_members: data.totalMembers,
-        photo_data: data.photoData, status: 'pending',
+        photo_data: data.photoData, video_url: data.videoUrl || null, status: 'pending',
         reviewed_by: null, reviewed_at: null, review_notes: null,
     }, { onConflict: 'trial_id,battalion_name' });
     if (error) return { success: false, error: error.message };

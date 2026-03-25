@@ -2645,6 +2645,10 @@ export function AdminDashboard({
     const [ptPhotoOpen, setPtPhotoOpen] = React.useState<string | null>(null);
     const [ptRecalculating, setPtRecalculating] = React.useState(false);
     const [ptBatchApproving, setPtBatchApproving] = React.useState(false);
+    const [ptBatchRejecting, setPtBatchRejecting] = React.useState(false);
+    const [ptSelectedIds, setPtSelectedIds] = React.useState<Set<string>>(new Set());
+    const [ptParticipants, setPtParticipants] = React.useState<Record<string, PeakTrialRegistration[]>>({});
+    const [ptLoadingParticipants, setPtLoadingParticipants] = React.useState<string | null>(null);
 
     const refreshPtReviews = () => listPeakTrialReviews().then(res => { if (res.success) setPtReviews(res.reviews); });
 
@@ -2688,21 +2692,51 @@ export function AdminDashboard({
         refreshPtReviews();
     };
 
+    const togglePtSelect = (id: string) => setPtSelectedIds(prev => {
+        const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+    });
+
+    const handleLoadParticipants = async (reviewId: string, trialId: string, battalionName: string) => {
+        if (ptParticipants[reviewId]) { setPtParticipants(prev => { const n = { ...prev }; delete n[reviewId]; return n; }); return; }
+        setPtLoadingParticipants(reviewId);
+        const res = await getPeakTrialRegistrations(trialId);
+        setPtLoadingParticipants(null);
+        if (res.success) {
+            const own = res.registrations.filter(r => r.battalion_name === battalionName);
+            const cross = res.registrations.filter(r => r.battalion_name !== battalionName);
+            setPtParticipants(prev => ({ ...prev, [reviewId]: [...own, ...cross] }));
+        }
+    };
+
     const handlePtBatchApprove = async () => {
-        const pending = ptReviews.filter(r => r.status === 'pending');
-        if (pending.length === 0) { alert('目前無待審核申請'); return; }
-        if (!confirm(`確認批次核准 ${pending.length} 筆申請並發放修為？`)) return;
+        const targets = ptReviews.filter(r => r.status === 'pending' && ptSelectedIds.has(r.id));
+        if (targets.length === 0) { alert('請先勾選要核准的申請'); return; }
+        if (!confirm(`確認批次核准 ${targets.length} 筆勾選申請並發放修為？`)) return;
         setPtBatchApproving(true);
         let successCount = 0;
         const errors: string[] = [];
-        for (const rv of pending) {
+        for (const rv of targets) {
             const res = await approvePeakTrialReview(rv.id, 'admin');
-            if (res.success) successCount++;
+            if (res.success) { successCount++; setPtSelectedIds(prev => { const n = new Set(prev); n.delete(rv.id); return n; }); }
             else errors.push(`${rv.battalion_name}：${res.error}`);
         }
         setPtBatchApproving(false);
-        const msg = `批次核准完成：${successCount} 筆成功${errors.length > 0 ? `\n失敗：${errors.join('\n')}` : ''}`;
-        alert(msg);
+        alert(`批次核准完成：${successCount} 筆成功${errors.length > 0 ? `\n失敗：${errors.join('\n')}` : ''}`);
+        refreshPtReviews();
+    };
+
+    const handlePtBatchReject = async () => {
+        const targets = ptReviews.filter(r => r.status === 'pending' && ptSelectedIds.has(r.id));
+        if (targets.length === 0) { alert('請先勾選要駁回的申請'); return; }
+        if (!confirm(`確認批次駁回 ${targets.length} 筆勾選申請？`)) return;
+        setPtBatchRejecting(true);
+        let successCount = 0;
+        for (const rv of targets) {
+            const res = await rejectPeakTrialReview(rv.id, 'admin', ptReviewNotes[rv.id] || '');
+            if (res.success) { successCount++; setPtSelectedIds(prev => { const n = new Set(prev); n.delete(rv.id); return n; }); }
+        }
+        setPtBatchRejecting(false);
+        alert(`批次駁回完成：${successCount} 筆`);
         refreshPtReviews();
     };
 
@@ -2879,6 +2913,9 @@ export function AdminDashboard({
     };
 
     const [adminModule, setAdminModule] = React.useState<'personnel' | 'course' | 'quest' | 'params' | 'gallery' | 'dashboard' | 'logs' | 'review' | null>('dashboard');
+
+    // 切換到審核中心時自動重新載入
+    React.useEffect(() => { if (adminModule === 'review') refreshPtReviews(); }, [adminModule]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 儀表板統計
     type DashStats = { total: number; active: number; fallen: number; fallenUsers: { name: string; teamName: string | null; squadName: string | null }[] };
@@ -3206,20 +3243,34 @@ export function AdminDashboard({
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                        onClick={() => refreshPtReviews()}
+                                        disabled={ptRecalculating || ptBatchApproving || ptBatchRejecting}
+                                        className="px-3 py-1.5 bg-slate-700/60 border border-slate-600/40 hover:bg-slate-700 text-slate-400 text-xs font-black rounded-xl active:scale-95 transition-all disabled:opacity-50"
+                                    >
+                                        ↻ 重整
+                                    </button>
                                     <button
                                         onClick={handlePtRecalcAll}
-                                        disabled={ptRecalculating || ptBatchApproving}
+                                        disabled={ptRecalculating || ptBatchApproving || ptBatchRejecting}
                                         className="flex items-center gap-1 px-3 py-1.5 bg-amber-600/20 border border-amber-500/30 hover:bg-amber-600/30 text-amber-400 text-xs font-black rounded-xl active:scale-95 transition-all disabled:opacity-50"
                                     >
                                         {ptRecalculating ? '計算中…' : '🔄 重新計算修為'}
                                     </button>
                                     <button
+                                        onClick={handlePtBatchReject}
+                                        disabled={ptBatchRejecting || ptBatchApproving || ptRecalculating}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-red-600/20 border border-red-500/30 hover:bg-red-600/30 text-red-400 text-xs font-black rounded-xl active:scale-95 transition-all disabled:opacity-50"
+                                    >
+                                        {ptBatchRejecting ? '處理中…' : '❌ 批次駁回'}
+                                    </button>
+                                    <button
                                         onClick={handlePtBatchApprove}
-                                        disabled={ptBatchApproving || ptRecalculating}
+                                        disabled={ptBatchApproving || ptBatchRejecting || ptRecalculating}
                                         className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600/30 text-emerald-400 text-xs font-black rounded-xl active:scale-95 transition-all disabled:opacity-50"
                                     >
-                                        {ptBatchApproving ? '處理中…' : '✅ 批次審核'}
+                                        {ptBatchApproving ? '處理中…' : '✅ 批次核准'}
                                     </button>
                                 </div>
                             </div>
@@ -3230,10 +3281,20 @@ export function AdminDashboard({
                                     <div key={rv.id} className="bg-slate-800 rounded-2xl p-5 space-y-4">
                                         {/* Header */}
                                         <div className="flex items-start justify-between gap-3 flex-wrap">
-                                            <div>
-                                                <p className="text-white font-black text-sm">{rv.trial_title}</p>
-                                                <p className="text-xs text-indigo-400 mt-0.5">{rv.battalion_name}</p>
-                                                <p className="text-[10px] text-slate-500 mt-0.5">{new Date(rv.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                                            <div className="flex items-start gap-3">
+                                                {rv.status === 'pending' && (
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={ptSelectedIds.has(rv.id)}
+                                                        onChange={() => togglePtSelect(rv.id)}
+                                                        className="mt-1 w-4 h-4 accent-indigo-500 cursor-pointer shrink-0"
+                                                    />
+                                                )}
+                                                <div>
+                                                    <p className="text-white font-black text-sm">{rv.trial_title}</p>
+                                                    <p className="text-xs text-indigo-400 mt-0.5">{rv.battalion_name}</p>
+                                                    <p className="text-[10px] text-slate-500 mt-0.5">{new Date(rv.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                                                </div>
                                             </div>
                                             <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${rv.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' : rv.status === 'rejected' ? 'bg-red-500/20 text-red-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
                                                 {rv.status === 'approved' ? '✅ 已核准' : rv.status === 'rejected' ? '❌ 已駁回' : '⏳ 待審核'}
@@ -3259,6 +3320,34 @@ export function AdminDashboard({
                                             </div>
                                         </div>
 
+                                        {/* 參與名單 */}
+                                        <div>
+                                            <button
+                                                onClick={() => handleLoadParticipants(rv.id, rv.trial_id, rv.battalion_name)}
+                                                disabled={ptLoadingParticipants === rv.id}
+                                                className="text-xs text-indigo-400 hover:text-indigo-300 font-black transition-colors disabled:opacity-50"
+                                            >
+                                                {ptLoadingParticipants === rv.id ? '載入中…' : ptParticipants[rv.id] ? '▲ 收起名單' : '▼ 查看參與名單'}
+                                            </button>
+                                            {ptParticipants[rv.id] && (
+                                                <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
+                                                    {ptParticipants[rv.id].length === 0 ? (
+                                                        <p className="text-xs text-slate-500 text-center py-2">無報名記錄</p>
+                                                    ) : ptParticipants[rv.id].map(r => (
+                                                        <div key={r.id} className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-1.5">
+                                                            <div>
+                                                                <span className="text-white text-xs font-black">{r.user_name}</span>
+                                                                <span className="text-slate-400 text-[10px] ml-1.5">{r.battalion_name === rv.battalion_name ? '本隊' : `跨隊 · ${r.battalion_name}`}{r.squad_name ? ` · ${r.squad_name}` : ''}</span>
+                                                            </div>
+                                                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg ${r.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-600/60 text-slate-400'}`}>
+                                                                {r.attended ? '✅ 出席' : '未出席'}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
                                         {/* 大合照 */}
                                         {rv.photo_data && (
                                             <div>
@@ -3269,6 +3358,17 @@ export function AdminDashboard({
                                                 {ptPhotoOpen === rv.id && (
                                                     <img src={rv.photo_data} alt="大合照" className="mt-2 w-full rounded-2xl object-cover max-h-72" />
                                                 )}
+                                            </div>
+                                        )}
+
+                                        {/* 影片連結 */}
+                                        {rv.video_url && (
+                                            <div className="flex items-center gap-2 bg-slate-700/40 rounded-xl px-3 py-2">
+                                                <span className="text-xs text-slate-400 shrink-0">🎬 影片：</span>
+                                                <a href={rv.video_url} target="_blank" rel="noopener noreferrer"
+                                                    className="text-xs text-indigo-400 hover:text-indigo-300 underline truncate transition-colors">
+                                                    {rv.video_url}
+                                                </a>
                                             </div>
                                         )}
 

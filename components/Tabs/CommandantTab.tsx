@@ -93,6 +93,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
         reviewNotes?: string;
     } | null>(null);
     const [reviewPhoto, setReviewPhoto] = useState<string | null>(null);
+    const [reviewVideoUrl, setReviewVideoUrl] = useState('');
     const [submittingReview, setSubmittingReview] = useState(false);
     const [loadingReview, setLoadingReview] = useState<string | null>(null);
 
@@ -226,6 +227,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
             ownParticipants: reviewPanel.own, crossParticipants: reviewPanel.cross,
             rewardPerPerson, totalMembers: reviewPanel.totalMembers,
             photoData: reviewPhoto || undefined,
+            videoUrl: reviewVideoUrl.trim() || undefined,
         });
         setSubmittingReview(false);
         if (res.success) {
@@ -688,6 +690,16 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                                     {reviewPhoto && (
                                                         <img src={reviewPhoto} alt="大合照預覽" className="w-full rounded-2xl object-cover max-h-48" />
                                                     )}
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs text-slate-400 font-black">上傳影片連結（選填）</p>
+                                                        <input
+                                                            type="url"
+                                                            value={reviewVideoUrl}
+                                                            onChange={e => setReviewVideoUrl(e.target.value)}
+                                                            placeholder="貼上影片網址（YouTube、Google Drive 等）"
+                                                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-indigo-500 transition-colors"
+                                                        />
+                                                    </div>
                                                     <button
                                                         onClick={() => handleSubmitReview(trial)}
                                                         disabled={submittingReview || !reviewPhoto}
