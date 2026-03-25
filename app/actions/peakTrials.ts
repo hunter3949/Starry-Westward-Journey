@@ -260,9 +260,9 @@ export async function submitPeakTrialReview(data: {
 export async function getTrialReviewStatus(trialId: string, battalionName: string) {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data } = await supabase.from('PeakTrialReviews')
-        .select('id, status, reward_per_person, created_at, review_notes')
+        .select('id, status, reward_per_person, created_at, review_notes, photo_data, video_url')
         .eq('trial_id', trialId).eq('battalion_name', battalionName).single();
-    return { review: data as Pick<PeakTrialReview, 'id' | 'status' | 'reward_per_person' | 'created_at' | 'review_notes'> | null };
+    return { review: data as Pick<PeakTrialReview, 'id' | 'status' | 'reward_per_person' | 'created_at' | 'review_notes' | 'photo_data' | 'video_url'> | null };
 }
 
 // ── 重新計算單筆審核修為（依目前實際報名資料）────────────

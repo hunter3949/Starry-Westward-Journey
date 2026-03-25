@@ -188,7 +188,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
     };
 
     const handleOpenReview = async (trial: { id: string; title: string }) => {
-        if (reviewPanel?.trialId === trial.id) { setReviewPanel(null); setReviewPhoto(null); return; }
+        if (reviewPanel?.trialId === trial.id) { setReviewPanel(null); return; }
         setLoadingReview(trial.id);
         const [statusRes, reviewRes] = await Promise.all([
             getBattalionTrialStatus(userData.BigTeamLeagelName || '', trial.id),
@@ -198,6 +198,9 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
         if (!statusRes.success) { onShowMessage(statusRes.error || '載入失敗', 'error'); return; }
         const own = statusRes.memberStatus.filter(m => m.status === 'registered').length;
         const cross = statusRes.memberStatus.filter(m => m.status === 'crossout').length;
+        // 預填已送審的照片與影片連結
+        if (reviewRes.review?.photo_data) setReviewPhoto(reviewRes.review.photo_data);
+        if (reviewRes.review?.video_url) setReviewVideoUrl(reviewRes.review.video_url);
         setReviewPanel({
             trialId: trial.id, own, cross,
             totalMembers: statusRes.memberStatus.length,
