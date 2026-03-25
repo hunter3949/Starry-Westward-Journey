@@ -1,8 +1,9 @@
 import React from 'react';
 import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download, Calendar, Zap, Search, LogIn, Tag, RefreshCw } from 'lucide-react';
-import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course, MainQuestEntry, BonusQuestRule } from '@/types';
+import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course, MainQuestEntry, BonusQuestRule, PeakTrial, PeakTrialRegistration } from '@/types';
 import { RankTab } from '@/components/Tabs/RankTab';
 import { getCourseRegistrations } from '@/app/actions/course';
+import { listPeakTrials, upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance } from '@/app/actions/peakTrials';
 
 import { ADMIN_PASSWORD, ARTIFACTS_CONFIG, ROLE_CURE_MAP } from '@/lib/constants';
 import { logAdminAction, checkExistingRosterPhones } from '@/app/actions/admin';
@@ -2622,6 +2623,64 @@ export function AdminDashboard({
     const [tqFormReward, setTqFormReward] = React.useState('500');
     const [tqFormCoins, setTqFormCoins] = React.useState('');
 
+    // ── 巔峰試煉管理 state ───────────────────────────────────
+    const emptyPtForm = { title: '', description: '', date: '', time: '', location: '', max_participants: '' };
+    const [peakTrials, setPeakTrials] = React.useState<PeakTrial[]>([]);
+    const [ptForm, setPtForm] = React.useState(emptyPtForm);
+    const [showPtForm, setShowPtForm] = React.useState(false);
+    const [ptSaving, setPtSaving] = React.useState(false);
+    const [ptDeletingId, setPtDeletingId] = React.useState<string | null>(null);
+    const [ptViewRegs, setPtViewRegs] = React.useState<{ trialId: string; regs: PeakTrialRegistration[] } | null>(null);
+    const [ptMarkingId, setPtMarkingId] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        listPeakTrials().then(res => { if (res.success) setPeakTrials(res.trials); });
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleSavePt = async () => {
+        if (!ptForm.title || !ptForm.date) return;
+        setPtSaving(true);
+        const res = await upsertPeakTrial({
+            title: ptForm.title,
+            description: ptForm.description || undefined,
+            date: ptForm.date,
+            time: ptForm.time || undefined,
+            location: ptForm.location || undefined,
+            max_participants: ptForm.max_participants ? parseInt(ptForm.max_participants) : undefined,
+            created_by: 'admin',
+            is_active: true,
+        });
+        setPtSaving(false);
+        if (res.success) {
+            setPeakTrials(prev => [res.trial!, ...prev]);
+            setPtForm(emptyPtForm);
+            setShowPtForm(false);
+        }
+    };
+
+    const handleDeletePt = async (id: string) => {
+        setPtDeletingId(id);
+        const res = await deletePeakTrial(id);
+        setPtDeletingId(null);
+        if (res.success) setPeakTrials(prev => prev.filter(t => t.id !== id));
+    };
+
+    const handleViewPtRegs = async (trialId: string) => {
+        if (ptViewRegs?.trialId === trialId) { setPtViewRegs(null); return; }
+        const res = await getPeakTrialRegistrations(trialId);
+        if (res.success) setPtViewRegs({ trialId, regs: res.registrations });
+    };
+
+    const handleMarkPtAttendance = async (regId: string, trialId: string) => {
+        setPtMarkingId(regId);
+        const res = await markPeakTrialAttendance(regId);
+        setPtMarkingId(null);
+        if (res.success) {
+            const updated = await getPeakTrialRegistrations(trialId);
+            if (updated.success) setPtViewRegs({ trialId, regs: updated.registrations });
+        }
+    };
+
     const handleCourseSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         setCourseSubmitting(true);
@@ -4272,6 +4331,119 @@ export function AdminDashboard({
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* 巔峰試煉管理 */}
+                    <section className="space-y-6">
+                        <div className="flex items-center gap-2 text-purple-500 font-black text-sm uppercase tracking-widest">
+                            <Trophy size={16} /> 巔峰試煉管理
+                            <button onClick={() => { setPtForm(emptyPtForm); setShowPtForm(v => !v); }}
+                                className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black rounded-xl transition-colors">
+                                <Plus size={13} /> 新增活動
+                            </button>
+                        </div>
+                        <div className="bg-slate-900 border-2 border-purple-500/20 p-6 rounded-4xl space-y-4 shadow-xl">
+                            {/* 新增表單 */}
+                            {showPtForm && (
+                                <div className="bg-slate-800/60 border border-purple-500/20 rounded-2xl p-4 space-y-3">
+                                    <p className="text-purple-300 font-black text-xs uppercase tracking-widest">新增巔峰試煉活動</p>
+                                    <input value={ptForm.title} onChange={e => setPtForm(p => ({ ...p, title: e.target.value }))}
+                                        placeholder="活動名稱 *"
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                                    <textarea value={ptForm.description} onChange={e => setPtForm(p => ({ ...p, description: e.target.value }))}
+                                        placeholder="活動說明（選填）" rows={2}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500 resize-none" />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input type="date" value={ptForm.date} onChange={e => setPtForm(p => ({ ...p, date: e.target.value }))}
+                                            className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                                        <input value={ptForm.time} onChange={e => setPtForm(p => ({ ...p, time: e.target.value }))}
+                                            placeholder="時間（如 14:00）"
+                                            className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input value={ptForm.location} onChange={e => setPtForm(p => ({ ...p, location: e.target.value }))}
+                                            placeholder="地點（選填）"
+                                            className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                                        <input type="number" value={ptForm.max_participants} onChange={e => setPtForm(p => ({ ...p, max_participants: e.target.value }))}
+                                            placeholder="名額上限（選填）"
+                                            className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={handleSavePt} disabled={ptSaving || !ptForm.title || !ptForm.date}
+                                            className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-colors">
+                                            {ptSaving ? '建立中…' : '✅ 建立活動'}
+                                        </button>
+                                        <button onClick={() => setShowPtForm(false)}
+                                            className="px-4 py-2 bg-slate-700 text-slate-300 text-xs font-black rounded-xl">取消</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 活動列表 */}
+                            {peakTrials.length === 0 && !showPtForm && (
+                                <p className="text-xs text-slate-500 text-center py-4">尚無巔峰試煉活動</p>
+                            )}
+                            <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+                                {peakTrials.map(trial => {
+                                    const isViewingThis = ptViewRegs?.trialId === trial.id;
+                                    return (
+                                        <div key={trial.id} className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden">
+                                            <div className="flex items-center gap-3 p-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-black text-white">{trial.title}</span>
+                                                        {trial.battalion_name && <span className="text-[10px] text-purple-400">{trial.battalion_name}</span>}
+                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${trial.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                                                            {trial.is_active ? '開放' : '關閉'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-400 mt-1">
+                                                        {trial.date}{trial.time ? ` · ${trial.time}` : ''}{trial.location ? ` · ${trial.location}` : ''}{trial.max_participants ? ` · 限 ${trial.max_participants} 人` : ''}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <button onClick={() => handleViewPtRegs(trial.id)}
+                                                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors ${isViewingThis ? 'bg-purple-600 text-white' : 'bg-sky-700 hover:bg-sky-600 text-white'}`}>
+                                                        報名名單
+                                                    </button>
+                                                    <button onClick={() => togglePeakTrialActive(trial.id, !trial.is_active).then(() => listPeakTrials().then(r => r.success && setPeakTrials(r.trials)))}
+                                                        className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-purple-400 transition-colors">
+                                                        {trial.is_active ? <ToggleRight size={16} className="text-emerald-400" /> : <ToggleLeft size={16} />}
+                                                    </button>
+                                                    <button onClick={() => handleDeletePt(trial.id)} disabled={ptDeletingId === trial.id}
+                                                        className="p-2 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                                                        <X size={15} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {/* 報名名單展開 */}
+                                            {isViewingThis && (
+                                                <div className="border-t border-slate-800 px-4 py-3 space-y-2 max-h-64 overflow-y-auto">
+                                                    <p className="text-xs text-slate-500 font-black">報名名單（{ptViewRegs.regs.length} 人）</p>
+                                                    {ptViewRegs.regs.length === 0 ? (
+                                                        <p className="text-xs text-slate-600 py-2">尚無人報名</p>
+                                                    ) : ptViewRegs.regs.map(reg => (
+                                                        <div key={reg.id} className="flex items-center gap-2">
+                                                            <span className={`text-sm flex-1 ${reg.attended ? 'text-slate-500 line-through' : 'text-white'}`}>{reg.user_name}</span>
+                                                            <span className="text-[10px] text-slate-500">{reg.squad_name}</span>
+                                                            <span className="text-[10px] text-slate-500">{reg.battalion_name}</span>
+                                                            {reg.attended ? (
+                                                                <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-lg">已出席</span>
+                                                            ) : (
+                                                                <button onClick={() => handleMarkPtAttendance(reg.id, trial.id)} disabled={ptMarkingId === reg.id}
+                                                                    className="text-[10px] font-black text-purple-400 bg-purple-400/10 hover:bg-purple-400/20 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-40">
+                                                                    {ptMarkingId === reg.id ? '…' : '核銷'}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </section>

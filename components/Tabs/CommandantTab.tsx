@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, XCircle, RefreshCw, Sword, ShieldCheck, Pencil, ChevronDown, Users } from 'lucide-react';
-import { CharacterStats, W4Application } from '@/types';
+import { CheckCircle2, XCircle, RefreshCw, Sword, ShieldCheck, Pencil, ChevronDown, Users, Trophy, Plus, Trash2, CheckCheck, Eye } from 'lucide-react';
+import { CharacterStats, W4Application, PeakTrial, PeakTrialRegistration } from '@/types';
 import { reviewW4ByBattalionLeader } from '@/app/actions/w4';
 import { setBattalionDisplayName } from '@/app/actions/admin';
+import { upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance } from '@/app/actions/peakTrials';
 
 interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; }
 interface BattalionSquad { squadName: string; members: BattalionSquadMember[]; }
@@ -14,13 +15,14 @@ interface CommandantTabProps {
     battalionDisplayName?: string;
     apps: W4Application[];
     squads: BattalionSquad[];
+    trials: PeakTrial[];
     onRefresh: () => void;
     onShowMessage: (msg: string, type: 'success' | 'error' | 'info') => void;
     onGoToAdmin?: () => void;
     onDisplayNameSaved?: (name: string) => void;
 }
 
-export function CommandantTab({ userData, battalionDisplayName, apps, squads, onRefresh, onShowMessage, onGoToAdmin, onDisplayNameSaved }: CommandantTabProps) {
+export function CommandantTab({ userData, battalionDisplayName, apps, squads, trials, onRefresh, onShowMessage, onGoToAdmin, onDisplayNameSaved }: CommandantTabProps) {
     const [reviewingId, setReviewingId] = useState<string | null>(null);
     const [notes, setNotes] = useState<Record<string, string>>({});
     const [expandedSquad, setExpandedSquad] = useState<string | null>(null);
@@ -56,6 +58,76 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
             onShowMessage('系統異常：' + e.message, 'error');
         } finally {
             setReviewingId(null);
+        }
+    };
+
+    // ── 巔峰試煉管理 state ───────────────────────────────────
+    const emptyForm = { title: '', description: '', date: '', time: '', location: '', max_participants: '' };
+    const [trialForm, setTrialForm] = useState(emptyForm);
+    const [showTrialForm, setShowTrialForm] = useState(false);
+    const [savingTrial, setSavingTrial] = useState(false);
+    const [deletingTrialId, setDeletingTrialId] = useState<string | null>(null);
+    const [viewingRegs, setViewingRegs] = useState<{ trialId: string; regs: PeakTrialRegistration[] } | null>(null);
+    const [loadingRegs, setLoadingRegs] = useState<string | null>(null);
+    const [markingId, setMarkingId] = useState<string | null>(null);
+
+    const handleSaveTrial = async () => {
+        if (!trialForm.title || !trialForm.date) {
+            onShowMessage('活動名稱和日期為必填', 'error');
+            return;
+        }
+        setSavingTrial(true);
+        const res = await upsertPeakTrial({
+            title: trialForm.title,
+            description: trialForm.description || undefined,
+            date: trialForm.date,
+            time: trialForm.time || undefined,
+            location: trialForm.location || undefined,
+            max_participants: trialForm.max_participants ? parseInt(trialForm.max_participants) : undefined,
+            battalion_name: userData.BigTeamLeagelName || undefined,
+            created_by: userData.UserID,
+            is_active: true,
+        });
+        setSavingTrial(false);
+        if (res.success) {
+            onShowMessage('🏆 活動已建立', 'success');
+            setTrialForm(emptyForm);
+            setShowTrialForm(false);
+            onRefresh();
+        } else {
+            onShowMessage(res.error || '建立失敗', 'error');
+        }
+    };
+
+    const handleDeleteTrial = async (id: string) => {
+        setDeletingTrialId(id);
+        const res = await deletePeakTrial(id);
+        setDeletingTrialId(null);
+        if (res.success) { onShowMessage('已刪除', 'info'); onRefresh(); }
+        else onShowMessage(res.error || '刪除失敗', 'error');
+    };
+
+    const handleViewRegs = async (trialId: string) => {
+        if (viewingRegs?.trialId === trialId) { setViewingRegs(null); return; }
+        setLoadingRegs(trialId);
+        const res = await getPeakTrialRegistrations(trialId);
+        setLoadingRegs(null);
+        if (res.success) setViewingRegs({ trialId, regs: res.registrations });
+        else onShowMessage(res.error || '載入失敗', 'error');
+    };
+
+    const handleMarkAttendance = async (regId: string) => {
+        setMarkingId(regId);
+        const res = await markPeakTrialAttendance(regId);
+        setMarkingId(null);
+        if (res.success) {
+            onShowMessage('✅ 已核銷', 'success');
+            if (viewingRegs) {
+                const updated = await getPeakTrialRegistrations(viewingRegs.trialId);
+                if (updated.success) setViewingRegs({ trialId: viewingRegs.trialId, regs: updated.registrations });
+            }
+        } else {
+            onShowMessage(res.error || '核銷失敗', 'error');
         }
     };
 
@@ -248,6 +320,119 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, on
                 </div>
             );
             })()}
+
+            {/* ── 巔峰試煉管理 ── */}
+            <div className="bg-slate-900 border-2 border-purple-500/20 rounded-4xl p-5 space-y-4 shadow-xl">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Trophy size={15} className="text-purple-400" />
+                        <p className="text-white font-black text-base">巔峰試煉管理</p>
+                    </div>
+                    <button
+                        onClick={() => setShowTrialForm(v => !v)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black rounded-xl active:scale-95 transition-all"
+                    >
+                        <Plus size={13} /> 新增活動
+                    </button>
+                </div>
+
+                {/* 新增表單 */}
+                {showTrialForm && (
+                    <div className="bg-slate-800/60 border border-purple-500/20 rounded-2xl p-4 space-y-3">
+                        <p className="text-purple-300 font-black text-xs uppercase tracking-widest">新增巔峰試煉活動</p>
+                        <input value={trialForm.title} onChange={e => setTrialForm(p => ({ ...p, title: e.target.value }))}
+                            placeholder="活動名稱 *"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                        <textarea value={trialForm.description} onChange={e => setTrialForm(p => ({ ...p, description: e.target.value }))}
+                            placeholder="活動說明（選填）" rows={2}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500 resize-none" />
+                        <div className="grid grid-cols-2 gap-2">
+                            <input type="date" value={trialForm.date} onChange={e => setTrialForm(p => ({ ...p, date: e.target.value }))}
+                                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                            <input value={trialForm.time} onChange={e => setTrialForm(p => ({ ...p, time: e.target.value }))}
+                                placeholder="時間（如 14:00）"
+                                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <input value={trialForm.location} onChange={e => setTrialForm(p => ({ ...p, location: e.target.value }))}
+                                placeholder="地點（選填）"
+                                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                            <input type="number" value={trialForm.max_participants} onChange={e => setTrialForm(p => ({ ...p, max_participants: e.target.value }))}
+                                placeholder="名額上限（選填）"
+                                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={handleSaveTrial} disabled={savingTrial}
+                                className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-colors">
+                                {savingTrial ? '建立中…' : '✅ 建立活動'}
+                            </button>
+                            <button onClick={() => { setShowTrialForm(false); setTrialForm(emptyForm); }}
+                                className="px-4 py-2 bg-slate-700 text-slate-300 text-xs font-black rounded-xl">取消</button>
+                        </div>
+                    </div>
+                )}
+
+                {/* 活動列表 */}
+                {trials.length === 0 ? (
+                    <p className="text-slate-600 text-xs text-center py-3">尚無活動，點右上角新增</p>
+                ) : (
+                    trials.map(trial => {
+                        const isViewingThis = viewingRegs?.trialId === trial.id;
+                        return (
+                            <div key={trial.id} className="bg-slate-800/60 border border-slate-700/40 rounded-2xl overflow-hidden">
+                                <div className="flex items-center gap-3 px-4 py-3">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-black text-white text-sm">{trial.title}</p>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">
+                                            {trial.date}{trial.time ? ` · ${trial.time}` : ''}{trial.location ? ` · ${trial.location}` : ''}
+                                        </p>
+                                    </div>
+                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${trial.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                                        {trial.is_active ? '開放' : '關閉'}
+                                    </span>
+                                    <button onClick={() => handleViewRegs(trial.id)} disabled={loadingRegs === trial.id}
+                                        className={`p-1.5 rounded-lg transition-colors ${isViewingThis ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-purple-400'}`}>
+                                        <Eye size={14} />
+                                    </button>
+                                    <button onClick={() => togglePeakTrialActive(trial.id, !trial.is_active).then(() => onRefresh())}
+                                        className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg transition-colors">
+                                        <CheckCheck size={14} />
+                                    </button>
+                                    <button onClick={() => handleDeleteTrial(trial.id)} disabled={deletingTrialId === trial.id}
+                                        className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg transition-colors disabled:opacity-40">
+                                        <Trash2 size={13} />
+                                    </button>
+                                </div>
+
+                                {/* 報名名單 */}
+                                {isViewingThis && (
+                                    <div className="border-t border-slate-700/40 px-4 py-3 space-y-2">
+                                        <p className="text-xs text-slate-400 font-black">報名名單（{viewingRegs.regs.length} 人）</p>
+                                        {viewingRegs.regs.length === 0 ? (
+                                            <p className="text-slate-600 text-xs py-2">尚無人報名</p>
+                                        ) : viewingRegs.regs.map(reg => (
+                                            <div key={reg.id} className="flex items-center gap-2">
+                                                <span className={`text-sm flex-1 ${reg.attended ? 'text-slate-500 line-through' : 'text-white'}`}>
+                                                    {reg.user_name}
+                                                </span>
+                                                <span className="text-[10px] text-slate-500">{reg.squad_name}</span>
+                                                {reg.attended ? (
+                                                    <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-lg">已出席</span>
+                                                ) : (
+                                                    <button onClick={() => handleMarkAttendance(reg.id)} disabled={markingId === reg.id}
+                                                        className="text-[10px] font-black text-purple-400 bg-purple-400/10 hover:bg-purple-400/20 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-40">
+                                                        {markingId === reg.id ? '…' : '核銷'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
+            </div>
         </div>
     );
 }

@@ -8,7 +8,7 @@ import {
   Dice5, Loader2, RotateCcw
 } from 'lucide-react';
 
-import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, FinePaymentRecord, AchievementRecord, Course, MainQuestEntry } from '@/types';
+import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, FinePaymentRecord, AchievementRecord, Course, MainQuestEntry, PeakTrial, PeakTrialRegistration } from '@/types';
 import { getLogicalDateStr, getWeeklyMonday } from '@/lib/utils/time';
 import { standardizePhone } from '@/lib/utils/phone';
 import { ROLE_CURE_MAP, DEFAULT_CONFIG, ADVENTURE_COST, ADMIN_PASSWORD, calculateLevelFromExp, ROLE_GROWTH_RATES, DEFAULT_QUEST_ROLES } from '@/lib/constants';
@@ -26,6 +26,7 @@ import { CommandantTab } from '@/components/Tabs/CommandantTab';
 import { ShopTab } from '@/components/Tabs/ShopTab';
 import { AchievementsTab } from '@/components/Tabs/AchievementsTab';
 import CourseTab from '@/components/Tabs/CourseTab';
+import { PeakTrialTab } from '@/components/Tabs/PeakTrialTab';
 import { AchievementIcon } from '@/components/AchievementIcon';
 import { ACHIEVEMENT_MAP, RARITY_STYLE, type AchievementDef } from '@/lib/achievements';
 import { getUserAchievements } from '@/app/actions/achievements';
@@ -33,6 +34,7 @@ import { AdminDashboard } from '@/components/Admin/AdminDashboard';
 import { processCheckInTransaction } from '@/app/actions/quest';
 import { triggerWeeklySnapshot, importRostersData, checkWeeklyW3Compliance, autoAssignSquadsForTesting, logAdminAction } from '@/app/actions/admin';
 import { listCourses, upsertCourse, deleteCourse } from '@/app/actions/course';
+import { listPeakTrials, getMyPeakTrialRegistrations } from '@/app/actions/peakTrials';
 import { getTestimonies } from '@/app/actions/testimonies_admin';
 import { drawWeeklyQuestForSquad, autoDrawAllSquads } from '@/app/actions/team';
 import { submitW4Application, reviewW4BySquadLeader, reviewW4ByAdmin, reviewW4ByBattalionLeader, getW4Applications, getAdminActivityLog, deleteAdminLog } from '@/app/actions/w4';
@@ -60,7 +62,7 @@ export default function App() {
   const [view, setView] = useState<'login' | 'register' | 'app' | 'loading' | 'admin' | 'map'>('loading');
   const [isSyncing, setIsSyncing] = useState(false);
   const [lineBannerDismissed, setLineBannerDismissed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course'>('daily');
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course' | 'peakTrial'>('daily');
   type GmViewMode = 'all' | 'player' | 'captain' | 'commandant';
   const [gmViewMode, setGmViewMode] = useState<GmViewMode>('all');
   const [userData, setUserData] = useState<CharacterStats | null>(null);
@@ -119,6 +121,8 @@ export default function App() {
   const [adminLogs, setAdminLogs] = useState<AdminLog[]>([]);
   const [testimonies, setTestimonies] = useState<Testimony[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [peakTrials, setPeakTrials] = useState<PeakTrial[]>([]);
+  const [myPeakTrialRegs, setMyPeakTrialRegs] = useState<PeakTrialRegistration[]>([]);
 
   // 罰款管理 state
   interface SquadMemberFine { userId: string; name: string; totalFines: number; finePaid: number; balance: number; }
@@ -1130,6 +1134,8 @@ export default function App() {
 
       const courseData = await listCourses();
       setCourses(courseData);
+      const ptRes = await listPeakTrials({ activeOnly: false });
+      if (ptRes.success) setPeakTrials(ptRes.trials);
     };
     loadStaticData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1263,6 +1269,9 @@ export default function App() {
             getUserAchievements(stats.UserID).then(records => {
               setUserAchievements(records);
             }),
+            getMyPeakTrialRegistrations(stats.UserID).then(res => {
+              if (res.success) setMyPeakTrialRegs(res.registrations);
+            }),
           ];
           if (stats.IsCaptain && stats.LittleTeamLeagelName) {
             secondaryFetches.push(
@@ -1391,6 +1400,7 @@ export default function App() {
         <button onClick={() => setActiveTab('stats')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'stats' ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-900 text-slate-50'}`}>六維與罰金</button>
         <button onClick={() => setActiveTab('achievements')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'achievements' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-slate-900 text-slate-50'}`}>🏆成就</button>
         <button onClick={() => setActiveTab('course')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'course' ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'bg-slate-900 text-slate-50'}`}>📅課程</button>
+        <button onClick={() => setActiveTab('peakTrial')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'peakTrial' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'bg-slate-900 text-slate-50'}`}>🏆巔峰試煉</button>
         {showCaptainTab && (
           <button onClick={handleOpenCaptainTab} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'captain' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-900 text-slate-50'}`}>👩‍✈️指揮所</button>
         )}
@@ -1477,10 +1487,12 @@ export default function App() {
             battalionDisplayName={battalionDisplayName}
             apps={squadApprovedW4Apps}
             squads={battalionSquads}
+            trials={peakTrials.filter(t => t.battalion_name === userData.BigTeamLeagelName || t.created_by === userData.UserID)}
             onRefresh={async () => {
               const res = await getW4Applications({ status: 'squad_approved' });
               if (res.success) setSquadApprovedW4Apps(res.applications);
               loadBattalionSquads();
+              listPeakTrials({ activeOnly: false }).then(r => { if (r.success) setPeakTrials(r.trials); });
             }}
             onShowMessage={(msg, type) => setModalMessage({ text: msg, type })}
             onDisplayNameSaved={(name) => setBattalionDisplayName(name)}
@@ -1491,6 +1503,21 @@ export default function App() {
         )}
         {activeTab === 'course' && userData && (
           <CourseTab courses={courses} volunteerPassword={systemSettings.VolunteerPassword ?? ''} userId={userData.UserID} userName={userData.Name} />
+        )}
+        {activeTab === 'peakTrial' && userData && (
+          <PeakTrialTab
+            trials={peakTrials}
+            myRegistrations={myPeakTrialRegs}
+            userId={userData.UserID}
+            userName={userData.Name}
+            squadName={userData.LittleTeamLeagelName}
+            battalionName={userData.BigTeamLeagelName}
+            onRefresh={() => {
+              listPeakTrials({ activeOnly: false }).then(r => { if (r.success) setPeakTrials(r.trials); });
+              getMyPeakTrialRegistrations(userData.UserID).then(r => { if (r.success) setMyPeakTrialRegs(r.registrations); });
+            }}
+            onShowMessage={(msg, type) => setModalMessage({ text: msg, type })}
+          />
         )}
       </main>
 

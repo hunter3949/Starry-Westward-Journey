@@ -274,3 +274,29 @@ export interface Course {
   sort_order: number;
   created_at?: string;
 }
+
+export interface PeakTrial {
+  id: string;
+  title: string;
+  description?: string;
+  date: string;         // YYYY-MM-DD
+  time?: string;
+  location?: string;
+  max_participants?: number;
+  battalion_name?: string;
+  created_by: string;   // 建立者 UserID 或 'admin'
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface PeakTrialRegistration {
+  id: string;
+  trial_id: string;
+  user_id: string;
+  user_name: string;
+  squad_name?: string;
+  battalion_name?: string;
+  registered_at: string;
+  attended: boolean;
+  attended_at?: string;
+}
