@@ -265,6 +265,30 @@ export async function getTrialReviewStatus(trialId: string, battalionName: strin
     return { review: data as Pick<PeakTrialReview, 'id' | 'status' | 'reward_per_person' | 'created_at' | 'review_notes'> | null };
 }
 
+// ── 重新計算單筆審核修為（依目前實際報名資料）────────────
+export async function recalcPeakTrialReview(reviewId: string) {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data: review } = await supabase.from('PeakTrialReviews')
+        .select('trial_id, battalion_name').eq('id', reviewId).single();
+    if (!review) return { success: false, error: '找不到審核記錄' };
+
+    const [{ count: ownCount }, { count: crossCount }] = await Promise.all([
+        supabase.from('PeakTrialRegistrations').select('*', { count: 'exact', head: true })
+            .eq('trial_id', review.trial_id).eq('battalion_name', review.battalion_name),
+        supabase.from('PeakTrialRegistrations').select('*', { count: 'exact', head: true })
+            .eq('trial_id', review.trial_id).neq('battalion_name', review.battalion_name),
+    ]);
+    const own = ownCount || 0;
+    const cross = crossCount || 0;
+    const rewardPerPerson = Math.min(own, 21) * 1500 + Math.min(cross, 21) * 1050;
+
+    const { error } = await supabase.from('PeakTrialReviews').update({
+        own_participants: own, cross_participants: cross, reward_per_person: rewardPerPerson,
+    }).eq('id', reviewId);
+    if (error) return { success: false, error: error.message };
+    return { success: true, own, cross, rewardPerPerson };
+}
+
 // ── 列出所有審核（管理員用）──────────────────────────────
 export async function listPeakTrialReviews(status?: string) {
     const supabase = createClient(supabaseUrl, supabaseKey);

@@ -3,7 +3,7 @@ import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOp
 import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course, MainQuestEntry, BonusQuestRule, PeakTrial, PeakTrialRegistration, PeakTrialReview } from '@/types';
 import { RankTab } from '@/components/Tabs/RankTab';
 import { getCourseRegistrations } from '@/app/actions/course';
-import { listPeakTrials, upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance, listPeakTrialReviews, approvePeakTrialReview, rejectPeakTrialReview } from '@/app/actions/peakTrials';
+import { listPeakTrials, upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance, listPeakTrialReviews, approvePeakTrialReview, rejectPeakTrialReview, recalcPeakTrialReview } from '@/app/actions/peakTrials';
 
 import { ADMIN_PASSWORD, ARTIFACTS_CONFIG, ROLE_CURE_MAP } from '@/lib/constants';
 import { logAdminAction, checkExistingRosterPhones } from '@/app/actions/admin';
@@ -2643,6 +2643,8 @@ export function AdminDashboard({
     const [ptReviewNotes, setPtReviewNotes] = React.useState<Record<string, string>>({});
     const [ptReviewingId, setPtReviewingId] = React.useState<string | null>(null);
     const [ptPhotoOpen, setPtPhotoOpen] = React.useState<string | null>(null);
+    const [ptRecalculating, setPtRecalculating] = React.useState(false);
+    const [ptBatchApproving, setPtBatchApproving] = React.useState(false);
 
     const refreshPtReviews = () => listPeakTrialReviews().then(res => { if (res.success) setPtReviews(res.reviews); });
 
@@ -2670,6 +2672,38 @@ export function AdminDashboard({
         } else {
             alert(res.error || '駁回失敗');
         }
+    };
+
+    const handlePtRecalcAll = async () => {
+        const pending = ptReviews.filter(r => r.status === 'pending');
+        if (pending.length === 0) { alert('目前無待審核申請'); return; }
+        setPtRecalculating(true);
+        let successCount = 0;
+        for (const rv of pending) {
+            const res = await recalcPeakTrialReview(rv.id);
+            if (res.success) successCount++;
+        }
+        setPtRecalculating(false);
+        alert(`已重新計算 ${successCount} 筆審核修為`);
+        refreshPtReviews();
+    };
+
+    const handlePtBatchApprove = async () => {
+        const pending = ptReviews.filter(r => r.status === 'pending');
+        if (pending.length === 0) { alert('目前無待審核申請'); return; }
+        if (!confirm(`確認批次核准 ${pending.length} 筆申請並發放修為？`)) return;
+        setPtBatchApproving(true);
+        let successCount = 0;
+        const errors: string[] = [];
+        for (const rv of pending) {
+            const res = await approvePeakTrialReview(rv.id, 'admin');
+            if (res.success) successCount++;
+            else errors.push(`${rv.battalion_name}：${res.error}`);
+        }
+        setPtBatchApproving(false);
+        const msg = `批次核准完成：${successCount} 筆成功${errors.length > 0 ? `\n失敗：${errors.join('\n')}` : ''}`;
+        alert(msg);
+        refreshPtReviews();
     };
 
     const openPtEdit = (trial: PeakTrial) => {
@@ -3163,13 +3197,31 @@ export function AdminDashboard({
 
                         {/* 巔峰試煉審核 */}
                         <section className="space-y-4">
-                            <div className="flex items-center gap-2 text-indigo-400 font-black text-sm uppercase tracking-widest">
-                                🏆 巔峰試煉審核
-                                {ptReviews.filter(r => r.status === 'pending').length > 0 && (
-                                    <span className="text-[10px] font-black text-white bg-indigo-500 px-2 py-0.5 rounded-full">
-                                        {ptReviews.filter(r => r.status === 'pending').length} 待審
-                                    </span>
-                                )}
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2 text-indigo-400 font-black text-sm uppercase tracking-widest">
+                                    🏆 巔峰試煉審核
+                                    {ptReviews.filter(r => r.status === 'pending').length > 0 && (
+                                        <span className="text-[10px] font-black text-white bg-indigo-500 px-2 py-0.5 rounded-full">
+                                            {ptReviews.filter(r => r.status === 'pending').length} 待審
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handlePtRecalcAll}
+                                        disabled={ptRecalculating || ptBatchApproving}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-amber-600/20 border border-amber-500/30 hover:bg-amber-600/30 text-amber-400 text-xs font-black rounded-xl active:scale-95 transition-all disabled:opacity-50"
+                                    >
+                                        {ptRecalculating ? '計算中…' : '🔄 重新計算修為'}
+                                    </button>
+                                    <button
+                                        onClick={handlePtBatchApprove}
+                                        disabled={ptBatchApproving || ptRecalculating}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600/30 text-emerald-400 text-xs font-black rounded-xl active:scale-95 transition-all disabled:opacity-50"
+                                    >
+                                        {ptBatchApproving ? '處理中…' : '✅ 批次審核'}
+                                    </button>
+                                </div>
                             </div>
                             <div className="bg-slate-900 border-2 border-indigo-500/20 p-6 rounded-4xl shadow-xl space-y-4">
                                 {ptReviews.length === 0 ? (
