@@ -1315,7 +1315,10 @@ export default function App() {
   // 切換到巔峰試煉 tab 時刷新活動資料與我的報名記錄
   useEffect(() => {
     if (activeTab === 'peakTrial') {
-      listPeakTrials({ activeOnly: false }).then(r => { if (r.success) setPeakTrials(r.trials); });
+      listPeakTrials({ activeOnly: false }).then(r => {
+        if (r.success) setPeakTrials(r.trials);
+        else console.error('[PeakTrials] listPeakTrials 失敗:', r.error);
+      });
       if (userData?.UserID) {
         getMyPeakTrialRegistrations(userData.UserID).then(r => { if (r.success) setMyPeakTrialRegs(r.registrations); });
       }

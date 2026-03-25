@@ -1,11 +1,11 @@
 -- 巔峰試煉活動表
-CREATE TABLE IF NOT EXISTS PeakTrials (
-    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    title        TEXT        NOT NULL,
-    description  TEXT,
-    date         DATE        NOT NULL,
-    time         TEXT,
-    location     TEXT,
+CREATE TABLE IF NOT EXISTS "PeakTrials" (
+    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    title            TEXT        NOT NULL,
+    description      TEXT,
+    date             DATE        NOT NULL,
+    time             TEXT,
+    location         TEXT,
     max_participants INTEGER,
     battalion_name   TEXT,
     created_by       TEXT        NOT NULL,  -- 大隊長 UserID 或 admin
@@ -14,9 +14,9 @@ CREATE TABLE IF NOT EXISTS PeakTrials (
 );
 
 -- 巔峰試煉報名表
-CREATE TABLE IF NOT EXISTS PeakTrialRegistrations (
+CREATE TABLE IF NOT EXISTS "PeakTrialRegistrations" (
     id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    trial_id       UUID        NOT NULL REFERENCES PeakTrials(id) ON DELETE CASCADE,
+    trial_id       UUID        NOT NULL REFERENCES "PeakTrials"(id) ON DELETE CASCADE,
     user_id        TEXT        NOT NULL,
     user_name      TEXT        NOT NULL,
     squad_name     TEXT,
