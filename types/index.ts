@@ -290,6 +290,24 @@ export interface PeakTrial {
   registration_count?: number; // 由 listPeakTrials 計算帶入
 }
 
+export interface PeakTrialReview {
+  id: string;
+  trial_id: string;
+  trial_title: string;
+  battalion_name: string;
+  submitted_by: string;
+  own_participants: number;
+  cross_participants: number;
+  reward_per_person: number;
+  total_members: number;
+  photo_data?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by?: string;
+  reviewed_at?: string;
+  review_notes?: string;
+  created_at: string;
+}
+
 export interface PeakTrialRegistration {
   id: string;
   trial_id: string;

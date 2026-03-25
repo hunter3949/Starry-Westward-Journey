@@ -1,9 +1,9 @@
 import React from 'react';
 import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download, Calendar, Zap, Search, LogIn, Tag, RefreshCw } from 'lucide-react';
-import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course, MainQuestEntry, BonusQuestRule, PeakTrial, PeakTrialRegistration } from '@/types';
+import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course, MainQuestEntry, BonusQuestRule, PeakTrial, PeakTrialRegistration, PeakTrialReview } from '@/types';
 import { RankTab } from '@/components/Tabs/RankTab';
 import { getCourseRegistrations } from '@/app/actions/course';
-import { listPeakTrials, upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance } from '@/app/actions/peakTrials';
+import { listPeakTrials, upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance, listPeakTrialReviews, approvePeakTrialReview, rejectPeakTrialReview } from '@/app/actions/peakTrials';
 
 import { ADMIN_PASSWORD, ARTIFACTS_CONFIG, ROLE_CURE_MAP } from '@/lib/constants';
 import { logAdminAction, checkExistingRosterPhones } from '@/app/actions/admin';
@@ -2638,6 +2638,40 @@ export function AdminDashboard({
 
     React.useEffect(() => { refreshPtList(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // ── 巔峰試煉審核 state ───────────────────────────────────
+    const [ptReviews, setPtReviews] = React.useState<PeakTrialReview[]>([]);
+    const [ptReviewNotes, setPtReviewNotes] = React.useState<Record<string, string>>({});
+    const [ptReviewingId, setPtReviewingId] = React.useState<string | null>(null);
+    const [ptPhotoOpen, setPtPhotoOpen] = React.useState<string | null>(null);
+
+    const refreshPtReviews = () => listPeakTrialReviews().then(res => { if (res.success) setPtReviews(res.reviews); });
+
+    React.useEffect(() => { refreshPtReviews(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handlePtApprove = async (reviewId: string) => {
+        setPtReviewingId(reviewId);
+        const res = await approvePeakTrialReview(reviewId, 'admin');
+        setPtReviewingId(null);
+        if (res.success) {
+            alert(`✅ 已核准，${res.membersRewarded} 位隊員獲得修為`);
+            refreshPtReviews();
+        } else {
+            alert(res.error || '核准失敗');
+        }
+    };
+
+    const handlePtReject = async (reviewId: string) => {
+        setPtReviewingId(reviewId);
+        const res = await rejectPeakTrialReview(reviewId, 'admin', ptReviewNotes[reviewId] || '');
+        setPtReviewingId(null);
+        if (res.success) {
+            alert('已駁回審核');
+            refreshPtReviews();
+        } else {
+            alert(res.error || '駁回失敗');
+        }
+    };
+
     const openPtEdit = (trial: PeakTrial) => {
         setPtForm({
             title: trial.title,
@@ -3122,6 +3156,103 @@ export function AdminDashboard({
                                                 <p>{new Date(t.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                                             </div>
                                         </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* 巔峰試煉審核 */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 text-indigo-400 font-black text-sm uppercase tracking-widest">
+                                🏆 巔峰試煉審核
+                                {ptReviews.filter(r => r.status === 'pending').length > 0 && (
+                                    <span className="text-[10px] font-black text-white bg-indigo-500 px-2 py-0.5 rounded-full">
+                                        {ptReviews.filter(r => r.status === 'pending').length} 待審
+                                    </span>
+                                )}
+                            </div>
+                            <div className="bg-slate-900 border-2 border-indigo-500/20 p-6 rounded-4xl shadow-xl space-y-4">
+                                {ptReviews.length === 0 ? (
+                                    <p className="text-sm text-slate-500 text-center py-4">目前無審核申請</p>
+                                ) : ptReviews.map(rv => (
+                                    <div key={rv.id} className="bg-slate-800 rounded-2xl p-5 space-y-4">
+                                        {/* Header */}
+                                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                                            <div>
+                                                <p className="text-white font-black text-sm">{rv.trial_title}</p>
+                                                <p className="text-xs text-indigo-400 mt-0.5">{rv.battalion_name}</p>
+                                                <p className="text-[10px] text-slate-500 mt-0.5">{new Date(rv.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                                            </div>
+                                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${rv.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' : rv.status === 'rejected' ? 'bg-red-500/20 text-red-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
+                                                {rv.status === 'approved' ? '✅ 已核准' : rv.status === 'rejected' ? '❌ 已駁回' : '⏳ 待審核'}
+                                            </span>
+                                        </div>
+
+                                        {/* 修為統計 */}
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div className="bg-purple-500/10 rounded-xl p-2">
+                                                <p className="text-[10px] text-slate-400">本隊參與</p>
+                                                <p className="text-white font-black">{rv.own_participants} 人</p>
+                                                <p className="text-purple-400 text-[10px]">+{(Math.min(rv.own_participants, 21) * 1500).toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-amber-500/10 rounded-xl p-2">
+                                                <p className="text-[10px] text-slate-400">跨隊參與</p>
+                                                <p className="text-white font-black">{rv.cross_participants} 人</p>
+                                                <p className="text-amber-400 text-[10px]">+{(Math.min(rv.cross_participants, 21) * 1050).toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-indigo-500/10 rounded-xl p-2">
+                                                <p className="text-[10px] text-slate-400">每人修為</p>
+                                                <p className="text-indigo-300 font-black">{rv.reward_per_person.toLocaleString()}</p>
+                                                <p className="text-slate-500 text-[10px]">× {rv.total_members} 人</p>
+                                            </div>
+                                        </div>
+
+                                        {/* 大合照 */}
+                                        {rv.photo_data && (
+                                            <div>
+                                                <button onClick={() => setPtPhotoOpen(ptPhotoOpen === rv.id ? null : rv.id)}
+                                                    className="text-xs text-indigo-400 hover:text-indigo-300 font-black transition-colors">
+                                                    {ptPhotoOpen === rv.id ? '▲ 收起照片' : '▼ 查看大合照'}
+                                                </button>
+                                                {ptPhotoOpen === rv.id && (
+                                                    <img src={rv.photo_data} alt="大合照" className="mt-2 w-full rounded-2xl object-cover max-h-72" />
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* 駁回備註 */}
+                                        {rv.status === 'rejected' && rv.review_notes && (
+                                            <p className="text-xs text-slate-400 bg-red-500/10 rounded-xl px-3 py-2">駁回原因：{rv.review_notes}</p>
+                                        )}
+
+                                        {/* 審核操作 */}
+                                        {rv.status === 'pending' && (
+                                            <div className="space-y-2">
+                                                <textarea
+                                                    placeholder="駁回原因（選填，核准可留空）"
+                                                    value={ptReviewNotes[rv.id] || ''}
+                                                    onChange={e => setPtReviewNotes(prev => ({ ...prev, [rv.id]: e.target.value }))}
+                                                    rows={2}
+                                                    className="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-indigo-500 resize-none transition-colors"
+                                                />
+                                                <div className="flex gap-3">
+                                                    <button
+                                                        disabled={ptReviewingId === rv.id}
+                                                        onClick={() => handlePtReject(rv.id)}
+                                                        className="flex-1 py-2.5 rounded-xl font-black text-sm text-red-400 bg-red-600/10 border border-red-600/30 active:scale-95 transition-all disabled:opacity-50"
+                                                    >
+                                                        ❌ 駁回
+                                                    </button>
+                                                    <button
+                                                        disabled={ptReviewingId === rv.id}
+                                                        onClick={() => handlePtApprove(rv.id)}
+                                                        className="flex-[2] py-2.5 rounded-xl font-black text-sm text-white bg-emerald-600 shadow-lg shadow-emerald-900/30 active:scale-95 transition-all disabled:opacity-50"
+                                                    >
+                                                        {ptReviewingId === rv.id ? '處理中…' : '✅ 核准並發放修為'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

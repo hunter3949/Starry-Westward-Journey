@@ -8,7 +8,7 @@ const PeakTrialScanner = dynamic(() => import('@/components/PeakTrialScanner'), 
 import { CharacterStats, W4Application, PeakTrial, PeakTrialRegistration } from '@/types';
 import { reviewW4ByBattalionLeader } from '@/app/actions/w4';
 import { setBattalionDisplayName } from '@/app/actions/admin';
-import { upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance, getBattalionTrialStatus, MemberTrialStatus, CrossInParticipant } from '@/app/actions/peakTrials';
+import { upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance, getBattalionTrialStatus, MemberTrialStatus, CrossInParticipant, submitPeakTrialReview, getTrialReviewStatus } from '@/app/actions/peakTrials';
 
 interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; }
 interface BattalionSquad { squadName: string; members: BattalionSquadMember[]; }
@@ -82,6 +82,19 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
         crossInRegs: CrossInParticipant[];
     } | null>(null);
     const [loadingBattalion, setLoadingBattalion] = useState<string | null>(null);
+
+    // 統計及回報審核
+    const [reviewPanel, setReviewPanel] = useState<{
+        trialId: string;
+        own: number;
+        cross: number;
+        totalMembers: number;
+        status: 'pending' | 'approved' | 'rejected' | null;
+        reviewNotes?: string;
+    } | null>(null);
+    const [reviewPhoto, setReviewPhoto] = useState<string | null>(null);
+    const [submittingReview, setSubmittingReview] = useState(false);
+    const [loadingReview, setLoadingReview] = useState<string | null>(null);
 
     const openEditForm = (trial: PeakTrial) => {
         setTrialForm({
@@ -170,6 +183,56 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
             setBattalionStatus({ trialId, activeView: view, memberStatus: res.memberStatus, crossInRegs: res.crossInRegs });
         } else {
             onShowMessage(res.error || '載入失敗', 'error');
+        }
+    };
+
+    const handleOpenReview = async (trial: { id: string; title: string }) => {
+        if (reviewPanel?.trialId === trial.id) { setReviewPanel(null); setReviewPhoto(null); return; }
+        setLoadingReview(trial.id);
+        const [statusRes, reviewRes] = await Promise.all([
+            getBattalionTrialStatus(userData.BigTeamLeagelName || '', trial.id),
+            getTrialReviewStatus(trial.id, userData.BigTeamLeagelName || ''),
+        ]);
+        setLoadingReview(null);
+        if (!statusRes.success) { onShowMessage(statusRes.error || '載入失敗', 'error'); return; }
+        const own = statusRes.memberStatus.filter(m => m.status === 'registered').length;
+        const cross = statusRes.memberStatus.filter(m => m.status === 'crossout').length;
+        setReviewPanel({
+            trialId: trial.id, own, cross,
+            totalMembers: statusRes.memberStatus.length,
+            status: (reviewRes.review?.status as 'pending' | 'approved' | 'rejected' | null) || null,
+            reviewNotes: reviewRes.review?.review_notes || undefined,
+        });
+    };
+
+    const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setReviewPhoto(reader.result as string);
+        reader.readAsDataURL(file);
+    };
+
+    const handleSubmitReview = async (trial: { id: string; title: string }) => {
+        if (!reviewPanel || reviewPanel.trialId !== trial.id) return;
+        setSubmittingReview(true);
+        const ownCapped = Math.min(reviewPanel.own, 21);
+        const crossCapped = Math.min(reviewPanel.cross, 21);
+        const rewardPerPerson = ownCapped * 1500 + crossCapped * 1050;
+        const res = await submitPeakTrialReview({
+            trialId: trial.id, trialTitle: trial.title,
+            battalionName: userData.BigTeamLeagelName || '',
+            submittedBy: userData.UserID,
+            ownParticipants: reviewPanel.own, crossParticipants: reviewPanel.cross,
+            rewardPerPerson, totalMembers: reviewPanel.totalMembers,
+            photoData: reviewPhoto || undefined,
+        });
+        setSubmittingReview(false);
+        if (res.success) {
+            onShowMessage('✅ 審核申請已送出，等待大會中樞審核', 'success');
+            setReviewPanel(prev => prev ? { ...prev, status: 'pending' } : null);
+        } else {
+            onShowMessage(res.error || '送審失敗', 'error');
         }
     };
 
@@ -424,54 +487,65 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                         const isViewingThis = viewingRegs?.trialId === trial.id;
                         return (
                             <div key={trial.id} className="bg-slate-800/60 border border-slate-700/40 rounded-2xl overflow-hidden">
-                                <div className="flex items-center gap-3 px-4 py-3">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-black text-white text-sm">{trial.title}</p>
-                                        <p className="text-[11px] text-slate-400 mt-0.5">
-                                            {trial.date}{trial.time ? ` · ${trial.time}` : ''}{trial.location ? ` · ${trial.location}` : ''}
-                                        </p>
-                                        <p className="text-[10px] text-purple-400 mt-0.5">
-                                            已報名 {trial.registration_count ?? 0} 人{trial.max_participants ? ` / 限額 ${trial.max_participants}` : ''}
-                                        </p>
-                                        <div className="flex gap-1.5 mt-1.5">
-                                            <button
-                                                onClick={() => handleBattalionView(trial.id, 'own')}
-                                                disabled={loadingBattalion === trial.id}
-                                                className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'own' ? 'bg-blue-600 text-white' : 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25'}`}
-                                            >
-                                                {loadingBattalion === trial.id ? '載入中…' : '本隊名單'}
-                                            </button>
-                                            <button
-                                                onClick={() => handleBattalionView(trial.id, 'crossIn')}
-                                                disabled={loadingBattalion === trial.id}
-                                                className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'crossIn' ? 'bg-amber-600 text-white' : 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25'}`}
-                                            >
-                                                跨入名單
-                                            </button>
+                                <div className="px-4 pt-3 pb-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-black text-white text-sm">{trial.title}</p>
+                                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                                {trial.date}{trial.time ? ` · ${trial.time}` : ''}{trial.location ? ` · ${trial.location}` : ''}
+                                            </p>
+                                            <p className="text-[10px] text-purple-400 mt-0.5">
+                                                已報名 {trial.registration_count ?? 0} 人{trial.max_participants ? ` / 限額 ${trial.max_participants}` : ''}
+                                            </p>
                                         </div>
+                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${trial.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                                            {trial.is_active ? '開放' : '關閉'}
+                                        </span>
+                                        <button onClick={() => handleViewRegs(trial.id)} disabled={loadingRegs === trial.id}
+                                            className={`p-1.5 rounded-lg transition-colors ${isViewingThis ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-purple-400'}`}>
+                                            <Eye size={14} />
+                                        </button>
+                                        <button onClick={() => setScanningTrialId(scanningTrialId === trial.id ? null : trial.id)}
+                                            className={`p-1.5 rounded-lg transition-colors ${scanningTrialId === trial.id ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-emerald-400'}`}>
+                                            <ScanLine size={14} />
+                                        </button>
+                                        <button onClick={() => openEditForm(trial)}
+                                            className="text-slate-400 hover:text-purple-400 p-1.5 rounded-lg transition-colors">
+                                            <Pencil size={13} />
+                                        </button>
+                                        <button onClick={() => togglePeakTrialActive(trial.id, !trial.is_active).then(() => onRefresh())}
+                                            className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg transition-colors">
+                                            <CheckCheck size={14} />
+                                        </button>
+                                        <button onClick={() => handleDeleteTrial(trial.id)} disabled={deletingTrialId === trial.id}
+                                            className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg transition-colors disabled:opacity-40">
+                                            <Trash2 size={13} />
+                                        </button>
                                     </div>
-                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${trial.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
-                                        {trial.is_active ? '開放' : '關閉'}
-                                    </span>
-                                    <button onClick={() => handleViewRegs(trial.id)} disabled={loadingRegs === trial.id}
-                                        className={`p-1.5 rounded-lg transition-colors ${isViewingThis ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-purple-400'}`}>
-                                        <Eye size={14} />
-                                    </button>
-                                    <button onClick={() => setScanningTrialId(scanningTrialId === trial.id ? null : trial.id)}
-                                        className={`p-1.5 rounded-lg transition-colors ${scanningTrialId === trial.id ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-emerald-400'}`}>
-                                        <ScanLine size={14} />
-                                    </button>
-                                    <button onClick={() => openEditForm(trial)}
-                                        className="text-slate-400 hover:text-purple-400 p-1.5 rounded-lg transition-colors">
-                                        <Pencil size={13} />
-                                    </button>
-                                    <button onClick={() => togglePeakTrialActive(trial.id, !trial.is_active).then(() => onRefresh())}
-                                        className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg transition-colors">
-                                        <CheckCheck size={14} />
-                                    </button>
-                                    <button onClick={() => handleDeleteTrial(trial.id)} disabled={deletingTrialId === trial.id}
-                                        className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                        <Trash2 size={13} />
+                                    {/* 本隊名單 / 跨入名單 — 撐滿整行 */}
+                                    <div className="flex gap-2 mt-2">
+                                        <button
+                                            onClick={() => handleBattalionView(trial.id, 'own')}
+                                            disabled={loadingBattalion === trial.id}
+                                            className={`flex-1 text-[11px] font-black py-1.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'own' ? 'bg-blue-600 text-white' : 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25'}`}
+                                        >
+                                            {loadingBattalion === trial.id ? '載入中…' : '本隊名單'}
+                                        </button>
+                                        <button
+                                            onClick={() => handleBattalionView(trial.id, 'crossIn')}
+                                            disabled={loadingBattalion === trial.id}
+                                            className={`flex-1 text-[11px] font-black py-1.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'crossIn' ? 'bg-amber-600 text-white' : 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25'}`}
+                                        >
+                                            跨入名單
+                                        </button>
+                                    </div>
+                                    {/* 統計及回報審核 */}
+                                    <button
+                                        onClick={() => handleOpenReview(trial)}
+                                        disabled={loadingReview === trial.id}
+                                        className={`w-full mt-1.5 text-[11px] font-black py-1.5 rounded-lg transition-colors disabled:opacity-40 ${reviewPanel?.trialId === trial.id ? 'bg-indigo-600 text-white' : 'bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25'}`}
+                                    >
+                                        {loadingReview === trial.id ? '計算中…' : '統計及回報審核'}
                                     </button>
                                 </div>
 
@@ -548,6 +622,82 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                         )}
                                     </div>
                                 )}
+
+                                {/* 統計及回報審核 panel */}
+                                {reviewPanel?.trialId === trial.id && (() => {
+                                    const { own, cross, totalMembers, status, reviewNotes } = reviewPanel;
+                                    const ownCapped = Math.min(own, 21);
+                                    const crossCapped = Math.min(cross, 21);
+                                    const ownExp = ownCapped * 1500;
+                                    const crossExp = crossCapped * 1050;
+                                    const totalExp = ownExp + crossExp;
+                                    const battalionLabel = battalionDisplayName || userData.BigTeamLeagelName || '本大隊';
+                                    return (
+                                        <div className="border-t border-slate-700/40 px-4 py-4 space-y-4">
+                                            {/* 修為統計 */}
+                                            <div className="space-y-2">
+                                                <p className="text-xs text-indigo-400 font-black">修為統計</p>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3">
+                                                        <p className="text-[10px] text-slate-400 mb-0.5">本隊參與</p>
+                                                        <p className="text-white font-black text-lg leading-none">{own} 人</p>
+                                                        {own > 21 && <p className="text-[9px] text-amber-500 mt-0.5">（上限 21 人計算）</p>}
+                                                        <p className="text-purple-400 text-xs mt-1 font-black">+{ownExp.toLocaleString()} 修為</p>
+                                                    </div>
+                                                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                                                        <p className="text-[10px] text-slate-400 mb-0.5">跨隊參與</p>
+                                                        <p className="text-white font-black text-lg leading-none">{cross} 人</p>
+                                                        {cross > 21 && <p className="text-[9px] text-amber-500 mt-0.5">（上限 21 人計算）</p>}
+                                                        <p className="text-amber-400 text-xs mt-1 font-black">+{crossExp.toLocaleString()} 修為</p>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-4 py-3 flex items-center justify-between">
+                                                    <p className="text-xs text-slate-400">{battalionLabel} 每人共計增加</p>
+                                                    <p className="text-indigo-300 font-black text-xl">{totalExp.toLocaleString()} 修為</p>
+                                                </div>
+                                                <p className="text-[10px] text-slate-500 text-center">共 {totalMembers} 位隊員將各獲得 {totalExp.toLocaleString()} 修為</p>
+                                            </div>
+
+                                            {/* 審核狀態 / 提交區 */}
+                                            {status === 'approved' ? (
+                                                <div className="text-center py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                                                    <p className="text-emerald-400 font-black text-sm">✅ 已核准，修為已發放</p>
+                                                </div>
+                                            ) : status === 'rejected' ? (
+                                                <div className="space-y-2 bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3">
+                                                    <p className="text-red-400 font-black text-sm">❌ 審核未通過</p>
+                                                    {reviewNotes && <p className="text-slate-400 text-xs">原因：{reviewNotes}</p>}
+                                                    <p className="text-slate-500 text-xs">可修正後重新上傳大合照送審</p>
+                                                </div>
+                                            ) : status === 'pending' ? (
+                                                <div className="text-center py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
+                                                    <p className="text-indigo-400 font-black text-sm">⏳ 已送審，等待大會中樞審核</p>
+                                                </div>
+                                            ) : null}
+
+                                            {/* 上傳大合照 + 送審（pending 時也允許重新上傳） */}
+                                            {status !== 'approved' && (
+                                                <div className="space-y-3">
+                                                    <p className="text-xs text-slate-400 font-black">上傳大合照供大會中樞審核</p>
+                                                    <label className="flex items-center justify-center gap-2 w-full py-3 bg-slate-800 border border-dashed border-slate-600 hover:border-indigo-500/50 rounded-2xl cursor-pointer transition-colors">
+                                                        <span className="text-xs text-slate-400">{reviewPhoto ? '✅ 已選取照片，點此更換' : '📷 選擇大合照'}</span>
+                                                        <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+                                                    </label>
+                                                    {reviewPhoto && (
+                                                        <img src={reviewPhoto} alt="大合照預覽" className="w-full rounded-2xl object-cover max-h-48" />
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleSubmitReview(trial)}
+                                                        disabled={submittingReview || !reviewPhoto}
+                                                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-sm rounded-2xl active:scale-95 transition-all"
+                                                    >
+                                                        {submittingReview ? '送審中…' : status === 'pending' ? '重新送審' : '送審申請修為'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* 報名名單 */}
                                 {isViewingThis && (
