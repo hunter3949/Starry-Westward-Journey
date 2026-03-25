@@ -82,6 +82,25 @@ export function PeakTrialTab({
                 <p className="text-xs text-slate-400 mt-1">參與各大隊舉辦的特別活動，挑戰自我巔峰</p>
             </div>
 
+            {/* 預計修為獎勵框 */}
+            {activeTrials.length > 0 && (() => {
+                const totalMembers = Math.max(1, battalionMemberCount || 1);
+                const totalRegCount = activeTrials.reduce((sum, t) => sum + (t.registration_count ?? 0), 0);
+                const estimatedExp = Math.floor(Math.min(totalRegCount, 21) * 1500 / totalMembers);
+                return (
+                    <div className="bg-purple-950/40 border border-purple-500/30 rounded-3xl p-5 text-center space-y-2">
+                        <p className="text-white font-black text-base leading-snug">
+                            本大隊每人預計獲得
+                            <span className="text-purple-300 text-xl mx-1.5">{estimatedExp.toLocaleString()}</span>
+                            修為
+                            <span className="text-red-400 text-xs ml-1.5">（預計）</span>
+                        </p>
+                        <p className="text-red-400 text-xs font-black">＊請廣邀大隊夥伴一同參與＊</p>
+                        <p className="text-red-400 text-xs">＊此為預計修為，待大會最終審核確認＊</p>
+                    </div>
+                );
+            })()}
+
             {/* 我的報名記錄 */}
             {myRegistrations.length > 0 && (
                 <div className="bg-slate-900 border border-purple-500/20 rounded-3xl p-5 space-y-3">
@@ -192,25 +211,6 @@ export function PeakTrialTab({
                                         {trial.description && (
                                             <p className="text-sm text-slate-300 leading-relaxed">{trial.description}</p>
                                         )}
-
-                                        {/* 預計修為獎勵框 */}
-                                        {(() => {
-                                            const totalMembers = Math.max(1, battalionMemberCount || 1);
-                                            const participantCount = trial.registration_count ?? 0;
-                                            const estimatedExp = Math.floor(Math.min(participantCount, 21) * 1500 / totalMembers);
-                                            return (
-                                                <div className="bg-purple-950/40 border border-purple-500/30 rounded-2xl p-4 text-center space-y-2">
-                                                    <p className="text-white font-black text-base leading-snug">
-                                                        本大隊每人預計獲得
-                                                        <span className="text-purple-300 text-xl mx-1">{estimatedExp.toLocaleString()}</span>
-                                                        修為
-                                                        <span className="text-red-400 text-xs ml-1">（預計）</span>
-                                                    </p>
-                                                    <p className="text-red-400 text-xs font-black">＊請廣邀大隊夥伴一同參與＊</p>
-                                                    <p className="text-red-400 text-xs">＊此為預計修為，待大會最終審核確認＊</p>
-                                                </div>
-                                            );
-                                        })()}
 
                                         {!myReg ? (
                                             full ? (
