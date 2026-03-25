@@ -6,7 +6,7 @@ import { PeakTrial, PeakTrialRegistration } from '@/types';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// ── 查詢活動列表 ──────────────────────────────────────────
+// ── 查詢活動列表（含報名人數）────────────────────────────
 export async function listPeakTrials(filter: {
     battalionName?: string;
     activeOnly?: boolean;
@@ -17,7 +17,19 @@ export async function listPeakTrials(filter: {
     if (filter.activeOnly) query = query.eq('is_active', true);
     const { data, error } = await query;
     if (error) return { success: false, error: error.message, trials: [] as PeakTrial[] };
-    return { success: true, trials: (data || []) as PeakTrial[] };
+
+    // 批次取得所有報名計數（避免 N+1）
+    const { data: regData } = await supabase
+        .from('PeakTrialRegistrations')
+        .select('trial_id');
+    const countMap = new Map<string, number>();
+    (regData || []).forEach(r => countMap.set(r.trial_id, (countMap.get(r.trial_id) || 0) + 1));
+
+    const trials = (data || []).map(t => ({
+        ...t,
+        registration_count: countMap.get(t.id) || 0,
+    })) as PeakTrial[];
+    return { success: true, trials };
 }
 
 // ── 新增 / 更新活動（大隊長 + 管理員）────────────────────

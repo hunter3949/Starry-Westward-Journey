@@ -287,6 +287,7 @@ export interface PeakTrial {
   created_by: string;   // 建立者 UserID 或 'admin'
   is_active: boolean;
   created_at: string;
+  registration_count?: number; // 由 listPeakTrials 計算帶入
 }
 
 export interface PeakTrialRegistration {

@@ -1312,6 +1312,16 @@ export default function App() {
     }
   }, [activeTab, userData?.UserID]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 切換到巔峰試煉 tab 時刷新活動資料與我的報名記錄
+  useEffect(() => {
+    if (activeTab === 'peakTrial') {
+      listPeakTrials({ activeOnly: false }).then(r => { if (r.success) setPeakTrials(r.trials); });
+      if (userData?.UserID) {
+        getMyPeakTrialRegistrations(userData.UserID).then(r => { if (r.success) setMyPeakTrialRegs(r.registrations); });
+      }
+    }
+  }, [activeTab, userData?.UserID]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (activeTab === 'captain' && !showCaptainTab) setActiveTab('daily');
     if (activeTab === 'commandant' && !showCommandantTab) setActiveTab('daily');

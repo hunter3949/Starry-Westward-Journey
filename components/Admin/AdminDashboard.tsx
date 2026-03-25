@@ -2628,19 +2628,34 @@ export function AdminDashboard({
     const [peakTrials, setPeakTrials] = React.useState<PeakTrial[]>([]);
     const [ptForm, setPtForm] = React.useState(emptyPtForm);
     const [showPtForm, setShowPtForm] = React.useState(false);
+    const [ptEditingId, setPtEditingId] = React.useState<string | null>(null);
     const [ptSaving, setPtSaving] = React.useState(false);
     const [ptDeletingId, setPtDeletingId] = React.useState<string | null>(null);
     const [ptViewRegs, setPtViewRegs] = React.useState<{ trialId: string; regs: PeakTrialRegistration[] } | null>(null);
     const [ptMarkingId, setPtMarkingId] = React.useState<string | null>(null);
 
-    React.useEffect(() => {
-        listPeakTrials().then(res => { if (res.success) setPeakTrials(res.trials); });
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const refreshPtList = () => listPeakTrials().then(res => { if (res.success) setPeakTrials(res.trials); });
+
+    React.useEffect(() => { refreshPtList(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const openPtEdit = (trial: PeakTrial) => {
+        setPtForm({
+            title: trial.title,
+            description: trial.description || '',
+            date: trial.date,
+            time: trial.time || '',
+            location: trial.location || '',
+            max_participants: trial.max_participants?.toString() || '',
+        });
+        setPtEditingId(trial.id);
+        setShowPtForm(true);
+    };
 
     const handleSavePt = async () => {
         if (!ptForm.title || !ptForm.date) return;
         setPtSaving(true);
         const res = await upsertPeakTrial({
+            ...(ptEditingId ? { id: ptEditingId } : {}),
             title: ptForm.title,
             description: ptForm.description || undefined,
             date: ptForm.date,
@@ -2652,9 +2667,10 @@ export function AdminDashboard({
         });
         setPtSaving(false);
         if (res.success) {
-            setPeakTrials(prev => [res.trial!, ...prev]);
+            await refreshPtList();
             setPtForm(emptyPtForm);
             setShowPtForm(false);
+            setPtEditingId(null);
         }
     };
 
@@ -4345,10 +4361,12 @@ export function AdminDashboard({
                             </button>
                         </div>
                         <div className="bg-slate-900 border-2 border-purple-500/20 p-6 rounded-4xl space-y-4 shadow-xl">
-                            {/* 新增表單 */}
+                            {/* 新增 / 編輯表單 */}
                             {showPtForm && (
                                 <div className="bg-slate-800/60 border border-purple-500/20 rounded-2xl p-4 space-y-3">
-                                    <p className="text-purple-300 font-black text-xs uppercase tracking-widest">新增巔峰試煉活動</p>
+                                    <p className="text-purple-300 font-black text-xs uppercase tracking-widest">
+                                        {ptEditingId ? '編輯活動' : '新增巔峰試煉活動'}
+                                    </p>
                                     <input value={ptForm.title} onChange={e => setPtForm(p => ({ ...p, title: e.target.value }))}
                                         placeholder="活動名稱 *"
                                         className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
@@ -4373,9 +4391,9 @@ export function AdminDashboard({
                                     <div className="flex gap-2">
                                         <button onClick={handleSavePt} disabled={ptSaving || !ptForm.title || !ptForm.date}
                                             className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-colors">
-                                            {ptSaving ? '建立中…' : '✅ 建立活動'}
+                                            {ptSaving ? '儲存中…' : ptEditingId ? '✅ 更新活動' : '✅ 建立活動'}
                                         </button>
-                                        <button onClick={() => setShowPtForm(false)}
+                                        <button onClick={() => { setShowPtForm(false); setPtEditingId(null); setPtForm(emptyPtForm); }}
                                             className="px-4 py-2 bg-slate-700 text-slate-300 text-xs font-black rounded-xl">取消</button>
                                     </div>
                                 </div>
@@ -4400,7 +4418,10 @@ export function AdminDashboard({
                                                         </span>
                                                     </div>
                                                     <p className="text-xs text-slate-400 mt-1">
-                                                        {trial.date}{trial.time ? ` · ${trial.time}` : ''}{trial.location ? ` · ${trial.location}` : ''}{trial.max_participants ? ` · 限 ${trial.max_participants} 人` : ''}
+                                                        {trial.date}{trial.time ? ` · ${trial.time}` : ''}{trial.location ? ` · ${trial.location}` : ''}
+                                                    </p>
+                                                    <p className="text-[10px] text-purple-400 mt-0.5">
+                                                        已報名 {trial.registration_count ?? 0} 人{trial.max_participants ? ` / 限額 ${trial.max_participants}` : ''}
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
@@ -4408,7 +4429,11 @@ export function AdminDashboard({
                                                         className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors ${isViewingThis ? 'bg-purple-600 text-white' : 'bg-sky-700 hover:bg-sky-600 text-white'}`}>
                                                         報名名單
                                                     </button>
-                                                    <button onClick={() => togglePeakTrialActive(trial.id, !trial.is_active).then(() => listPeakTrials().then(r => r.success && setPeakTrials(r.trials)))}
+                                                    <button onClick={() => openPtEdit(trial)}
+                                                        className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-purple-400 transition-colors">
+                                                        <Pencil size={15} />
+                                                    </button>
+                                                    <button onClick={() => togglePeakTrialActive(trial.id, !trial.is_active).then(refreshPtList)}
                                                         className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-purple-400 transition-colors">
                                                         {trial.is_active ? <ToggleRight size={16} className="text-emerald-400" /> : <ToggleLeft size={16} />}
                                                     </button>

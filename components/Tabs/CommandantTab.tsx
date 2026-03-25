@@ -65,11 +65,25 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
     const emptyForm = { title: '', description: '', date: '', time: '', location: '', max_participants: '' };
     const [trialForm, setTrialForm] = useState(emptyForm);
     const [showTrialForm, setShowTrialForm] = useState(false);
+    const [editingTrialId, setEditingTrialId] = useState<string | null>(null);
     const [savingTrial, setSavingTrial] = useState(false);
     const [deletingTrialId, setDeletingTrialId] = useState<string | null>(null);
     const [viewingRegs, setViewingRegs] = useState<{ trialId: string; regs: PeakTrialRegistration[] } | null>(null);
     const [loadingRegs, setLoadingRegs] = useState<string | null>(null);
     const [markingId, setMarkingId] = useState<string | null>(null);
+
+    const openEditForm = (trial: PeakTrial) => {
+        setTrialForm({
+            title: trial.title,
+            description: trial.description || '',
+            date: trial.date,
+            time: trial.time || '',
+            location: trial.location || '',
+            max_participants: trial.max_participants?.toString() || '',
+        });
+        setEditingTrialId(trial.id);
+        setShowTrialForm(true);
+    };
 
     const handleSaveTrial = async () => {
         if (!trialForm.title || !trialForm.date) {
@@ -78,6 +92,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
         }
         setSavingTrial(true);
         const res = await upsertPeakTrial({
+            ...(editingTrialId ? { id: editingTrialId } : {}),
             title: trialForm.title,
             description: trialForm.description || undefined,
             date: trialForm.date,
@@ -90,12 +105,13 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
         });
         setSavingTrial(false);
         if (res.success) {
-            onShowMessage('🏆 活動已建立', 'success');
+            onShowMessage(editingTrialId ? '✅ 活動已更新' : '🏆 活動已建立', 'success');
             setTrialForm(emptyForm);
             setShowTrialForm(false);
+            setEditingTrialId(null);
             onRefresh();
         } else {
-            onShowMessage(res.error || '建立失敗', 'error');
+            onShowMessage(res.error || '儲存失敗', 'error');
         }
     };
 
@@ -336,10 +352,12 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                     </button>
                 </div>
 
-                {/* 新增表單 */}
+                {/* 新增 / 編輯表單 */}
                 {showTrialForm && (
                     <div className="bg-slate-800/60 border border-purple-500/20 rounded-2xl p-4 space-y-3">
-                        <p className="text-purple-300 font-black text-xs uppercase tracking-widest">新增巔峰試煉活動</p>
+                        <p className="text-purple-300 font-black text-xs uppercase tracking-widest">
+                            {editingTrialId ? '編輯活動' : '新增巔峰試煉活動'}
+                        </p>
                         <input value={trialForm.title} onChange={e => setTrialForm(p => ({ ...p, title: e.target.value }))}
                             placeholder="活動名稱 *"
                             className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500" />
@@ -364,9 +382,9 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                         <div className="flex gap-2">
                             <button onClick={handleSaveTrial} disabled={savingTrial}
                                 className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-colors">
-                                {savingTrial ? '建立中…' : '✅ 建立活動'}
+                                {savingTrial ? '儲存中…' : editingTrialId ? '✅ 更新活動' : '✅ 建立活動'}
                             </button>
-                            <button onClick={() => { setShowTrialForm(false); setTrialForm(emptyForm); }}
+                            <button onClick={() => { setShowTrialForm(false); setTrialForm(emptyForm); setEditingTrialId(null); }}
                                 className="px-4 py-2 bg-slate-700 text-slate-300 text-xs font-black rounded-xl">取消</button>
                         </div>
                     </div>
@@ -386,6 +404,9 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                         <p className="text-[11px] text-slate-400 mt-0.5">
                                             {trial.date}{trial.time ? ` · ${trial.time}` : ''}{trial.location ? ` · ${trial.location}` : ''}
                                         </p>
+                                        <p className="text-[10px] text-purple-400 mt-0.5">
+                                            已報名 {trial.registration_count ?? 0} 人{trial.max_participants ? ` / 限額 ${trial.max_participants}` : ''}
+                                        </p>
                                     </div>
                                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${trial.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
                                         {trial.is_active ? '開放' : '關閉'}
@@ -393,6 +414,10 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                     <button onClick={() => handleViewRegs(trial.id)} disabled={loadingRegs === trial.id}
                                         className={`p-1.5 rounded-lg transition-colors ${isViewingThis ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-purple-400'}`}>
                                         <Eye size={14} />
+                                    </button>
+                                    <button onClick={() => openEditForm(trial)}
+                                        className="text-slate-400 hover:text-purple-400 p-1.5 rounded-lg transition-colors">
+                                        <Pencil size={13} />
                                     </button>
                                     <button onClick={() => togglePeakTrialActive(trial.id, !trial.is_active).then(() => onRefresh())}
                                         className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg transition-colors">

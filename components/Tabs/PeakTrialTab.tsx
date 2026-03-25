@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Trophy, MapPin, Clock, Calendar, Users, CheckCircle2, XCircle, RefreshCw, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import { Trophy, MapPin, Clock, Calendar, Users, RefreshCw, ChevronDown } from 'lucide-react';
 import { PeakTrial, PeakTrialRegistration } from '@/types';
 import { registerForPeakTrial, cancelPeakTrialRegistration } from '@/app/actions/peakTrials';
 
@@ -24,6 +24,9 @@ export function PeakTrialTab({
 
     const activeTrials = trials.filter(t => t.is_active);
     const myRegMap = new Map(myRegistrations.map(r => [r.trial_id, r]));
+
+    const isFull = (trial: PeakTrial) =>
+        !!trial.max_participants && (trial.registration_count ?? 0) >= trial.max_participants;
 
     const handleRegister = async (trialId: string) => {
         setLoading(trialId);
@@ -71,7 +74,7 @@ export function PeakTrialTab({
             {myRegistrations.length > 0 && (
                 <div className="bg-slate-900 border border-purple-500/20 rounded-3xl p-5 space-y-3">
                     <p className="text-white font-black text-sm flex items-center gap-2">
-                        <CheckCircle2 size={14} className="text-purple-400" /> 我的報名記錄
+                        <Trophy size={14} className="text-purple-400" /> 我的報名記錄
                     </p>
                     <div className="space-y-2">
                         {myRegistrations.map(reg => {
@@ -80,7 +83,7 @@ export function PeakTrialTab({
                                 <div key={reg.id} className="flex items-center justify-between bg-slate-800/60 rounded-2xl px-4 py-2.5">
                                     <div>
                                         <p className="text-white text-sm font-bold">{trial?.title ?? '活動'}</p>
-                                        <p className="text-xs text-slate-500">{trial?.date}{trial?.time ? ` ${trial.time}` : ''}</p>
+                                        <p className="text-xs text-slate-500">{trial?.date}{trial?.time ? ` · ${trial.time}` : ''}</p>
                                     </div>
                                     <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${reg.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                         {reg.attended ? '✅ 已出席' : '已報名'}
@@ -105,7 +108,8 @@ export function PeakTrialTab({
                         const myReg = myRegMap.get(trial.id);
                         const isExpanded = expandedId === trial.id;
                         const isLoading = loading === trial.id;
-                        const isFull = trial.max_participants !== undefined && trial.max_participants !== null;
+                        const full = isFull(trial);
+                        const regCount = trial.registration_count ?? 0;
 
                         return (
                             <div key={trial.id} className="bg-slate-900 border-2 border-purple-500/20 rounded-3xl overflow-hidden shadow-xl">
@@ -133,9 +137,13 @@ export function PeakTrialTab({
                                                     <MapPin size={11} /> {trial.location}
                                                 </span>
                                             )}
-                                            {trial.max_participants && (
+                                            {trial.max_participants ? (
+                                                <span className={`flex items-center gap-1 text-xs font-black ${full ? 'text-red-400' : 'text-slate-400'}`}>
+                                                    <Users size={11} /> {regCount}/{trial.max_participants} 人{full ? '（已額滿）' : ''}
+                                                </span>
+                                            ) : regCount > 0 && (
                                                 <span className="flex items-center gap-1 text-xs text-slate-400">
-                                                    <Users size={11} /> 限額 {trial.max_participants} 人
+                                                    <Users size={11} /> 已報名 {regCount} 人
                                                 </span>
                                             )}
                                         </div>
@@ -144,6 +152,9 @@ export function PeakTrialTab({
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
+                                        {full && !myReg && (
+                                            <span className="text-[10px] font-black px-2 py-1 rounded-lg bg-red-500/20 text-red-400">額滿</span>
+                                        )}
                                         {myReg && (
                                             <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${myReg.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                                 {myReg.attended ? '已出席' : '已報名'}
@@ -160,15 +171,20 @@ export function PeakTrialTab({
                                             <p className="text-sm text-slate-300 leading-relaxed">{trial.description}</p>
                                         )}
 
-                                        {/* Action buttons */}
                                         {!myReg ? (
-                                            <button
-                                                onClick={() => handleRegister(trial.id)}
-                                                disabled={isLoading}
-                                                className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-black text-sm rounded-2xl active:scale-95 transition-all shadow-lg shadow-purple-900/30"
-                                            >
-                                                {isLoading ? '報名中…' : '🏆 立即報名'}
-                                            </button>
+                                            full ? (
+                                                <div className="w-full py-3 bg-red-500/10 border border-red-500/20 text-red-400 font-black text-sm rounded-2xl text-center">
+                                                    名額已滿，無法報名
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleRegister(trial.id)}
+                                                    disabled={isLoading}
+                                                    className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-black text-sm rounded-2xl active:scale-95 transition-all shadow-lg shadow-purple-900/30"
+                                                >
+                                                    {isLoading ? '報名中…' : '🏆 立即報名'}
+                                                </button>
+                                            )
                                         ) : myReg.attended ? (
                                             <div className="text-center py-2 text-emerald-400 font-black text-sm">✅ 已完成出席</div>
                                         ) : (
