@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trophy, MapPin, Clock, Calendar, Users, RefreshCw, ChevronDown, QrCode, X } from 'lucide-react';
+import { Trophy, MapPin, Clock, Calendar, Users, ChevronDown, QrCode, X } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { PeakTrial, PeakTrialRegistration } from '@/types';
 import { registerForPeakTrial, cancelPeakTrialRegistration } from '@/app/actions/peakTrials';
@@ -13,12 +13,13 @@ interface PeakTrialTabProps {
     userName: string;
     squadName?: string;
     battalionName?: string;
+    battalionMemberCount?: number;
     onRefresh: () => void;
     onShowMessage: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 
 export function PeakTrialTab({
-    trials, myRegistrations, userId, userName, squadName, battalionName, onRefresh, onShowMessage,
+    trials, myRegistrations, userId, userName, squadName, battalionName, battalionMemberCount, onRefresh, onShowMessage,
 }: PeakTrialTabProps) {
     const [loading, setLoading] = useState<string | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -73,19 +74,12 @@ export function PeakTrialTab({
                 </div>
             )}
             {/* Header */}
-            <div className="bg-gradient-to-br from-purple-950/40 to-slate-900 border-2 border-purple-500/30 rounded-4xl p-6 shadow-2xl">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2 text-purple-400 font-black text-xs uppercase tracking-widest mb-1">
-                            <Trophy size={14} /> 巔峰試煉
-                        </div>
-                        <h2 className="text-2xl font-black text-white">活動報名</h2>
-                        <p className="text-xs text-slate-400 mt-1">參與各大隊舉辦的特別活動，挑戰自我巔峰</p>
-                    </div>
-                    <button onClick={onRefresh} className="p-3 rounded-2xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 active:scale-95 transition-all border border-white/5">
-                        <RefreshCw size={16} />
-                    </button>
+            <div className="bg-gradient-to-br from-purple-950/40 to-slate-900 border-2 border-purple-500/30 rounded-4xl p-6 shadow-2xl text-center">
+                <div className="flex items-center justify-center gap-2 text-purple-400 font-black text-xs uppercase tracking-widest mb-1">
+                    <Trophy size={14} /> 巔峰試煉
                 </div>
+                <h2 className="text-2xl font-black text-white">活動報名</h2>
+                <p className="text-xs text-slate-400 mt-1">參與各大隊舉辦的特別活動，挑戰自我巔峰</p>
             </div>
 
             {/* 我的報名記錄 */}
@@ -198,6 +192,25 @@ export function PeakTrialTab({
                                         {trial.description && (
                                             <p className="text-sm text-slate-300 leading-relaxed">{trial.description}</p>
                                         )}
+
+                                        {/* 預計修為獎勵框 */}
+                                        {(() => {
+                                            const totalMembers = Math.max(1, battalionMemberCount || 1);
+                                            const participantCount = trial.registration_count ?? 0;
+                                            const estimatedExp = Math.floor(Math.min(participantCount, 21) * 1500 / totalMembers);
+                                            return (
+                                                <div className="bg-purple-950/40 border border-purple-500/30 rounded-2xl p-4 text-center space-y-2">
+                                                    <p className="text-white font-black text-base leading-snug">
+                                                        本大隊每人預計獲得
+                                                        <span className="text-purple-300 text-xl mx-1">{estimatedExp.toLocaleString()}</span>
+                                                        修為
+                                                        <span className="text-red-400 text-xs ml-1">（預計）</span>
+                                                    </p>
+                                                    <p className="text-red-400 text-xs font-black">＊請廣邀大隊夥伴一同參與＊</p>
+                                                    <p className="text-red-400 text-xs">＊此為預計修為，待大會最終審核確認＊</p>
+                                                </div>
+                                            );
+                                        })()}
 
                                         {!myReg ? (
                                             full ? (

@@ -433,12 +433,14 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                         <Trophy size={15} className="text-purple-400" />
                         <p className="text-white font-black text-base">巔峰試煉管理</p>
                     </div>
-                    <button
-                        onClick={() => setShowTrialForm(v => !v)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black rounded-xl active:scale-95 transition-all"
-                    >
-                        <Plus size={13} /> 新增活動
-                    </button>
+                    {trials.filter(t => t.created_by === userData.UserID).length === 0 && (
+                        <button
+                            onClick={() => setShowTrialForm(v => !v)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black rounded-xl active:scale-95 transition-all"
+                        >
+                            <Plus size={13} /> 新增活動
+                        </button>
+                    )}
                 </div>
 
                 {/* 新增 / 編輯表單 */}
@@ -652,7 +654,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                                     </div>
                                                 </div>
                                                 <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-4 py-3 flex items-center justify-between">
-                                                    <p className="text-xs text-slate-400">{battalionLabel} 每人共計增加</p>
+                                                    <p className="text-xs text-slate-400">{battalionLabel} 每人共計增加 <span className="text-red-400">（預計）</span></p>
                                                     <p className="text-indigo-300 font-black text-xl">{totalExp.toLocaleString()} 修為</p>
                                                 </div>
                                                 <p className="text-[10px] text-slate-500 text-center">共 {totalMembers} 位隊員將各獲得 {totalExp.toLocaleString()} 修為</p>

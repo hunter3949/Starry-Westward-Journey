@@ -1525,6 +1525,7 @@ export default function App() {
             userName={userData.Name}
             squadName={userData.LittleTeamLeagelName}
             battalionName={userData.BigTeamLeagelName}
+            battalionMemberCount={leaderboard.filter(m => m.BigTeamLeagelName === userData.BigTeamLeagelName).length || undefined}
             onRefresh={() => {
               listPeakTrials({ activeOnly: false }).then(r => { if (r.success) setPeakTrials(r.trials); });
               getMyPeakTrialRegistrations(userData.UserID).then(r => { if (r.success) setMyPeakTrialRegs(r.registrations); });
