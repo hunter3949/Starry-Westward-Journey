@@ -3362,15 +3362,17 @@ export function AdminDashboard({
                                         )}
 
                                         {/* 影片連結 */}
-                                        {rv.video_url && (
-                                            <div className="flex items-center gap-2 bg-slate-700/40 rounded-xl px-3 py-2">
-                                                <span className="text-xs text-slate-400 shrink-0">🎬 影片：</span>
+                                        <div className="flex items-center gap-2 bg-slate-700/40 rounded-xl px-3 py-2">
+                                            <span className="text-xs text-slate-400 shrink-0">🎬 影片：</span>
+                                            {rv.video_url ? (
                                                 <a href={rv.video_url} target="_blank" rel="noopener noreferrer"
                                                     className="text-xs text-indigo-400 hover:text-indigo-300 underline truncate transition-colors">
                                                     {rv.video_url}
                                                 </a>
-                                            </div>
-                                        )}
+                                            ) : (
+                                                <span className="text-xs text-slate-500">未提供影片連結</span>
+                                            )}
+                                        </div>
 
                                         {/* 駁回備註 */}
                                         {rv.status === 'rejected' && rv.review_notes && (
