@@ -8,7 +8,7 @@ const PeakTrialScanner = dynamic(() => import('@/components/PeakTrialScanner'), 
 import { CharacterStats, W4Application, PeakTrial, PeakTrialRegistration } from '@/types';
 import { reviewW4ByBattalionLeader } from '@/app/actions/w4';
 import { setBattalionDisplayName } from '@/app/actions/admin';
-import { upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance } from '@/app/actions/peakTrials';
+import { upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance, getBattalionTrialStatus, MemberTrialStatus, CrossInParticipant } from '@/app/actions/peakTrials';
 
 interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; }
 interface BattalionSquad { squadName: string; members: BattalionSquadMember[]; }
@@ -75,6 +75,13 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
     const [loadingRegs, setLoadingRegs] = useState<string | null>(null);
     const [markingId, setMarkingId] = useState<string | null>(null);
     const [scanningTrialId, setScanningTrialId] = useState<string | null>(null);
+    const [battalionStatus, setBattalionStatus] = useState<{
+        trialId: string;
+        activeView: 'own' | 'crossIn';
+        memberStatus: MemberTrialStatus[];
+        crossInRegs: CrossInParticipant[];
+    } | null>(null);
+    const [loadingBattalion, setLoadingBattalion] = useState<string | null>(null);
 
     const openEditForm = (trial: PeakTrial) => {
         setTrialForm({
@@ -148,6 +155,21 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
             }
         } else {
             onShowMessage(res.error || '核銷失敗', 'error');
+        }
+    };
+
+    const handleBattalionView = async (trialId: string, view: 'own' | 'crossIn') => {
+        if (battalionStatus?.trialId === trialId && battalionStatus.activeView === view) {
+            setBattalionStatus(null);
+            return;
+        }
+        setLoadingBattalion(trialId);
+        const res = await getBattalionTrialStatus(userData.BigTeamLeagelName || '', trialId);
+        setLoadingBattalion(null);
+        if (res.success) {
+            setBattalionStatus({ trialId, activeView: view, memberStatus: res.memberStatus, crossInRegs: res.crossInRegs });
+        } else {
+            onShowMessage(res.error || '載入失敗', 'error');
         }
     };
 
@@ -411,6 +433,22 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                         <p className="text-[10px] text-purple-400 mt-0.5">
                                             已報名 {trial.registration_count ?? 0} 人{trial.max_participants ? ` / 限額 ${trial.max_participants}` : ''}
                                         </p>
+                                        <div className="flex gap-1.5 mt-1.5">
+                                            <button
+                                                onClick={() => handleBattalionView(trial.id, 'own')}
+                                                disabled={loadingBattalion === trial.id}
+                                                className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'own' ? 'bg-blue-600 text-white' : 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25'}`}
+                                            >
+                                                {loadingBattalion === trial.id ? '載入中…' : '本隊名單'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleBattalionView(trial.id, 'crossIn')}
+                                                disabled={loadingBattalion === trial.id}
+                                                className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'crossIn' ? 'bg-amber-600 text-white' : 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25'}`}
+                                            >
+                                                跨入名單
+                                            </button>
+                                        </div>
                                     </div>
                                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${trial.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
                                         {trial.is_active ? '開放' : '關閉'}
@@ -445,6 +483,69 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                             trialTitle={trial.title}
                                             onCheckedIn={() => handleViewRegs(trial.id)}
                                         />
+                                    </div>
+                                )}
+
+                                {/* 本隊名單 / 跨入名單 */}
+                                {battalionStatus?.trialId === trial.id && (
+                                    <div className="border-t border-slate-700/40 px-4 py-3 space-y-2">
+                                        {battalionStatus.activeView === 'own' ? (
+                                            <>
+                                                <p className="text-xs text-blue-400 font-black">本隊名單（{battalionStatus.memberStatus.length} 人）</p>
+                                                {battalionStatus.memberStatus.length === 0 ? (
+                                                    <p className="text-slate-600 text-xs py-1">本大隊尚無成員</p>
+                                                ) : (
+                                                    <div className="space-y-1">
+                                                        {(() => {
+                                                            const groups = battalionStatus.memberStatus.reduce<Record<string, MemberTrialStatus[]>>((acc, m) => {
+                                                                const sq = m.squad || '未分隊';
+                                                                if (!acc[sq]) acc[sq] = [];
+                                                                acc[sq].push(m);
+                                                                return acc;
+                                                            }, {});
+                                                            return Object.entries(groups).map(([squad, members]) => (
+                                                                <div key={squad}>
+                                                                    <p className="text-[10px] text-slate-500 font-black mt-1.5 mb-0.5">{squad}</p>
+                                                                    {members.map(m => (
+                                                                        <div key={m.userId} className="flex items-center justify-between py-1">
+                                                                            <span className="text-sm text-white">{m.name}</span>
+                                                                            {m.status === 'registered' ? (
+                                                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${m.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                                                                    {m.attended ? '✅ 已出席' : '已報名'}
+                                                                                </span>
+                                                                            ) : m.status === 'crossout' ? (
+                                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-400">
+                                                                                    跨出→{m.crossToBattalion}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-slate-700 text-slate-500">未報名</span>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ));
+                                                        })()}
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="text-xs text-amber-400 font-black">跨入參與名單（{battalionStatus.crossInRegs.length} 人）</p>
+                                                {battalionStatus.crossInRegs.length === 0 ? (
+                                                    <p className="text-slate-600 text-xs py-1">目前無跨隊報名</p>
+                                                ) : battalionStatus.crossInRegs.map(r => (
+                                                    <div key={r.id} className="flex items-center justify-between py-1">
+                                                        <div>
+                                                            <span className="text-sm text-white">{r.user_name}</span>
+                                                            <span className="text-[10px] text-slate-500 ml-1.5">{r.battalion_name} · {r.squad_name}</span>
+                                                        </div>
+                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${r.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                                                            {r.attended ? '✅ 已出席' : '未出席'}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </>
+                                        )}
                                     </div>
                                 )}
 

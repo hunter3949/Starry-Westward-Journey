@@ -140,6 +140,91 @@ export async function markPeakTrialAttendance(registrationId: string) {
     return { success: true, alreadyAttended: false, userName: reg.user_name as string };
 }
 
+// ── 本隊成員報名狀態 + 跨入名單 ──────────────────────────
+export interface MemberTrialStatus {
+    userId: string;
+    name: string;
+    squad?: string;
+    status: 'registered' | 'crossout' | 'none';
+    attended?: boolean;
+    crossToBattalion?: string;
+}
+
+export interface CrossInParticipant {
+    id: string;
+    user_id: string;
+    user_name: string;
+    squad_name?: string;
+    battalion_name?: string;
+    attended: boolean;
+}
+
+export async function getBattalionTrialStatus(battalionName: string, trialId: string) {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // 1. 本大隊所有成員
+    const { data: members, error: memberErr } = await supabase
+        .from('CharacterStats')
+        .select('UserID, Name, LittleTeamLeagelName')
+        .eq('BigTeamLeagelName', battalionName);
+    if (memberErr) return { success: false, error: memberErr.message, memberStatus: [] as MemberTrialStatus[], crossInRegs: [] as CrossInParticipant[] };
+
+    const memberList = members || [];
+    const memberIds = memberList.map(m => m.UserID as string);
+
+    // 2. 本活動所有報名記錄
+    const { data: thisTrialRegs } = await supabase
+        .from('PeakTrialRegistrations')
+        .select('id, user_id, user_name, squad_name, battalion_name, attended')
+        .eq('trial_id', trialId);
+
+    const thisRegMap = new Map((thisTrialRegs || []).map(r => [r.user_id as string, r]));
+
+    // 3. 本隊成員在其他活動的報名（跨出偵測）
+    const memberCrossMap = new Map<string, string>();
+    if (memberIds.length > 0) {
+        const { data: otherRegs } = await supabase
+            .from('PeakTrialRegistrations')
+            .select('user_id, trial_id')
+            .in('user_id', memberIds)
+            .neq('trial_id', trialId);
+
+        if (otherRegs && otherRegs.length > 0) {
+            const otherTrialIds = [...new Set(otherRegs.map(r => r.trial_id as string))];
+            const { data: otherTrials } = await supabase
+                .from('PeakTrials')
+                .select('id, battalion_name, title')
+                .in('id', otherTrialIds);
+
+            const otherTrialMap = new Map((otherTrials || []).map((t: any) => [t.id as string, t]));
+            otherRegs.forEach(r => {
+                if (!memberCrossMap.has(r.user_id)) {
+                    const t = otherTrialMap.get(r.trial_id) as any;
+                    memberCrossMap.set(r.user_id, t?.battalion_name || t?.title || '其他大隊');
+                }
+            });
+        }
+    }
+
+    // 4. 本隊成員狀態列表（依小隊排序）
+    const memberStatus: MemberTrialStatus[] = memberList
+        .map(m => {
+            const reg = thisRegMap.get(m.UserID);
+            if (reg) return { userId: m.UserID, name: m.Name, squad: m.LittleTeamLeagelName, status: 'registered' as const, attended: reg.attended as boolean };
+            const crossTo = memberCrossMap.get(m.UserID);
+            if (crossTo) return { userId: m.UserID, name: m.Name, squad: m.LittleTeamLeagelName, status: 'crossout' as const, crossToBattalion: crossTo };
+            return { userId: m.UserID, name: m.Name, squad: m.LittleTeamLeagelName, status: 'none' as const };
+        })
+        .sort((a, b) => (a.squad || '').localeCompare(b.squad || ''));
+
+    // 5. 跨入名單（別隊報名本活動）
+    const crossInRegs: CrossInParticipant[] = (thisTrialRegs || [])
+        .filter(r => r.battalion_name !== battalionName)
+        .map(r => ({ id: r.id, user_id: r.user_id, user_name: r.user_name, squad_name: r.squad_name, battalion_name: r.battalion_name, attended: r.attended }));
+
+    return { success: true, memberStatus, crossInRegs };
+}
+
 // ── 依姓名 + 大隊核銷（大隊長手動核銷用）────────────────
 export async function markPeakTrialAttendanceByName(trialId: string, userName: string) {
     const supabase = createClient(supabaseUrl, supabaseKey);
