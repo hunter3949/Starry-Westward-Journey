@@ -276,19 +276,29 @@ export async function listPeakTrialReviews(status?: string) {
 }
 
 // ── 核准審核並發放修為 ────────────────────────────────────
+// 只有實際出席的本大隊成員才能獲得修為（每位參與者獲得完整修為池）
 export async function approvePeakTrialReview(reviewId: string, reviewedBy: string) {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { data: review } = await supabase.from('PeakTrialReviews')
-        .select('battalion_name, reward_per_person').eq('id', reviewId).single();
+        .select('trial_id, battalion_name, reward_per_person').eq('id', reviewId).single();
     if (!review) return { success: false, error: '找不到審核記錄' };
 
-    // 取得本大隊所有成員
-    const { data: members } = await supabase.from('CharacterStats')
-        .select('UserID, Exp').eq('BigTeamLeagelName', review.battalion_name);
-    if (!members || members.length === 0) return { success: false, error: '找不到大隊成員' };
+    // 取得本大隊已出席的報名記錄
+    const { data: regs } = await supabase.from('PeakTrialRegistrations')
+        .select('user_id')
+        .eq('trial_id', review.trial_id)
+        .eq('battalion_name', review.battalion_name)
+        .eq('attended', true);
+    if (!regs || regs.length === 0) return { success: false, error: '找不到已出席的大隊成員，請先完成掃碼核銷' };
 
-    // 批次加修為
+    // 取得這些成員的修為
+    const userIds = regs.map(r => r.user_id);
+    const { data: members } = await supabase.from('CharacterStats')
+        .select('UserID, Exp').in('UserID', userIds);
+    if (!members || members.length === 0) return { success: false, error: '找不到成員資料' };
+
+    // 每位參與者各獲得完整修為池（非平均）
     await Promise.all(members.map(m =>
         supabase.from('CharacterStats').update({ Exp: (m.Exp || 0) + review.reward_per_person }).eq('UserID', m.UserID)
     ));

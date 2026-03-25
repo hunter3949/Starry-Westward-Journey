@@ -19,7 +19,7 @@ interface PeakTrialTabProps {
 }
 
 export function PeakTrialTab({
-    trials, myRegistrations, userId, userName, squadName, battalionName, battalionMemberCount, onRefresh, onShowMessage,
+    trials, myRegistrations, userId, userName, squadName, battalionName, onRefresh, onShowMessage,
 }: PeakTrialTabProps) {
     const [loading, setLoading] = useState<string | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -84,20 +84,29 @@ export function PeakTrialTab({
 
             {/* 預計修為獎勵框 */}
             {activeTrials.length > 0 && (() => {
-                const totalMembers = Math.max(1, battalionMemberCount || 1);
                 const totalRegCount = activeTrials.reduce((sum, t) => sum + (t.registration_count ?? 0), 0);
-                const estimatedExp = Math.floor(Math.min(totalRegCount, 21) * 1500 / totalMembers);
+                const estimatedExp = Math.min(totalRegCount, 21) * 1500;
+                const isRegistered = activeTrials.some(t => myRegMap.has(t.id));
                 return (
-                    <div className="bg-purple-950/40 border border-purple-500/30 rounded-3xl p-5 text-center space-y-2">
-                        <p className="text-white font-black text-base leading-snug">
-                            本大隊每人預計獲得
-                            <span className="text-purple-300 text-xl mx-1.5">{estimatedExp.toLocaleString()}</span>
-                            修為
-                            <span className="text-red-400 text-xs ml-1.5">（預計）</span>
-                        </p>
-                        <p className="text-red-400 text-xs font-black">＊請廣邀大隊夥伴一同參與＊</p>
-                        <p className="text-red-400 text-xs">＊此為預計修為，待大會最終審核確認＊</p>
-                    </div>
+                    <>
+                        <div className="bg-purple-950/40 border border-purple-500/30 rounded-3xl p-5 text-center space-y-2">
+                            <p className="text-white font-black text-base leading-snug">
+                                本大隊每人預計獲得
+                                <span className="text-purple-300 text-xl mx-1.5">{estimatedExp.toLocaleString()}</span>
+                                修為
+                                <span className="text-red-400 text-xs ml-1.5">（預計）</span>
+                            </p>
+                            <p className="text-red-400 text-xs font-black">＊請廣邀大隊夥伴一同參與＊</p>
+                            <p className="text-red-400 text-xs">＊此為預計修為，待大會最終審核確認＊</p>
+                        </div>
+                        {!isRegistered && (
+                            <div className="bg-red-950/40 border border-red-500/40 rounded-2xl px-4 py-3 flex items-center justify-center overflow-hidden">
+                                <p className="text-red-400 font-black whitespace-nowrap text-[clamp(9px,2.8vw,13px)] leading-none text-center">
+                                    ！！您未參與任何試煉，無法獲得修為，請即刻報名參與！！
+                                </p>
+                            </div>
+                        )}
+                    </>
                 );
             })()}
 
@@ -163,7 +172,12 @@ export function PeakTrialTab({
                                         <Trophy size={18} className="text-purple-400" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-black text-white text-base leading-snug">{trial.title}</p>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="font-black text-white text-base leading-snug">{trial.title}</p>
+                                            {trial.battalion_name && (
+                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-400 shrink-0">主辦：{trial.battalion_name}</span>
+                                            )}
+                                        </div>
                                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
                                             <span className="flex items-center gap-1 text-xs text-slate-400">
                                                 <Calendar size={11} /> {trial.date}
@@ -188,9 +202,6 @@ export function PeakTrialTab({
                                                 </span>
                                             )}
                                         </div>
-                                        {trial.battalion_name && (
-                                            <p className="text-[10px] text-purple-400 mt-1">主辦：{trial.battalion_name}</p>
-                                        )}
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
                                         {full && !myReg && (

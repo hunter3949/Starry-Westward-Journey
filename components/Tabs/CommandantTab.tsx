@@ -654,10 +654,10 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                                     </div>
                                                 </div>
                                                 <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-4 py-3 flex items-center justify-between">
-                                                    <p className="text-xs text-slate-400">{battalionLabel} 每人共計增加 <span className="text-red-400">（預計）</span></p>
+                                                    <p className="text-xs text-slate-400">每位參與者各獲得 <span className="text-red-400">（預計）</span></p>
                                                     <p className="text-indigo-300 font-black text-xl">{totalExp.toLocaleString()} 修為</p>
                                                 </div>
-                                                <p className="text-[10px] text-slate-500 text-center">共 {totalMembers} 位隊員將各獲得 {totalExp.toLocaleString()} 修為</p>
+                                                <p className="text-[10px] text-slate-500 text-center">僅出席成員可獲得，未出席者不獲任何修為</p>
                                             </div>
 
                                             {/* 審核狀態 / 提交區 */}
