@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, XCircle, RefreshCw, Sword, ShieldCheck, Pencil, ChevronDown, Users, Trophy, Plus, Trash2, CheckCheck, Eye } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { CheckCircle2, XCircle, RefreshCw, Sword, ShieldCheck, Pencil, ChevronDown, Users, Trophy, Plus, Trash2, CheckCheck, Eye, ScanLine } from 'lucide-react';
+
+const PeakTrialScanner = dynamic(() => import('@/components/PeakTrialScanner'), { ssr: false });
 import { CharacterStats, W4Application, PeakTrial, PeakTrialRegistration } from '@/types';
 import { reviewW4ByBattalionLeader } from '@/app/actions/w4';
 import { setBattalionDisplayName } from '@/app/actions/admin';
@@ -71,6 +74,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
     const [viewingRegs, setViewingRegs] = useState<{ trialId: string; regs: PeakTrialRegistration[] } | null>(null);
     const [loadingRegs, setLoadingRegs] = useState<string | null>(null);
     const [markingId, setMarkingId] = useState<string | null>(null);
+    const [scanningTrialId, setScanningTrialId] = useState<string | null>(null);
 
     const openEditForm = (trial: PeakTrial) => {
         setTrialForm({
@@ -415,6 +419,10 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                         className={`p-1.5 rounded-lg transition-colors ${isViewingThis ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-purple-400'}`}>
                                         <Eye size={14} />
                                     </button>
+                                    <button onClick={() => setScanningTrialId(scanningTrialId === trial.id ? null : trial.id)}
+                                        className={`p-1.5 rounded-lg transition-colors ${scanningTrialId === trial.id ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-emerald-400'}`}>
+                                        <ScanLine size={14} />
+                                    </button>
                                     <button onClick={() => openEditForm(trial)}
                                         className="text-slate-400 hover:text-purple-400 p-1.5 rounded-lg transition-colors">
                                         <Pencil size={13} />
@@ -428,6 +436,17 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                         <Trash2 size={13} />
                                     </button>
                                 </div>
+
+                                {/* 掃碼核銷 */}
+                                {scanningTrialId === trial.id && (
+                                    <div className="border-t border-slate-700/40 px-4 py-3">
+                                        <PeakTrialScanner
+                                            trialId={trial.id}
+                                            trialTitle={trial.title}
+                                            onCheckedIn={() => handleViewRegs(trial.id)}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* 報名名單 */}
                                 {isViewingThis && (

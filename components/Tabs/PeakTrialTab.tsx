@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Trophy, MapPin, Clock, Calendar, Users, RefreshCw, ChevronDown } from 'lucide-react';
+import { Trophy, MapPin, Clock, Calendar, Users, RefreshCw, ChevronDown, QrCode, X } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import { PeakTrial, PeakTrialRegistration } from '@/types';
 import { registerForPeakTrial, cancelPeakTrialRegistration } from '@/app/actions/peakTrials';
 
@@ -21,6 +22,7 @@ export function PeakTrialTab({
 }: PeakTrialTabProps) {
     const [loading, setLoading] = useState<string | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [showQR, setShowQR] = useState<{ regId: string; title: string } | null>(null);
 
     const activeTrials = trials.filter(t => t.is_active);
     const myRegMap = new Map(myRegistrations.map(r => [r.trial_id, r]));
@@ -54,6 +56,22 @@ export function PeakTrialTab({
 
     return (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+            {/* QR 碼 Modal */}
+            {showQR && (
+                <div className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setShowQR(null)}>
+                    <div className="bg-slate-900 border-2 border-purple-500/40 rounded-3xl p-6 space-y-4 text-center w-full max-w-xs" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between">
+                            <p className="text-white font-black text-sm">{showQR.title}</p>
+                            <button onClick={() => setShowQR(null)} className="text-slate-400 hover:text-white p-1"><X size={16} /></button>
+                        </div>
+                        <div className="bg-white p-4 rounded-2xl inline-block">
+                            <QRCode value={showQR.regId} size={200} />
+                        </div>
+                        <p className="text-slate-400 text-xs">截圖保存此 QR 碼<br />報到時出示給大隊長掃描</p>
+                        <button onClick={() => setShowQR(null)} className="w-full py-2.5 bg-slate-700 text-slate-300 font-black text-sm rounded-2xl">關閉</button>
+                    </div>
+                </div>
+            )}
             {/* Header */}
             <div className="bg-gradient-to-br from-purple-950/40 to-slate-900 border-2 border-purple-500/30 rounded-4xl p-6 shadow-2xl">
                 <div className="flex items-center justify-between">
@@ -85,9 +103,19 @@ export function PeakTrialTab({
                                         <p className="text-white text-sm font-bold">{trial?.title ?? '活動'}</p>
                                         <p className="text-xs text-slate-500">{trial?.date}{trial?.time ? ` · ${trial.time}` : ''}</p>
                                     </div>
-                                    <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${reg.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
-                                        {reg.attended ? '✅ 已出席' : '已報名'}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        {!reg.attended && (
+                                            <button
+                                                onClick={() => setShowQR({ regId: reg.id, title: trial?.title ?? '活動' })}
+                                                className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-colors"
+                                            >
+                                                <QrCode size={14} />
+                                            </button>
+                                        )}
+                                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${reg.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                            {reg.attended ? '✅ 已出席' : '已報名'}
+                                        </span>
+                                    </div>
                                 </div>
                             );
                         })}
@@ -188,13 +216,21 @@ export function PeakTrialTab({
                                         ) : myReg.attended ? (
                                             <div className="text-center py-2 text-emerald-400 font-black text-sm">✅ 已完成出席</div>
                                         ) : (
-                                            <button
-                                                onClick={() => handleCancel(trial.id)}
-                                                disabled={isLoading}
-                                                className="w-full py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-300 font-black text-sm rounded-2xl active:scale-95 transition-all"
-                                            >
-                                                {isLoading ? '處理中…' : '取消報名'}
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setShowQR({ regId: myReg.id, title: trial.title })}
+                                                    className="flex items-center gap-1.5 px-4 py-3 bg-purple-600/20 border border-purple-500/30 text-purple-400 font-black text-sm rounded-2xl active:scale-95 transition-all"
+                                                >
+                                                    <QrCode size={15} /> QR 碼
+                                                </button>
+                                                <button
+                                                    onClick={() => handleCancel(trial.id)}
+                                                    disabled={isLoading}
+                                                    className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-300 font-black text-sm rounded-2xl active:scale-95 transition-all"
+                                                >
+                                                    {isLoading ? '處理中…' : '取消報名'}
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 )}

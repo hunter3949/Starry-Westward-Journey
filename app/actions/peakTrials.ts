@@ -125,12 +125,19 @@ export async function getMyPeakTrialRegistrations(userId: string) {
 // ── 核銷（標記出席）──────────────────────────────────────
 export async function markPeakTrialAttendance(registrationId: string) {
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data: reg } = await supabase
+        .from('PeakTrialRegistrations')
+        .select('id, attended, user_name')
+        .eq('id', registrationId)
+        .single();
+    if (!reg) return { success: false, error: '找不到此報名記錄' };
+    if (reg.attended) return { success: true, alreadyAttended: true, userName: reg.user_name as string };
     const { error } = await supabase.from('PeakTrialRegistrations').update({
         attended: true,
         attended_at: new Date().toISOString(),
     }).eq('id', registrationId);
     if (error) return { success: false, error: error.message };
-    return { success: true };
+    return { success: true, alreadyAttended: false, userName: reg.user_name as string };
 }
 
 // ── 依姓名 + 大隊核銷（大隊長手動核銷用）────────────────
