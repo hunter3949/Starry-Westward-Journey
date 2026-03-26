@@ -29,11 +29,9 @@ export const StatCard = ({ label, value, icon, color }: StatCardProps) => (
 
 interface StatsTabProps {
     userData: CharacterStats;
-    roleTrait: { isCursed: boolean; curseName: string; curseEffect: string; talent: string } | null;
 }
 
-export function StatsTab({ userData, roleTrait }: StatsTabProps) {
-    if (!roleTrait) return null;
+export function StatsTab({ userData }: StatsTabProps) {
 
     const displayAge = userData.Birthday
         ? Math.floor((Date.now() - new Date(userData.Birthday).getTime()) / (365.25 * 24 * 3600 * 1000))

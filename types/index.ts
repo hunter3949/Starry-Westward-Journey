@@ -124,6 +124,19 @@ export interface SystemSettings {
   CardMottos?: string; // JSON: string[]
   CardBackImage?: string; // base64 data URL
   BonusQuestConfig?: string; // JSON: BonusQuestRule[]
+  BoardGameEnabled?: string;              // 'true' | 'false'
+  BoardGameBuyRate?: string;              // 買匯：1 福報 = N 現金（福報→現金）
+  BoardGameSellRate?: string;             // 賣匯：N 現金 = 1 福報（現金→福報）
+  BoardGameZeroEnabled?: string;          // 'true' | 'false'：人生歸零按鍵
+  BoardGameZeroCashMultiplier?: string;   // 現金 × N
+  BoardGameZeroBlessingMultiplier?: string; // 福報 × N
+}
+
+export interface BoardGameStats {
+  user_id: string;
+  cash: number;
+  blessing: number;
+  updated_at?: string;
 }
 
 export interface W4Application {

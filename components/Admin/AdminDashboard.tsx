@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download, Calendar, Zap, Search, LogIn, Tag, RefreshCw } from 'lucide-react';
+import { Settings, X, BarChart3, Save, Users, Shield, Plus, Lock, QrCode, BookOpen, Pencil, ToggleLeft, ToggleRight, CheckCircle, Circle, ChevronRight, ChevronDown, Trophy, Image as ImageIcon, Upload, Trash2, Copy, FolderOpen, Download, Calendar, Zap, Search, LogIn, Tag, RefreshCw, Dices } from 'lucide-react';
 import { SystemSettings, CharacterStats, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, Course, MainQuestEntry, BonusQuestRule, PeakTrial, PeakTrialRegistration, PeakTrialReview } from '@/types';
 import { RankTab } from '@/components/Tabs/RankTab';
 import { getCourseRegistrations } from '@/app/actions/course';
@@ -2649,6 +2649,10 @@ export function AdminDashboard({
     const [ptSelectedIds, setPtSelectedIds] = React.useState<Set<string>>(new Set());
     const [ptParticipants, setPtParticipants] = React.useState<Record<string, PeakTrialRegistration[]>>({});
     const [ptLoadingParticipants, setPtLoadingParticipants] = React.useState<string | null>(null);
+    const [bgBuyRate, setBgBuyRate] = React.useState(systemSettings.BoardGameBuyRate || '10');
+    const [bgSellRate, setBgSellRate] = React.useState(systemSettings.BoardGameSellRate || '10');
+    const [bgZeroCash, setBgZeroCash] = React.useState(systemSettings.BoardGameZeroCashMultiplier || '1');
+    const [bgZeroBlessing, setBgZeroBlessing] = React.useState(systemSettings.BoardGameZeroBlessingMultiplier || '1');
 
     const refreshPtReviews = () => listPeakTrialReviews().then(res => { if (res.success) setPtReviews(res.reviews); });
 
@@ -2912,7 +2916,7 @@ export function AdminDashboard({
         setW4Notes(prev => { const n = { ...prev }; delete n[appId]; return n; });
     };
 
-    const [adminModule, setAdminModule] = React.useState<'personnel' | 'course' | 'quest' | 'params' | 'gallery' | 'dashboard' | 'logs' | 'review' | null>('dashboard');
+    const [adminModule, setAdminModule] = React.useState<'personnel' | 'course' | 'quest' | 'monopoly' | 'params' | 'gallery' | 'dashboard' | 'logs' | 'review' | null>('dashboard');
 
     // 切換到審核中心時自動重新載入
     React.useEffect(() => { if (adminModule === 'review') refreshPtReviews(); }, [adminModule]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2978,6 +2982,7 @@ export function AdminDashboard({
         { key: 'personnel' as const,     label: '人員管理', icon: <Users size={17} />,    accent: 'cyan' },
         { key: 'course' as const,        label: '課程管理', icon: <BookOpen size={17} />, accent: 'amber' },
         { key: 'quest' as const,         label: '任務管理', icon: <Settings size={17} />, accent: 'orange' },
+        { key: 'monopoly' as const,      label: '開運大富翁', icon: <Dices size={17} />,  accent: 'emerald' },
         { key: 'params' as const,        label: '參數管理', icon: <Save size={17} />,     accent: 'violet' },
         { key: 'gallery' as const,       label: '圖片庫',   icon: <ImageIcon size={17} />, accent: 'teal' },
         { key: 'logs' as const,          label: 'Log 紀錄', icon: <BarChart3 size={17} />, accent: 'rose' },
@@ -2987,15 +2992,16 @@ export function AdminDashboard({
         slate:  'bg-slate-800 text-white border-slate-600',
         cyan:   'bg-cyan-950/70 text-cyan-300 border-cyan-700/50',
         amber:  'bg-amber-950/70 text-amber-300 border-amber-700/50',
-        orange: 'bg-orange-950/70 text-orange-300 border-orange-700/50',
-        violet: 'bg-violet-950/70 text-violet-300 border-violet-700/50',
+        orange:  'bg-orange-950/70 text-orange-300 border-orange-700/50',
+        emerald: 'bg-emerald-950/70 text-emerald-300 border-emerald-700/50',
+        violet:  'bg-violet-950/70 text-violet-300 border-violet-700/50',
         teal:   'bg-teal-950/70 text-teal-300 border-teal-700/50',
         sky:    'bg-sky-950/70 text-sky-300 border-sky-700/50',
         rose:   'bg-rose-950/70 text-rose-300 border-rose-700/50',
         pink:   'bg-pink-950/70 text-pink-300 border-pink-700/50',
     };
     const accentDot: Record<string, string> = {
-        slate: 'bg-slate-400', cyan: 'bg-cyan-400', amber: 'bg-amber-400', orange: 'bg-orange-400', violet: 'bg-violet-400', teal: 'bg-teal-400', sky: 'bg-sky-400', rose: 'bg-rose-400', pink: 'bg-pink-400',
+        slate: 'bg-slate-400', cyan: 'bg-cyan-400', amber: 'bg-amber-400', orange: 'bg-orange-400', emerald: 'bg-emerald-400', violet: 'bg-violet-400', teal: 'bg-teal-400', sky: 'bg-sky-400', rose: 'bg-rose-400', pink: 'bg-pink-400',
     };
     const reviewPendingCount = squadApprovedW4Apps.length;
 
@@ -3071,7 +3077,7 @@ export function AdminDashboard({
                         <div className="p-2.5 bg-orange-600 rounded-2xl text-white shadow-lg md:hidden"><Settings size={20} /></div>
                         <div>
                             <h1 className="text-xl md:text-2xl font-black text-white">
-                                {adminModule === null ? '首頁' : adminModule === 'dashboard' ? '儀表板' : adminModule === 'review' ? '審核中心' : adminModule === 'personnel' ? '人員管理' : adminModule === 'course' ? '課程管理' : adminModule === 'quest' ? '任務管理' : adminModule === 'params' ? '參數管理' : adminModule === 'gallery' ? '圖片庫' : 'Log 紀錄'}
+                                {adminModule === null ? '首頁' : adminModule === 'dashboard' ? '儀表板' : adminModule === 'review' ? '審核中心' : adminModule === 'personnel' ? '人員管理' : adminModule === 'course' ? '課程管理' : adminModule === 'quest' ? '任務管理' : adminModule === 'monopoly' ? '開運大富翁' : adminModule === 'params' ? '參數管理' : adminModule === 'gallery' ? '圖片庫' : 'Log 紀錄'}
                             </h1>
                             <p className="text-[10px] text-slate-600">大會管理後台</p>
                         </div>
@@ -4953,6 +4959,114 @@ export function AdminDashboard({
                     </section>
 
                 </>)}
+
+                {/* ══ 開運大富翁模組 ══ */}
+                {adminModule === 'monopoly' && (
+                    <div className="p-6 space-y-6">
+                        {/* Header */}
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-emerald-600/20 rounded-xl"><Dices size={20} className="text-emerald-400" /></div>
+                            <div>
+                                <h2 className="text-lg font-black text-white">開運大富翁</h2>
+                                <p className="text-xs text-slate-500">大富翁遊戲模組管理</p>
+                            </div>
+                        </div>
+
+                        {/* 模式開關 */}
+                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-4">
+                            <div>
+                                <p className="font-black text-white text-sm">開運大富翁模式</p>
+                                <p className="text-xs text-slate-400 mt-0.5">開啟後，玩家登入時將自動跳出遊戲入場彈框</p>
+                            </div>
+                            <button
+                                onClick={() => updateGlobalSetting('BoardGameEnabled', systemSettings.BoardGameEnabled === 'true' ? 'false' : 'true')}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-sm transition-all ${systemSettings.BoardGameEnabled === 'true' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+                            >
+                                {systemSettings.BoardGameEnabled === 'true' ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                                {systemSettings.BoardGameEnabled === 'true' ? '已開啟' : '已關閉'}
+                            </button>
+                        </div>
+
+                        {/* 換匯比率設定 */}
+                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <p className="font-black text-white text-sm">換匯比率設定</p>
+                                <button
+                                    onClick={() => {
+                                        if (parseInt(bgBuyRate) > 0) updateGlobalSetting('BoardGameBuyRate', bgBuyRate);
+                                        if (parseInt(bgSellRate) > 0) updateGlobalSetting('BoardGameSellRate', bgSellRate);
+                                    }}
+                                    className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs rounded-xl transition-colors"
+                                >
+                                    儲存比率
+                                </button>
+                            </div>
+                            {/* 買匯 */}
+                            <div className="flex items-center gap-3">
+                                <span className="text-violet-400 text-sm font-black shrink-0 w-8">買匯</span>
+                                <span className="text-slate-400 text-sm shrink-0">1 福報 ＝</span>
+                                <input
+                                    type="number" min={1} value={bgBuyRate}
+                                    onChange={e => setBgBuyRate(e.target.value)}
+                                    className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-emerald-500"
+                                />
+                                <span className="text-slate-400 text-sm shrink-0">現金</span>
+                            </div>
+                            {/* 賣匯 */}
+                            <div className="flex items-center gap-3">
+                                <span className="text-amber-400 text-sm font-black shrink-0 w-8">賣匯</span>
+                                <input
+                                    type="number" min={1} value={bgSellRate}
+                                    onChange={e => setBgSellRate(e.target.value)}
+                                    className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-emerald-500"
+                                />
+                                <span className="text-slate-400 text-sm shrink-0">現金 ＝ 1 福報</span>
+                            </div>
+                            <p className="text-xs text-slate-500">目前：買匯 1福報={systemSettings.BoardGameBuyRate||'10'}現金 ／ 賣匯 {systemSettings.BoardGameSellRate||'10'}現金=1福報</p>
+
+                            {/* 人生歸零 */}
+                            <div className="border-t border-slate-800 pt-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <p className="font-black text-white text-sm">開啟人生歸零</p>
+                                    <button
+                                        onClick={() => updateGlobalSetting('BoardGameZeroEnabled', systemSettings.BoardGameZeroEnabled === 'true' ? 'false' : 'true')}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs transition-all ${systemSettings.BoardGameZeroEnabled === 'true' ? 'bg-red-700 text-white' : 'bg-slate-700 text-slate-400'}`}
+                                    >
+                                        {systemSettings.BoardGameZeroEnabled === 'true' ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                        {systemSettings.BoardGameZeroEnabled === 'true' ? '已開啟' : '已關閉'}
+                                    </button>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-slate-400 text-sm shrink-0">現金 ×</span>
+                                    <input
+                                        type="number" min={0} step={0.1} value={bgZeroCash}
+                                        onChange={e => setBgZeroCash(e.target.value)}
+                                        className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-red-500"
+                                    />
+                                    <span className="text-slate-400 text-sm shrink-0">倍</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-slate-400 text-sm shrink-0">福報 ×</span>
+                                    <input
+                                        type="number" min={0} step={0.1} value={bgZeroBlessing}
+                                        onChange={e => setBgZeroBlessing(e.target.value)}
+                                        className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-red-500"
+                                    />
+                                    <span className="text-slate-400 text-sm shrink-0">倍</span>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        updateGlobalSetting('BoardGameZeroCashMultiplier', bgZeroCash);
+                                        updateGlobalSetting('BoardGameZeroBlessingMultiplier', bgZeroBlessing);
+                                    }}
+                                    className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white font-black text-xs rounded-xl transition-colors"
+                                >
+                                    儲存歸零倍率
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ══ 參數管理模組 ══ */}
                 {adminModule === 'params' && (<>

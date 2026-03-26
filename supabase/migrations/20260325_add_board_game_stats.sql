@@ -1,0 +1,8 @@
+-- 開運大富翁：玩家貨幣資料表
+CREATE TABLE IF NOT EXISTS "BoardGameStats" (
+    user_id TEXT PRIMARY KEY,
+    cash INTEGER NOT NULL DEFAULT 0,
+    blessing INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE "BoardGameStats" DISABLE ROW LEVEL SECURITY;

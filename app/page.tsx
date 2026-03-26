@@ -41,6 +41,8 @@ import { submitW4Application, reviewW4BySquadLeader, reviewW4ByAdmin, reviewW4By
 import { generateWeeklyReview, generateCaptainBriefing } from '@/app/actions/gemini';
 import { handleChestOpen } from '@/app/actions/map';
 import { getSquadFineStatus, recordFinePayment, setPaidToCaptainDate, getSquadFinePaymentHistory, checkSquadW3Compliance, recordOrgSubmission, getSquadOrgSubmissions, setMemberQuestRole } from '@/app/actions/fines';
+import { getBoardGameStats } from '@/app/actions/boardGame';
+import BoardGameView from '@/components/BoardGame/BoardGameView';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -72,6 +74,8 @@ export default function App() {
   const [temporaryQuests, setTemporaryQuests] = useState<TemporaryQuest[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({ TopicQuestTitle: '載入中...' });
   const [modalMessage, setModalMessage] = useState<{ text: string, type: 'info' | 'error' | 'success' } | null>(null);
+  const [boardGameEntered, setBoardGameEntered] = useState(false);
+  const [boardGameStats, setBoardGameStats] = useState<{ cash: number; blessing: number }>({ cash: 0, blessing: 0 });
   const [undoTarget, setUndoTarget] = useState<Quest | null>(null);
   const [adminAuth, setAdminAuth] = useState(false);
   const [adminOperator, setAdminOperator] = useState<string>('');
@@ -159,6 +163,12 @@ export default function App() {
     logs.some(l => l.QuestID === 't1' && new Date(l.Timestamp) >= currentWeeklyMonday),
     [logs, currentWeeklyMonday]
   );
+
+  // 開運大富翁：載入玩家貨幣資料
+  useEffect(() => {
+    if (!userData?.UserID || systemSettings.BoardGameEnabled !== 'true') return;
+    getBoardGameStats(userData.UserID).then(stats => setBoardGameStats(stats)).catch(() => {});
+  }, [userData?.UserID, systemSettings.BoardGameEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 主線任務排程自動切換：當排程中有 startDate <= 今天且尚未套用的項目，自動更新
   useEffect(() => {
@@ -1117,6 +1127,12 @@ export default function App() {
           CardMottos: sObj.CardMottos,
           CardBackImage: sObj.CardBackImage,
           BonusQuestConfig: sObj.BonusQuestConfig,
+          BoardGameEnabled: sObj.BoardGameEnabled,
+          BoardGameBuyRate: sObj.BoardGameBuyRate,
+          BoardGameSellRate: sObj.BoardGameSellRate,
+          BoardGameZeroEnabled: sObj.BoardGameZeroEnabled,
+          BoardGameZeroCashMultiplier: sObj.BoardGameZeroCashMultiplier,
+          BoardGameZeroBlessingMultiplier: sObj.BoardGameZeroBlessingMultiplier,
         });
         try {
           setQuestRoleDefs(sObj.QuestRoles ? JSON.parse(sObj.QuestRoles) : DEFAULT_QUEST_ROLES);
@@ -1456,7 +1472,7 @@ export default function App() {
           />
         )}
         {activeTab === 'rank' && <RankTab leaderboard={leaderboard} currentUserId={userData?.UserID} questRoleDefs={questRoleDefs} />}
-        {activeTab === 'stats' && userData && <StatsTab userData={userData} roleTrait={roleTrait} />}
+        {activeTab === 'stats' && userData && <StatsTab userData={userData} />}
         {activeTab === 'shop' && userData && (
           <ShopTab
             userData={userData}
@@ -1664,6 +1680,40 @@ export default function App() {
       )}
 
       {view === 'app' && <HomeView />}
+
+      {/* 開運大富翁入場彈框（不可關閉） */}
+      {view === 'app' && userData && systemSettings.BoardGameEnabled === 'true' && !boardGameEntered && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-slate-950/95 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-900 border-2 border-emerald-700/50 p-10 rounded-[2.5rem] shadow-2xl max-w-xs w-full text-center space-y-7">
+            <div className="text-5xl">🎲</div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-black text-emerald-400 tracking-wide">人生</h2>
+              <h2 className="text-3xl font-black text-white tracking-wide">開運大富翁</h2>
+            </div>
+            <button
+              onClick={async () => {
+                const stats = await getBoardGameStats(userData.UserID);
+                setBoardGameStats(stats);
+                setBoardGameEntered(true);
+              }}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-2xl transition-all active:scale-95 shadow-lg"
+            >
+              點擊進入
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 開運大富翁遊戲介面 */}
+      {view === 'app' && userData && boardGameEntered && systemSettings.BoardGameEnabled === 'true' && (
+        <BoardGameView
+          userData={userData}
+          cash={boardGameStats.cash}
+          blessing={boardGameStats.blessing}
+          systemSettings={systemSettings}
+          onStatsChange={(cash, blessing) => setBoardGameStats({ cash, blessing })}
+        />
+      )}
       {view === 'map' && userData && (
         <div className="fixed inset-0 z-10 flex flex-col">
           {/* 冒險狀態列：詛咒/天賦效果 + 黃金骰子 */}
