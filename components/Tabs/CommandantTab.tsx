@@ -360,76 +360,79 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
             </div>
 
             {/* Application list — 大隊長不審自己的申請 */}
-            {(() => {
-                const reviewableApps = apps.filter(a => a.user_id !== userData.UserID);
-                return reviewableApps.length === 0 ? (
-                <div className="bg-slate-900/60 border border-slate-700/40 rounded-3xl p-6 text-center space-y-3">
-                    <p className="text-white font-black text-base">傳愛申請終審</p>
-                    <p className="text-xs text-slate-400">以下為已通過小隊長初審、待大隊長審核的申請</p>
-                    <div className="border-t border-slate-700/40 pt-3">
-                        <p className="text-slate-500 font-black text-sm">目前無待審核申請</p>
-                        <p className="text-slate-600 text-xs mt-1">所有申請均已處理完畢</p>
-                    </div>
-                </div>
-            ) : (
-                <div className="flex flex-col gap-4">
-                    <div className="px-1">
+            <div className="bg-slate-900 border-2 border-rose-500/20 rounded-4xl p-5 space-y-4 shadow-xl">
+                {/* Header */}
+                <div className="flex items-center gap-2">
+                    <CheckCircle2 size={15} className="text-rose-400" />
+                    <div>
                         <p className="text-white font-black text-base">傳愛申請終審</p>
                         <p className="text-xs text-slate-400 mt-0.5">以下為已通過小隊長初審、待大隊長審核的申請</p>
                     </div>
-                    {reviewableApps.map(app => (
-                        <div key={app.id} className="bg-slate-900 border-2 border-rose-500/20 rounded-3xl p-5 space-y-4 shadow-xl">
-                            {/* App info */}
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="font-black text-white text-base">{app.user_name}</p>
-                                    <p className="text-xs text-slate-400 mt-0.5">
-                                        {app.squad_name} · 訪談對象：<span className="text-rose-300">{app.interview_target}</span>
-                                    </p>
-                                    <p className="text-xs text-slate-500 mt-0.5">日期：{app.interview_date}</p>
-                                    {app.squad_review_notes && (
-                                        <p className="text-xs text-indigo-400 mt-1.5 bg-indigo-500/10 px-2 py-1 rounded-lg">
-                                            小隊長備註：{app.squad_review_notes}
-                                        </p>
-                                    )}
-                                    {app.description && (
-                                        <p className="text-xs text-slate-400 italic mt-1.5">「{app.description}」</p>
-                                    )}
-                                </div>
-                                <span className="shrink-0 text-[10px] font-black text-blue-400 bg-blue-400/10 px-2 py-1 rounded-lg">待大隊長審核</span>
-                            </div>
-
-                            {/* Notes */}
-                            <textarea
-                                placeholder="終審備註（選填）"
-                                value={notes[app.id] || ''}
-                                onChange={e => setNotes(prev => ({ ...prev, [app.id]: e.target.value }))}
-                                rows={2}
-                                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-rose-500 resize-none transition-colors"
-                            />
-
-                            {/* Actions */}
-                            <div className="flex gap-3">
-                                <button
-                                    disabled={reviewingId === app.id}
-                                    onClick={() => handleReview(app.id, 'reject')}
-                                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-sm text-red-400 bg-red-600/10 border border-red-600/30 active:scale-95 transition-all disabled:opacity-50"
-                                >
-                                    <XCircle size={14} /> 駁回
-                                </button>
-                                <button
-                                    disabled={reviewingId === app.id}
-                                    onClick={() => handleReview(app.id, 'approve')}
-                                    className="flex-[2] flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-sm text-white bg-emerald-600 shadow-lg shadow-emerald-900/30 active:scale-95 transition-all disabled:opacity-50"
-                                >
-                                    <CheckCircle2 size={14} /> {reviewingId === app.id ? '處理中…' : '核准入帳'}
-                                </button>
-                            </div>
-                        </div>
-                    ))}
                 </div>
-            );
-            })()}
+                {(() => {
+                    const reviewableApps = apps.filter(a => a.user_id !== userData.UserID);
+                    if (reviewableApps.length === 0) return (
+                        <div className="border-t border-slate-700/40 pt-4 text-center">
+                            <p className="text-slate-500 font-black text-sm">目前無待審核申請</p>
+                            <p className="text-slate-600 text-xs mt-1">所有申請均已處理完畢</p>
+                        </div>
+                    );
+                    return (
+                        <div className="flex flex-col gap-4 border-t border-slate-700/40 pt-4">
+                            {reviewableApps.map(app => (
+                                <div key={app.id} className="bg-slate-800/60 border border-rose-500/20 rounded-3xl p-4 space-y-3">
+                                    {/* App info */}
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="font-black text-white text-base">{app.user_name}</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">
+                                                {app.squad_name} · 訪談對象：<span className="text-rose-300">{app.interview_target}</span>
+                                            </p>
+                                            <p className="text-xs text-slate-500 mt-0.5">日期：{app.interview_date}</p>
+                                            {app.squad_review_notes && (
+                                                <p className="text-xs text-indigo-400 mt-1.5 bg-indigo-500/10 px-2 py-1 rounded-lg">
+                                                    小隊長備註：{app.squad_review_notes}
+                                                </p>
+                                            )}
+                                            {app.description && (
+                                                <p className="text-xs text-slate-400 italic mt-1.5">「{app.description}」</p>
+                                            )}
+                                        </div>
+                                        <span className="shrink-0 text-[10px] font-black text-blue-400 bg-blue-400/10 px-2 py-1 rounded-lg">待大隊長審核</span>
+                                    </div>
+
+                                    {/* Notes */}
+                                    <textarea
+                                        placeholder="終審備註（選填）"
+                                        value={notes[app.id] || ''}
+                                        onChange={e => setNotes(prev => ({ ...prev, [app.id]: e.target.value }))}
+                                        rows={2}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-rose-500 resize-none transition-colors"
+                                    />
+
+                                    {/* Actions */}
+                                    <div className="flex gap-3">
+                                        <button
+                                            disabled={reviewingId === app.id}
+                                            onClick={() => handleReview(app.id, 'reject')}
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-sm text-red-400 bg-red-600/10 border border-red-600/30 active:scale-95 transition-all disabled:opacity-50"
+                                        >
+                                            <XCircle size={14} /> 駁回
+                                        </button>
+                                        <button
+                                            disabled={reviewingId === app.id}
+                                            onClick={() => handleReview(app.id, 'approve')}
+                                            className="flex-[2] flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-sm text-white bg-emerald-600 shadow-lg shadow-emerald-900/30 active:scale-95 transition-all disabled:opacity-50"
+                                        >
+                                            <CheckCircle2 size={14} /> {reviewingId === app.id ? '處理中…' : '核准入帳'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()}
+            </div>
 
             {/* ── 巔峰試煉管理 ── */}
             <div className="bg-slate-900 border-2 border-purple-500/20 rounded-4xl p-5 space-y-4 shadow-xl">
