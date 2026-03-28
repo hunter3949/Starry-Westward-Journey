@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { ArrowLeftRight, ChevronDown, ChevronUp, RefreshCw, Zap } from 'lucide-react';
 import { CharacterStats, SystemSettings } from '@/types';
-import { exchangeCurrency, performLifeReset } from '@/app/actions/boardGame';
+import { exchangeCurrency, performLifeReset, getBoardGameTransactions, type BoardGameTransaction } from '@/app/actions/boardGame';
 
 interface Props {
     userData: CharacterStats;
@@ -14,11 +15,48 @@ interface Props {
 }
 
 export default function BoardGameView({ userData, cash, blessing, systemSettings, onStatsChange }: Props) {
-    const buyRate  = parseInt(systemSettings.BoardGameBuyRate  || '10', 10);  // 1 福報 = buyRate 現金
-    const sellRate = parseInt(systemSettings.BoardGameSellRate || '10', 10);  // sellRate 現金 = 1 福報
-    const zeroEnabled = systemSettings.BoardGameZeroEnabled === 'true';
+    // local rate state — updated via Realtime
+    const [localBuyRate, setLocalBuyRate]       = useState(parseInt(systemSettings.BoardGameBuyRate  || '10', 10));
+    const [localSellRate, setLocalSellRate]     = useState(parseInt(systemSettings.BoardGameSellRate || '10', 10));
+    const [localSellEnabled, setLocalSellEnabled] = useState(systemSettings.BoardGameSellEnabled === 'true');
+    const [ratePopup, setRatePopup]             = useState<{ buy: number; sell: number; sellEnabled: boolean } | null>(null);
+
+    const zeroEnabled     = systemSettings.BoardGameZeroEnabled === 'true';
     const zeroCashMul     = parseFloat(systemSettings.BoardGameZeroCashMultiplier     || '1');
     const zeroBlessingMul = parseFloat(systemSettings.BoardGameZeroBlessingMultiplier || '1');
+
+    // Supabase Realtime: watch for rate updates
+    useEffect(() => {
+        const sb = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        const channel = sb
+            .channel('bg-rate-watch')
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'SystemSettings',
+                filter: 'SettingName=eq.BoardGameRateUpdatedAt',
+            }, async () => {
+                const { data } = await sb
+                    .from('SystemSettings')
+                    .select('SettingName, SettingValue')
+                    .in('SettingName', ['BoardGameBuyRate', 'BoardGameSellRate', 'BoardGameSellEnabled']);
+                if (data) {
+                    const map = Object.fromEntries(data.map((r: { SettingName: string; SettingValue: string }) => [r.SettingName, r.SettingValue]));
+                    const newBuy  = parseInt(map.BoardGameBuyRate  || '10', 10);
+                    const newSell = parseInt(map.BoardGameSellRate || '10', 10);
+                    const newSellEnabled = map.BoardGameSellEnabled === 'true';
+                    setLocalBuyRate(newBuy);
+                    setLocalSellRate(newSell);
+                    setLocalSellEnabled(newSellEnabled);
+                    setRatePopup({ buy: newBuy, sell: newSell, sellEnabled: newSellEnabled });
+                }
+            })
+            .subscribe();
+        return () => { sb.removeChannel(channel); };
+    }, []);
 
     const [showExchange, setShowExchange] = useState(false);
     const [direction, setDirection] = useState<'blessing_to_cash' | 'cash_to_blessing'>('blessing_to_cash');
@@ -27,19 +65,32 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
     const [confirmZero, setConfirmZero] = useState(false);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+    const [transactions, setTransactions] = useState<BoardGameTransaction[]>([]);
+    const [showCashTx, setShowCashTx] = useState(false);
+    const [showBlessingTx, setShowBlessingTx] = useState(false);
+    const [txLoading, setTxLoading] = useState(false);
+
+    const loadTransactions = async () => {
+        setTxLoading(true);
+        const data = await getBoardGameTransactions(userData.UserID);
+        setTransactions(data);
+        setTxLoading(false);
+    };
+
+    const cashTx = transactions.filter(t => t.cash_delta !== 0);
+    const blessingTx = transactions.filter(t => t.blessing_delta !== 0);
 
     const parsedInput = parseInt(inputAmount, 10) || 0;
     const spendBalance = direction === 'blessing_to_cash' ? blessing : cash;
 
-    // preview calculations
     const previewReceive = direction === 'blessing_to_cash'
-        ? parsedInput * buyRate
-        : Math.floor(parsedInput / sellRate);
+        ? parsedInput * localBuyRate
+        : Math.floor(parsedInput / localSellRate);
     const previewLabel = direction === 'blessing_to_cash' ? '現金' : '福報';
     const spendLabel   = direction === 'blessing_to_cash' ? '福報' : '現金';
 
     const canExchange = parsedInput > 0 && parsedInput <= spendBalance &&
-        (direction === 'cash_to_blessing' ? Math.floor(parsedInput / sellRate) >= 1 : true);
+        (direction === 'cash_to_blessing' ? Math.floor(parsedInput / localSellRate) >= 1 : true);
 
     const showMsg = (text: string, ok: boolean) => {
         setMessage({ text, ok });
@@ -49,7 +100,7 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
     const handleExchange = async () => {
         setLoading(true);
         const res = await exchangeCurrency(
-            userData.UserID, direction, parsedInput, cash, blessing, buyRate, sellRate
+            userData.UserID, direction, parsedInput, cash, blessing, localBuyRate, localSellRate
         );
         setLoading(false);
         setConfirmExchange(false);
@@ -57,6 +108,7 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
             onStatsChange(res.newCash!, res.newBlessing!);
             setInputAmount('');
             showMsg('兌換成功！', true);
+            if (showCashTx || showBlessingTx) loadTransactions();
         } else {
             showMsg(res.error || '兌換失敗', false);
         }
@@ -70,6 +122,7 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
         if (res.success) {
             onStatsChange(res.newCash!, res.newBlessing!);
             showMsg('人生歸零完成！', true);
+            if (showCashTx || showBlessingTx) loadTransactions();
         } else {
             showMsg(res.error || '操作失敗', false);
         }
@@ -88,33 +141,103 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
                 </div>
 
                 {/* 姓名 + 小隊 */}
-                <div className="flex flex-col gap-2">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl px-5 py-3 text-center">
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-center">
                         <p className="text-xs text-slate-500 mb-0.5">修行者</p>
-                        <p className="text-lg font-black text-white">{userData.Name}</p>
+                        <p className="text-base font-black text-white truncate">{userData.Name}</p>
                     </div>
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl px-5 py-3 text-center">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-center">
                         <p className="text-xs text-slate-500 mb-0.5">所屬小隊</p>
-                        <p className="text-lg font-black text-emerald-300">{squadName}</p>
+                        <p className="text-base font-black text-emerald-300 truncate">{squadName}</p>
                     </div>
                 </div>
 
                 {/* 現金 */}
-                <div className="bg-gradient-to-r from-amber-950/60 to-amber-900/40 border border-amber-600/40 rounded-2xl px-6 py-5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl">💰</span>
-                        <span className="text-lg font-black text-amber-300">現金</span>
+                <div className="bg-gradient-to-r from-amber-950/60 to-amber-900/40 border border-amber-600/40 rounded-2xl overflow-hidden">
+                    <div className="px-6 py-5 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">💰</span>
+                            <span className="text-lg font-black text-amber-300">現金</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl font-black text-amber-400 tabular-nums">{cash.toLocaleString()}</span>
+                            <button onClick={() => { setShowCashTx(v => !v); if (!showCashTx && transactions.length === 0) loadTransactions(); }}
+                                className="text-[10px] font-black text-amber-600 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded-lg transition-colors">
+                                明細
+                            </button>
+                        </div>
                     </div>
-                    <span className="text-2xl font-black text-amber-400 tabular-nums">{cash.toLocaleString()}</span>
+                    {showCashTx && (
+                        <div className="border-t border-amber-800/40 max-h-52 overflow-y-auto">
+                            {txLoading ? (
+                                <p className="text-center text-slate-500 text-xs py-4">載入中…</p>
+                            ) : cashTx.length === 0 ? (
+                                <p className="text-center text-slate-500 text-xs py-4">尚無現金異動紀錄</p>
+                            ) : cashTx.map(tx => {
+                                const label: Record<string, string> = { buy_exchange: '買匯', sell_exchange: '賣匯', life_reset: '人生歸零', admin_adjust: '後台調整' };
+                                const d = new Date(tx.created_at);
+                                const ds = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                                return (
+                                    <div key={tx.id} className="flex items-center justify-between px-5 py-2.5 border-b border-amber-800/20 last:border-0">
+                                        <div>
+                                            <span className="text-xs font-black text-amber-200">{label[tx.type] ?? tx.type}</span>
+                                            <span className="text-[10px] text-slate-500 ml-2">{ds}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className={`text-xs font-black ${tx.cash_delta > 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                                                {tx.cash_delta > 0 ? '+' : ''}{tx.cash_delta.toLocaleString()}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 ml-1">→ {tx.cash_after.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* 福報 */}
-                <div className="bg-gradient-to-r from-violet-950/60 to-violet-900/40 border border-violet-600/40 rounded-2xl px-6 py-5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl">🌸</span>
-                        <span className="text-lg font-black text-violet-300">福報</span>
+                <div className="bg-gradient-to-r from-violet-950/60 to-violet-900/40 border border-violet-600/40 rounded-2xl overflow-hidden">
+                    <div className="px-6 py-5 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">🌸</span>
+                            <span className="text-lg font-black text-violet-300">福報</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl font-black text-violet-400 tabular-nums">{blessing.toLocaleString()}</span>
+                            <button onClick={() => { setShowBlessingTx(v => !v); if (!showBlessingTx && transactions.length === 0) loadTransactions(); }}
+                                className="text-[10px] font-black text-violet-500 bg-violet-500/10 hover:bg-violet-500/20 px-2 py-1 rounded-lg transition-colors">
+                                明細
+                            </button>
+                        </div>
                     </div>
-                    <span className="text-2xl font-black text-violet-400 tabular-nums">{blessing.toLocaleString()}</span>
+                    {showBlessingTx && (
+                        <div className="border-t border-violet-800/40 max-h-52 overflow-y-auto">
+                            {txLoading ? (
+                                <p className="text-center text-slate-500 text-xs py-4">載入中…</p>
+                            ) : blessingTx.length === 0 ? (
+                                <p className="text-center text-slate-500 text-xs py-4">尚無福報異動紀錄</p>
+                            ) : blessingTx.map(tx => {
+                                const label: Record<string, string> = { buy_exchange: '買匯', sell_exchange: '賣匯', life_reset: '人生歸零', admin_adjust: '後台調整' };
+                                const d = new Date(tx.created_at);
+                                const ds = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                                return (
+                                    <div key={tx.id} className="flex items-center justify-between px-5 py-2.5 border-b border-violet-800/20 last:border-0">
+                                        <div>
+                                            <span className="text-xs font-black text-violet-200">{label[tx.type] ?? tx.type}</span>
+                                            <span className="text-[10px] text-slate-500 ml-2">{ds}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className={`text-xs font-black ${tx.blessing_delta > 0 ? 'text-violet-400' : 'text-red-400'}`}>
+                                                {tx.blessing_delta > 0 ? '+' : ''}{tx.blessing_delta.toLocaleString()}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 ml-1">→ {tx.blessing_after.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* 福氣錢莊 */}
@@ -126,7 +249,7 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
                         <div className="flex items-center gap-3">
                             <ArrowLeftRight size={20} className="text-emerald-400" />
                             <span className="font-black text-white">福氣錢莊</span>
-                            <span className="text-xs text-slate-400">買匯 1福報={buyRate}現金 ／ 賣匯 {sellRate}現金=1福報</span>
+                            <span className="text-xs text-slate-400">買匯 1福報={localBuyRate}現金</span>
                         </div>
                         {showExchange ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                     </button>
@@ -142,18 +265,23 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
                                     買匯 福報→現金
                                 </button>
                                 <button
-                                    onClick={() => { setDirection('cash_to_blessing'); setInputAmount(''); }}
-                                    className={`flex-1 py-2 rounded-xl text-sm font-black transition-all ${direction === 'cash_to_blessing' ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+                                    onClick={() => { if (!localSellEnabled) return; setDirection('cash_to_blessing'); setInputAmount(''); }}
+                                    disabled={!localSellEnabled}
+                                    className={`flex-1 py-2 rounded-xl text-sm font-black transition-all ${
+                                        !localSellEnabled
+                                            ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+                                            : direction === 'cash_to_blessing' ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400'
+                                    }`}
                                 >
-                                    賣匯 現金→福報
+                                    賣匯 現金→福報{!localSellEnabled && ' 🔒'}
                                 </button>
                             </div>
 
                             {/* Rate hint */}
                             <p className="text-xs text-slate-500 text-center">
                                 {direction === 'blessing_to_cash'
-                                    ? `買匯率：1 福報 = ${buyRate} 現金`
-                                    : `賣匯率：${sellRate} 現金 = 1 福報`}
+                                    ? `買匯率：1 福報 = ${localBuyRate} 現金`
+                                    : `賣匯率：${localSellRate} 現金 = 1 福報`}
                             </p>
 
                             {/* Input */}
@@ -167,7 +295,8 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
                                     value={inputAmount}
                                     onChange={e => setInputAmount(e.target.value)}
                                     placeholder="輸入數量"
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-emerald-500"
+                                    disabled={direction === 'cash_to_blessing' && !localSellEnabled}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-emerald-500 disabled:opacity-40"
                                 />
                             </div>
 
@@ -185,7 +314,7 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
 
                             <button
                                 onClick={() => setConfirmExchange(true)}
-                                disabled={!canExchange}
+                                disabled={!canExchange || (direction === 'cash_to_blessing' && !localSellEnabled)}
                                 className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black rounded-2xl transition-all active:scale-95"
                             >
                                 確認換匯
@@ -230,6 +359,30 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
                     </div>
                 </div>
             </div>
+
+            {/* Rate update popup (Realtime triggered) */}
+            {ratePopup && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm">
+                    <div className="bg-slate-900 border-2 border-emerald-500/40 rounded-3xl p-7 max-w-xs w-full space-y-4 text-center shadow-2xl">
+                        <div className="text-3xl">💱</div>
+                        <h3 className="text-lg font-black text-white">匯率已更新</h3>
+                        <div className="bg-slate-800 rounded-2xl px-5 py-4 space-y-2">
+                            <p className="text-xs text-slate-400 font-black mb-1">目前匯率</p>
+                            <p className="text-base font-black text-violet-300">1 福報 ＝ {ratePopup.buy} 現金</p>
+                            {ratePopup.sellEnabled
+                                ? <p className="text-base font-black text-amber-300">{ratePopup.sell} 現金 ＝ 1 福報</p>
+                                : <p className="text-base font-black text-slate-500">賣匯目前關閉</p>
+                            }
+                        </div>
+                        <button
+                            onClick={() => setRatePopup(null)}
+                            className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl transition-all active:scale-95"
+                        >
+                            確認
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Confirm exchange dialog */}
             {confirmExchange && (

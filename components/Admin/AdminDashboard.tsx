@@ -2285,6 +2285,29 @@ export function AdminDashboard({
         updateGlobalSetting('MainQuestSchedule', JSON.stringify(mainQuestSchedule.filter(e => e.id !== id)));
     };
 
+    const [mqEditId, setMqEditId] = React.useState<string | null>(null);
+    const [mqEditForm, setMqEditForm] = React.useState({ topicTitle: '', title: '', description: '', reward: '1000', coins: '100', startDate: '' });
+
+    const handleOpenMqEdit = (entry: MainQuestEntry) => {
+        setMqEditId(entry.id);
+        setMqEditForm({ topicTitle: entry.topicTitle || '', title: entry.title, description: entry.description || '', reward: String(entry.reward), coins: String(entry.coins), startDate: entry.startDate });
+    };
+
+    const handleSaveMqEdit = () => {
+        if (!mqEditId || !mqEditForm.title.trim() || !mqEditForm.startDate) return;
+        const updated = mainQuestSchedule.map(e => e.id === mqEditId ? {
+            ...e,
+            topicTitle: mqEditForm.topicTitle.trim() || undefined,
+            title: mqEditForm.title.trim(),
+            description: mqEditForm.description.trim() || undefined,
+            reward: parseInt(mqEditForm.reward, 10) || 1000,
+            coins: parseInt(mqEditForm.coins, 10) || 100,
+            startDate: mqEditForm.startDate,
+        } : e).sort((a, b) => a.startDate.localeCompare(b.startDate));
+        updateGlobalSetting('MainQuestSchedule', JSON.stringify(updated));
+        setMqEditId(null);
+    };
+
     const handleApplyMqEntry = (entry: MainQuestEntry) => {
         updateGlobalSettings({
             TopicQuestTitle: entry.topicTitle || entry.title,
@@ -4827,19 +4850,60 @@ export function AdminDashboard({
                                                                 <span className="text-[10px] font-black text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-lg">+{entry.coins} 🪙</span>
                                                             </div>
                                                         </div>
-                                                        {!isActive && (
-                                                            <div className="flex items-center gap-2 shrink-0">
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            {!isActive && (
                                                                 <button onClick={() => handleApplyMqEntry(entry)}
                                                                     className="text-[10px] font-black text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-xl transition-colors">
                                                                     套用
                                                                 </button>
+                                                            )}
+                                                            <button onClick={() => mqEditId === entry.id ? setMqEditId(null) : handleOpenMqEdit(entry)}
+                                                                className="p-2 bg-slate-700/50 text-slate-400 rounded-xl hover:bg-slate-700 transition-colors">
+                                                                <Pencil size={13} />
+                                                            </button>
+                                                            {!isActive && (
                                                                 <button onClick={() => handleRemoveMqEntry(entry.id)}
                                                                     className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-colors">
                                                                     <Trash2 size={13} />
                                                                 </button>
-                                                            </div>
-                                                        )}
+                                                            )}
+                                                        </div>
                                                     </div>
+                                                    {/* Inline edit form */}
+                                                    {mqEditId === entry.id && (
+                                                        <div className="border-t border-slate-700/40 pt-3 space-y-2">
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <input placeholder="主題標籤（選填）" value={mqEditForm.topicTitle}
+                                                                    onChange={e => setMqEditForm(f => ({ ...f, topicTitle: e.target.value }))}
+                                                                    className="col-span-2 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-yellow-500" />
+                                                                <input placeholder="任務名稱*" value={mqEditForm.title}
+                                                                    onChange={e => setMqEditForm(f => ({ ...f, title: e.target.value }))}
+                                                                    className="col-span-2 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-yellow-500" />
+                                                                <input placeholder="說明（選填）" value={mqEditForm.description}
+                                                                    onChange={e => setMqEditForm(f => ({ ...f, description: e.target.value }))}
+                                                                    className="col-span-2 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-yellow-500" />
+                                                                <input type="number" placeholder="修為" value={mqEditForm.reward}
+                                                                    onChange={e => setMqEditForm(f => ({ ...f, reward: e.target.value }))}
+                                                                    className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-yellow-500" />
+                                                                <input type="number" placeholder="金幣" value={mqEditForm.coins}
+                                                                    onChange={e => setMqEditForm(f => ({ ...f, coins: e.target.value }))}
+                                                                    className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-yellow-500" />
+                                                                <input type="date" value={mqEditForm.startDate}
+                                                                    onChange={e => setMqEditForm(f => ({ ...f, startDate: e.target.value }))}
+                                                                    className="col-span-2 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-yellow-500" />
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <button onClick={() => setMqEditId(null)}
+                                                                    className="flex-1 py-2 rounded-xl text-xs font-black text-slate-400 bg-slate-800 hover:bg-slate-700 transition-colors">
+                                                                    取消
+                                                                </button>
+                                                                <button onClick={handleSaveMqEdit}
+                                                                    className="flex-[2] py-2 rounded-xl text-xs font-black text-white bg-yellow-600 hover:bg-yellow-500 transition-colors">
+                                                                    儲存變更
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}
@@ -4987,72 +5051,92 @@ export function AdminDashboard({
                             </button>
                         </div>
 
-                        {/* 換匯比率設定 */}
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-                            <div className="flex items-center justify-between">
+                        {/* 換匯比率設定 + 人生歸零 — 左右並排 */}
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* 換匯比率設定 */}
+                            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 text-center">
                                 <p className="font-black text-white text-sm">換匯比率設定</p>
+                                {/* 買匯 */}
+                                <div className="space-y-1">
+                                    <span className="text-[10px] text-violet-400 font-black block">買匯</span>
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <span className="text-slate-400 text-xs shrink-0">1福報＝</span>
+                                        <input
+                                            type="number" min={1} value={bgBuyRate}
+                                            onChange={e => setBgBuyRate(e.target.value)}
+                                            className="w-14 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-bold text-sm text-center focus:outline-none focus:border-emerald-500"
+                                        />
+                                        <span className="text-slate-400 text-xs">現金</span>
+                                    </div>
+                                </div>
+                                {/* 賣匯 */}
+                                <div className="space-y-1">
+                                    <div className="flex flex-col items-center gap-1">
+                                        <span className="text-[10px] text-amber-400 font-black">賣匯</span>
+                                        <button
+                                            onClick={() => updateGlobalSetting('BoardGameSellEnabled', systemSettings.BoardGameSellEnabled === 'true' ? 'false' : 'true')}
+                                            className={`flex items-center gap-1 px-2 py-0.5 rounded-lg font-black text-[10px] transition-all ${systemSettings.BoardGameSellEnabled === 'true' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+                                        >
+                                            {systemSettings.BoardGameSellEnabled === 'true' ? <ToggleRight size={11} /> : <ToggleLeft size={11} />}
+                                            {systemSettings.BoardGameSellEnabled === 'true' ? '開放' : '關閉'}
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <input
+                                            type="number" min={1} value={bgSellRate}
+                                            onChange={e => setBgSellRate(e.target.value)}
+                                            className="w-14 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-bold text-sm text-center focus:outline-none focus:border-emerald-500"
+                                        />
+                                        <span className="text-slate-400 text-xs">現金＝1福報</span>
+                                    </div>
+                                </div>
                                 <button
                                     onClick={() => {
                                         if (parseInt(bgBuyRate) > 0) updateGlobalSetting('BoardGameBuyRate', bgBuyRate);
                                         if (parseInt(bgSellRate) > 0) updateGlobalSetting('BoardGameSellRate', bgSellRate);
+                                        updateGlobalSetting('BoardGameRateUpdatedAt', new Date().toISOString());
                                     }}
-                                    className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs rounded-xl transition-colors"
+                                    className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs rounded-xl transition-colors"
                                 >
                                     儲存比率
                                 </button>
                             </div>
-                            {/* 買匯 */}
-                            <div className="flex items-center gap-3">
-                                <span className="text-violet-400 text-sm font-black shrink-0 w-8">買匯</span>
-                                <span className="text-slate-400 text-sm shrink-0">1 福報 ＝</span>
-                                <input
-                                    type="number" min={1} value={bgBuyRate}
-                                    onChange={e => setBgBuyRate(e.target.value)}
-                                    className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-emerald-500"
-                                />
-                                <span className="text-slate-400 text-sm shrink-0">現金</span>
-                            </div>
-                            {/* 賣匯 */}
-                            <div className="flex items-center gap-3">
-                                <span className="text-amber-400 text-sm font-black shrink-0 w-8">賣匯</span>
-                                <input
-                                    type="number" min={1} value={bgSellRate}
-                                    onChange={e => setBgSellRate(e.target.value)}
-                                    className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-emerald-500"
-                                />
-                                <span className="text-slate-400 text-sm shrink-0">現金 ＝ 1 福報</span>
-                            </div>
-                            <p className="text-xs text-slate-500">目前：買匯 1福報={systemSettings.BoardGameBuyRate||'10'}現金 ／ 賣匯 {systemSettings.BoardGameSellRate||'10'}現金=1福報</p>
 
                             {/* 人生歸零 */}
-                            <div className="border-t border-slate-800 pt-4 space-y-3">
+                            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 text-center">
                                 <div className="flex items-center justify-between">
-                                    <p className="font-black text-white text-sm">開啟人生歸零</p>
+                                    <p className="font-black text-white text-sm">人生歸零</p>
                                     <button
                                         onClick={() => updateGlobalSetting('BoardGameZeroEnabled', systemSettings.BoardGameZeroEnabled === 'true' ? 'false' : 'true')}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs transition-all ${systemSettings.BoardGameZeroEnabled === 'true' ? 'bg-red-700 text-white' : 'bg-slate-700 text-slate-400'}`}
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg font-black text-[10px] transition-all ${systemSettings.BoardGameZeroEnabled === 'true' ? 'bg-red-700 text-white' : 'bg-slate-700 text-slate-400'}`}
                                     >
-                                        {systemSettings.BoardGameZeroEnabled === 'true' ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                                        {systemSettings.BoardGameZeroEnabled === 'true' ? '已開啟' : '已關閉'}
+                                        {systemSettings.BoardGameZeroEnabled === 'true' ? <ToggleRight size={11} /> : <ToggleLeft size={11} />}
+                                        {systemSettings.BoardGameZeroEnabled === 'true' ? '開啟' : '關閉'}
                                     </button>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-slate-400 text-sm shrink-0">現金 ×</span>
-                                    <input
-                                        type="number" min={0} step={0.1} value={bgZeroCash}
-                                        onChange={e => setBgZeroCash(e.target.value)}
-                                        className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-red-500"
-                                    />
-                                    <span className="text-slate-400 text-sm shrink-0">倍</span>
+                                <div className="space-y-1">
+                                    <span className="text-[10px] text-slate-400 block">現金倍率</span>
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <span className="text-slate-400 text-xs">×</span>
+                                        <input
+                                            type="number" min={0} step={0.1} value={bgZeroCash}
+                                            onChange={e => setBgZeroCash(e.target.value)}
+                                            className="w-14 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-bold text-sm text-center focus:outline-none focus:border-red-500"
+                                        />
+                                        <span className="text-slate-400 text-xs">倍</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-slate-400 text-sm shrink-0">福報 ×</span>
-                                    <input
-                                        type="number" min={0} step={0.1} value={bgZeroBlessing}
-                                        onChange={e => setBgZeroBlessing(e.target.value)}
-                                        className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-red-500"
-                                    />
-                                    <span className="text-slate-400 text-sm shrink-0">倍</span>
+                                <div className="space-y-1">
+                                    <span className="text-[10px] text-slate-400 block">福報倍率</span>
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <span className="text-slate-400 text-xs">×</span>
+                                        <input
+                                            type="number" min={0} step={0.1} value={bgZeroBlessing}
+                                            onChange={e => setBgZeroBlessing(e.target.value)}
+                                            className="w-14 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-bold text-sm text-center focus:outline-none focus:border-red-500"
+                                        />
+                                        <span className="text-slate-400 text-xs">倍</span>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={() => {
@@ -5061,7 +5145,7 @@ export function AdminDashboard({
                                     }}
                                     className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white font-black text-xs rounded-xl transition-colors"
                                 >
-                                    儲存歸零倍率
+                                    儲存倍率
                                 </button>
                             </div>
                         </div>

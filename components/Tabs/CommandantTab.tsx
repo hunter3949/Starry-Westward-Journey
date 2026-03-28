@@ -10,7 +10,7 @@ import { reviewW4ByBattalionLeader } from '@/app/actions/w4';
 import { setBattalionDisplayName } from '@/app/actions/admin';
 import { upsertPeakTrial, deletePeakTrial, togglePeakTrialActive, getPeakTrialRegistrations, markPeakTrialAttendance, getBattalionTrialStatus, MemberTrialStatus, CrossInParticipant, submitPeakTrialReview, getTrialReviewStatus } from '@/app/actions/peakTrials';
 
-interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; }
+interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; exp?: number | null; }
 interface BattalionSquad { squadName: string; members: BattalionSquadMember[]; }
 
 interface CommandantTabProps {
@@ -338,16 +338,37 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                 </button>
                                 {isOpen && (
                                     <div className="border-t border-slate-700/40 px-4 py-3 space-y-2">
+                                        {/* 表頭 */}
+                                        <div className="flex items-center gap-2 pb-1 border-b border-slate-700/40">
+                                            <span className="text-[9px] text-slate-500 w-16 shrink-0">姓名</span>
+                                            <span className="text-[9px] text-slate-500 flex-1">任務角色</span>
+                                            <span className="text-[9px] text-slate-500 shrink-0 w-8 text-center">狀態</span>
+                                            <span className="text-[9px] text-slate-500 shrink-0 w-8 text-center">等級</span>
+                                            <span className="text-[9px] text-slate-500 shrink-0 w-12 text-right">修為</span>
+                                        </div>
                                         {squad.members.map(m => {
                                             const active = isMemberActive(m.lastCheckIn);
                                             return (
                                                 <div key={m.userId} className="flex items-center gap-2">
-                                                    <span className={`text-sm font-bold flex-1 ${active ? 'text-white' : 'text-slate-500'}`}>{m.name}</span>
-                                                    {m.isCaptain && <span className="text-[10px] font-black text-rose-400 bg-rose-400/10 px-2 py-0.5 rounded-lg">隊長</span>}
-                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${active ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-700/50'}`}>
+                                                    <div className="w-16 shrink-0 flex items-center gap-1 min-w-0">
+                                                        <span className={`text-xs font-bold truncate ${active ? 'text-white' : 'text-slate-500'}`}>{m.name}</span>
+                                                        {m.isCaptain && <span className="text-[8px] font-black text-rose-400 bg-rose-400/10 px-1 py-0.5 rounded shrink-0">隊長</span>}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0 flex flex-wrap gap-1">
+                                                        {(() => {
+                                                            if (!m.role) return <span className="text-[10px] text-slate-600">—</span>;
+                                                            let roles: string[];
+                                                            try { const p = JSON.parse(m.role); roles = Array.isArray(p) ? p : [m.role]; } catch { roles = [m.role]; }
+                                                            return roles.map((r, i) => (
+                                                                <span key={i} className="text-[10px] font-black text-sky-300 bg-sky-500/10 px-1.5 py-0.5 rounded-lg">{r}</span>
+                                                            ));
+                                                        })()}
+                                                    </div>
+                                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg shrink-0 w-8 text-center ${active ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-700/50'}`}>
                                                         {active ? '活躍' : '沉寂'}
                                                     </span>
-                                                    <span className="text-[11px] text-slate-500">Lv.{m.level}</span>
+                                                    <span className="text-[10px] text-slate-400 shrink-0 w-8 text-center">Lv.{m.level}</span>
+                                                    <span className="text-[10px] text-indigo-400 shrink-0 w-12 text-right tabular-nums">{(m.exp ?? 0).toLocaleString()}</span>
                                                 </div>
                                             );
                                         })}
@@ -362,13 +383,13 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
             {/* Application list — 大隊長不審自己的申請 */}
             <div className="bg-slate-900 border-2 border-rose-500/20 rounded-4xl p-5 space-y-4 shadow-xl">
                 {/* Header */}
-                <div className="flex items-center gap-2">
-                    <CheckCircle2 size={15} className="text-rose-400" />
-                    <div>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <CheckCircle2 size={15} className="text-rose-400" />
                         <p className="text-white font-black text-base">傳愛申請終審</p>
-                        <p className="text-xs text-slate-400 mt-0.5">以下為已通過小隊長初審、待大隊長審核的申請</p>
                     </div>
                 </div>
+                <p className="text-xs text-slate-400 -mt-2">以下為已通過小隊長初審、待大隊長審核的申請</p>
                 {(() => {
                     const reviewableApps = apps.filter(a => a.user_id !== userData.UserID);
                     if (reviewableApps.length === 0) return (
@@ -635,13 +656,12 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
 
                                 {/* 統計及回報審核 panel */}
                                 {reviewPanel?.trialId === trial.id && (() => {
-                                    const { own, cross, totalMembers, status, reviewNotes } = reviewPanel;
+                                    const { own, cross, status, reviewNotes } = reviewPanel;
                                     const ownCapped = Math.min(own, 21);
                                     const crossCapped = Math.min(cross, 21);
                                     const ownExp = ownCapped * 1500;
                                     const crossExp = crossCapped * 1050;
                                     const totalExp = ownExp + crossExp;
-                                    const battalionLabel = battalionDisplayName || userData.BigTeamLeagelName || '本大隊';
                                     return (
                                         <div className="border-t border-slate-700/40 px-4 py-4 space-y-4">
                                             {/* 修為統計 */}

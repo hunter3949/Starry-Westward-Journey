@@ -127,6 +127,8 @@ export interface SystemSettings {
   BoardGameEnabled?: string;              // 'true' | 'false'
   BoardGameBuyRate?: string;              // 買匯：1 福報 = N 現金（福報→現金）
   BoardGameSellRate?: string;             // 賣匯：N 現金 = 1 福報（現金→福報）
+  BoardGameSellEnabled?: string;          // 'true' | 'false'：是否允許賣匯
+  BoardGameRateUpdatedAt?: string;        // ISO timestamp，每次更新匯率時寫入以觸發前台通知
   BoardGameZeroEnabled?: string;          // 'true' | 'false'：人生歸零按鍵
   BoardGameZeroCashMultiplier?: string;   // 現金 × N
   BoardGameZeroBlessingMultiplier?: string; // 福報 × N

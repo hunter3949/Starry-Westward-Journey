@@ -99,7 +99,7 @@ export default function App() {
   const [mapEntities, setMapEntities] = useState<any[]>([]);
   const [teamSettings, setTeamSettings] = useState<any>(null);
   const [battalionDisplayName, setBattalionDisplayName] = useState<string | undefined>(undefined);
-  interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; }
+  interface BattalionSquadMember { userId: string; name: string; level: number; role: string | null; isCaptain: boolean; lastCheckIn?: string | null; hp?: number | null; maxHp?: number | null; exp?: number | null; }
   interface BattalionSquad { squadName: string; members: BattalionSquadMember[]; }
   const [battalionSquads, setBattalionSquads] = useState<BattalionSquad[]>([]);
   const [teamMemberCount, setTeamMemberCount] = useState<number>(1);
@@ -443,7 +443,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from('CharacterStats')
-      .select('UserID, Name, Level, QuestRole, LittleTeamLeagelName, IsCaptain, LastCheckIn, HP, MaxHP')
+      .select('UserID, Name, Level, Exp, QuestRole, LittleTeamLeagelName, IsCaptain, LastCheckIn, HP, MaxHP')
       .eq('BigTeamLeagelName', battalionName);
 
     if (error || !data || data.length === 0) return;
@@ -452,7 +452,7 @@ export default function App() {
     for (const r of data) {
       const sq = r.LittleTeamLeagelName || '（未分隊）';
       if (!squadMap.has(sq)) squadMap.set(sq, []);
-      squadMap.get(sq)!.push({ userId: r.UserID, name: r.Name, level: r.Level || 1, role: r.QuestRole || null, isCaptain: !!r.IsCaptain, lastCheckIn: r.LastCheckIn ?? null, hp: r.HP ?? null, maxHp: r.MaxHP ?? null });
+      squadMap.get(sq)!.push({ userId: r.UserID, name: r.Name, level: r.Level || 1, exp: r.Exp ?? null, role: r.QuestRole || null, isCaptain: !!r.IsCaptain, lastCheckIn: r.LastCheckIn ?? null, hp: r.HP ?? null, maxHp: r.MaxHP ?? null });
     }
     setBattalionSquads(Array.from(squadMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
