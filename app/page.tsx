@@ -912,11 +912,18 @@ export default function App() {
       const newLevel = calculateLevelFromExp(newExp);
       const roleInfo = ROLE_CURE_MAP[userData.Role];
 
+      // 計算實際金幣：查 DailyQuestConfig 是否有自訂 coins，否則用 reward × 0.1
+      let coinToDeduct = Math.floor(actualReward * 0.1);
+      try {
+        const { data: qcfg } = await supabase.from('DailyQuestConfig').select('coins').eq('id', quest.id).single();
+        if (qcfg?.coins != null) coinToDeduct = qcfg.coins;
+      } catch { /* table 不存在時 fallback 預設值 */ }
+
       const update: Partial<CharacterStats> = {
         Exp: newExp,
         Level: newLevel,
         EnergyDice: Math.max(0, userData.EnergyDice - (quest.dice || 0)),
-        Coins: Math.max(0, userData.Coins - Math.floor(actualReward * 0.1)),
+        Coins: Math.max(0, userData.Coins - coinToDeduct),
       };
 
       // Reverse level-up stat bonuses if level dropped

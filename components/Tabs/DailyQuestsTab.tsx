@@ -5,6 +5,25 @@ import { DAILY_QUEST_CONFIG } from '@/lib/constants';
 import { getLogicalDateStr } from '@/lib/utils/time';
 import { LifeHintCard } from '@/components/LifeHintCard';
 
+// 從 DB 讀取定課設定，失敗則 fallback 到硬編碼常數
+async function loadQuestConfig(): Promise<Quest[]> {
+    try {
+        const { listDailyQuestConfig } = await import('@/app/actions/admin');
+        const rows = await listDailyQuestConfig();
+        if (rows.length > 0) {
+            return rows
+                .filter(r => r.is_active)
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map(r => ({
+                    id: r.id, title: r.title, sub: r.sub ?? '', desc: r.desc ?? '',
+                    reward: r.reward, dice: r.dice, icon: r.icon ?? undefined,
+                    coins: r.coins ?? undefined, limit: r.limit ?? undefined,
+                }));
+        }
+    } catch { /* DB 表不存在時 fallback */ }
+    return DAILY_QUEST_CONFIG.map(q => ({ ...q, coins: undefined }));
+}
+
 function QuestIcon({ questId, isDone }: { questId: string; isDone: boolean }) {
     if (isDone) {
         return (
@@ -79,7 +98,7 @@ function Q1Card({ q, isDone, questLog, isDawn, setIsDawn, hasMirror, activeManda
                 {!isDone && isCapped ? <CurseBreakBadge /> : (
                     <div className="text-right">
                         <div className="font-black text-orange-500">+{displayExp} 修為</div>
-                        <div className="text-xs font-bold text-yellow-400 mt-0.5">+{Math.floor(q.reward * 0.1)} 🪙</div>
+                        <div className="text-xs font-bold text-yellow-400 mt-0.5">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 🪙</div>
                     </div>
                 )}
             </button>
@@ -106,6 +125,9 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
     const [isDawnMode, setIsDawnMode] = useState(false);
     const [showLifeCard, setShowLifeCard] = useState(false);
     const [todayCardText, setTodayCardText] = useState<string | null>(null);
+    const [questConfig, setQuestConfig] = useState<Quest[]>(DAILY_QUEST_CONFIG.map(q => ({ ...q, coins: undefined })));
+
+    useEffect(() => { loadQuestConfig().then(setQuestConfig); }, []);
 
     const cardKey = `life_hint_card_${userId || 'guest'}`;
 
@@ -127,7 +149,7 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
         try { localStorage.setItem(cardKey, JSON.stringify({ text, date: logicalTodayStr })); } catch { /* ignore */ }
     };
     const hasMirror = userInventory.includes('a2');
-    const weeklyQuestName = DAILY_QUEST_CONFIG.find(q => q.id === weeklyQuestId)?.title;
+    const weeklyQuestName = questConfig.find(q => q.id === weeklyQuestId)?.title;
 
     // 計算修為乘數（與 quest.ts 伺服器邏輯一致）
     const hasA1 = userInventory.includes('a1');
@@ -169,7 +191,7 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
                     : <p className="text-sm text-slate-500 font-bold">隊長尚未抽選，敬請期待</p>
                 }
             </div>
-            {DAILY_QUEST_CONFIG.map(q => {
+            {questConfig.map(q => {
                 if (q.id === 'q1') {
                     const isDone = logs.some(l =>
                         (l.QuestID === 'q1' || l.QuestID === 'q1_dawn') &&
@@ -215,7 +237,7 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
                         {!isDone && isCapped ? <CurseBreakBadge /> : (
                             <div className="text-right">
                                 <div className="font-black text-orange-500">+{Math.ceil(q.reward * baseMultiplier)} 修為</div>
-                                <div className="text-xs font-bold text-yellow-400 mt-0.5">+{Math.floor(q.reward * 0.1)} 🪙</div>
+                                <div className="text-xs font-bold text-yellow-400 mt-0.5">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 🪙</div>
                             </div>
                         )}
                         {isDone && questLog && <div className="absolute bottom-1 right-2 text-[8px] font-mono text-emerald-500 opacity-60">{formatCheckInTime(questLog.Timestamp)}</div>}
