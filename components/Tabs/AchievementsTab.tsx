@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ACHIEVEMENTS, ACHIEVEMENT_MAP, RARITY_STYLE, TOTAL_ACHIEVEMENTS, type AchievementDef } from '@/lib/achievements';
+import { ACHIEVEMENTS, ACHIEVEMENT_MAP, RARITY_STYLE, type AchievementDef } from '@/lib/achievements';
 import { AchievementIcon } from '@/components/AchievementIcon';
 import type { AchievementRecord, CharacterStats } from '@/types';
 
@@ -21,18 +21,15 @@ const FILTER_LABELS: { key: RarityFilter; label: string }[] = [
 function AchievementCard({ def, unlocked_at, isOwner }: {
     def: AchievementDef;
     unlocked_at?: string;
-    isOwner: boolean; // true = player's own role matches roleExclusive
+    isOwner: boolean;
 }) {
     if (unlocked_at) {
-        // Unlocked card
         const style = RARITY_STYLE[def.rarity];
         const date = unlocked_at.slice(0, 10);
         return (
-            <div className={`relative min-h-[100px] p-4 rounded-2xl border-2 ${style.border} ${style.bg} shadow-lg ${style.glow} flex flex-col gap-1`}>
-                <div className="flex items-center gap-2">
-                    <AchievementIcon def={def} size="md" />
-                    <span className={`font-black text-sm leading-tight ${style.text}`}>{def.name}</span>
-                </div>
+            <div className={`relative min-h-[100px] p-4 rounded-2xl border-2 ${style.border} ${style.bg} shadow-lg ${style.glow} flex flex-col items-center text-center gap-1`}>
+                <AchievementIcon def={def} size="lg" />
+                <span className={`font-black text-sm leading-tight ${style.text} mt-1`}>{def.name}</span>
                 <div className={`text-[10px] font-bold uppercase tracking-widest ${style.text} opacity-70`}>
                     {RARITY_STYLE[def.rarity].label}
                 </div>
@@ -43,7 +40,6 @@ function AchievementCard({ def, unlocked_at, isOwner }: {
     }
 
     if (def.roleExclusive && !isOwner) {
-        // Wrong role — sealed card
         return (
             <div className="relative min-h-[100px] p-4 rounded-2xl border-2 border-slate-800 bg-slate-900/30 flex flex-col items-center justify-center opacity-40 gap-1">
                 <span className="text-xl">🚫</span>
@@ -52,7 +48,6 @@ function AchievementCard({ def, unlocked_at, isOwner }: {
         );
     }
 
-    // Locked mystery card
     return (
         <div className="relative min-h-[100px] p-4 rounded-2xl border-2 border-slate-800 bg-slate-900/20 flex flex-col gap-1">
             <div className="flex items-center gap-2">
@@ -69,17 +64,20 @@ export function AchievementsTab({ achievements, userData }: AchievementsTabProps
 
     const unlockedMap = new Map(achievements.map(a => [a.achievement_id, a.unlocked_at]));
     const unlockedCount = achievements.length;
-    const progressPct = Math.round((unlockedCount / TOTAL_ACHIEVEMENTS) * 100);
+    const achievableCount = ACHIEVEMENTS.filter(
+        def => !def.roleExclusive || def.roleExclusive === userData.Role
+    ).length;
+    const progressPct = Math.round((unlockedCount / achievableCount) * 100);
 
-    const filtered = filter === 'all' ? ACHIEVEMENTS : ACHIEVEMENTS.filter(a => a.rarity === filter);
+    const filtered = (filter === 'all' ? ACHIEVEMENTS : ACHIEVEMENTS.filter(a => a.rarity === filter))
+        .filter(def => !def.roleExclusive || def.roleExclusive === userData.Role);
 
     return (
         <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
-            {/* Header */}
             <div className="bg-slate-900 border-2 border-amber-500/30 rounded-3xl p-5 text-center">
                 <p className="text-xs font-black text-amber-400 uppercase tracking-widest mb-1">成就殿堂</p>
                 <p className="text-2xl font-black text-white">
-                    {unlockedCount} <span className="text-slate-500 text-lg">/ {TOTAL_ACHIEVEMENTS}</span>
+                    {unlockedCount} <span className="text-slate-500 text-lg">/ {achievableCount}</span>
                 </p>
                 <div className="mt-3 w-full bg-slate-800 rounded-full h-2">
                     <div
@@ -90,7 +88,6 @@ export function AchievementsTab({ achievements, userData }: AchievementsTabProps
                 <p className="text-[10px] text-slate-500 mt-1">{progressPct}% 完成</p>
             </div>
 
-            {/* Rarity filter tabs */}
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 {FILTER_LABELS.map(({ key, label }) => (
                     <button
@@ -112,7 +109,6 @@ export function AchievementsTab({ achievements, userData }: AchievementsTabProps
                 ))}
             </div>
 
-            {/* Achievement grid */}
             <div className="grid grid-cols-2 gap-3">
                 {filtered.map(def => (
                     <AchievementCard

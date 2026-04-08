@@ -217,3 +217,43 @@ export async function processCheckInTransaction(
         await client.end();
     }
 }
+
+// ── 復原打卡（呼叫 process_undo RPC）────────────────────────────────────────
+
+export async function processUndoTransaction(
+    userId: string,
+    questId: string,
+    questReward: number,
+    questDice: number = 0
+) {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const logicalToday = getLogicalDateStr();
+
+    const { data, error } = await supabase.rpc('process_undo', {
+        p_user_id:       userId,
+        p_quest_id:      questId,
+        p_quest_reward:  questReward,
+        p_quest_dice:    questDice,
+        p_logical_today: logicalToday,
+    });
+
+    if (error) {
+        return { success: false, error: error.message };
+    }
+
+    const result = data as {
+        success: boolean;
+        error?:  string;
+        user?:   any;
+    };
+
+    if (!result.success) {
+        return { success: false, error: result.error };
+    }
+
+    return { success: true, user: result.user };
+}

@@ -40,6 +40,8 @@ export interface CharacterStats {
   IsGM?: boolean;         // GM 遊戲管理員
   LineUserId?: string;
   QuestRole?: string;    // 任務角色 JSON 陣列（如 ["先鋒","守護"]）
+  IsBlessed?: boolean;   // d7 祝福狀態（梵天庇護，經驗 ×2）
+  DemonDropBoostSeasonal?: number; // 心魔殘骸累積掉落加成（每次 +0.05）
 }
 
 export interface Roster {
@@ -59,6 +61,7 @@ export interface TeamSettings {
   mandatory_quest_week?: string;     // 本次抽籤週一日期（YYYY-MM-DD）
   quest_draw_history?: string[];     // 已抽過的 QuestID 陣列
   inventory?: any;
+  d7_activated_at?: string;          // d7 渾天至寶珠啟動時間（ISO string），null = 未啟用
 }
 
 export interface DailyLog {

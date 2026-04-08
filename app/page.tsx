@@ -1,18 +1,23 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 import {
   AlertTriangle, CheckCircle2, Sparkles,
-  Dice5, Loader2, RotateCcw
+  Dice5, Loader2, RotateCcw,
+  Flame, Store, Trophy, BarChart3, Medal, CalendarDays, Compass, Swords, Mountain
 } from 'lucide-react';
 
 import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, FinePaymentRecord, AchievementRecord, Course, MainQuestEntry, PeakTrial, PeakTrialRegistration } from '@/types';
 import { getLogicalDateStr, getWeeklyMonday } from '@/lib/utils/time';
 import { standardizePhone } from '@/lib/utils/phone';
 import { ROLE_CURE_MAP, DEFAULT_CONFIG, ADVENTURE_COST, ADMIN_PASSWORD, calculateLevelFromExp, ROLE_GROWTH_RATES, DEFAULT_QUEST_ROLES } from '@/lib/constants';
-import { WorldMap } from '@/components/Map/WorldMap';
+const WorldMap = dynamic(() => import('@/components/Map/WorldMap').then(m => ({ default: m.WorldMap })), {
+    ssr: false,
+    loading: () => <div className="flex items-center justify-center h-64 text-slate-400">載入地圖中...</div>,
+});
 
 import { Header } from '@/components/Layout/Header';
 import { LoginForm } from '@/components/Login/LoginForm';
@@ -30,7 +35,7 @@ import { PeakTrialTab } from '@/components/Tabs/PeakTrialTab';
 import { AchievementIcon } from '@/components/AchievementIcon';
 import { ACHIEVEMENT_MAP, RARITY_STYLE, type AchievementDef } from '@/lib/achievements';
 import { getUserAchievements } from '@/app/actions/achievements';
-import { AdminDashboard } from '@/components/Admin/AdminDashboard';
+const AdminDashboard = dynamic(() => import('@/components/Admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })), { ssr: false });
 import { processCheckInTransaction } from '@/app/actions/quest';
 import { triggerWeeklySnapshot, importRostersData, checkWeeklyW3Compliance, autoAssignSquadsForTesting, logAdminAction } from '@/app/actions/admin';
 import { listCourses, upsertCourse, deleteCourse } from '@/app/actions/course';
@@ -48,12 +53,16 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-const MessageBox = ({ message, onClose, type = 'info' }: { message: string, onClose: () => void, type?: 'info' | 'error' | 'success' }) => (
+const MessageBox = ({ message, onClose, type = 'info', image }: { message: string, onClose: () => void, type?: 'info' | 'error' | 'success', image?: string }) => (
   <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300 mx-auto text-center">
     <div className="bg-slate-900 border-2 border-slate-800 p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center space-y-6 mx-auto flex flex-col items-center">
-      <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center ${type === 'error' ? 'bg-red-500/20 text-red-500' : type === 'success' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'}`}>
-        {type === 'error' ? <AlertTriangle size={40} /> : type === 'success' ? <CheckCircle2 size={40} /> : <Sparkles size={40} />}
-      </div>
+      {image ? (
+        <img src={image} alt="" className="w-24 h-24 mx-auto object-contain drop-shadow-lg" />
+      ) : (
+        <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center ${type === 'error' ? 'bg-red-500/20 text-red-500' : type === 'success' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'}`}>
+          {type === 'error' ? <AlertTriangle size={40} /> : type === 'success' ? <CheckCircle2 size={40} /> : <Sparkles size={40} />}
+        </div>
+      )}
       <p className="text-xl font-bold text-white leading-relaxed text-center mx-auto">{message}</p>
       <button onClick={onClose} className="w-full py-4 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-2xl transition-all active:scale-95 shadow-lg text-center mx-auto">確認領旨</button>
     </div>
@@ -73,7 +82,7 @@ export default function App() {
   const [topicHistory, setTopicHistory] = useState<TopicHistory[]>([]);
   const [temporaryQuests, setTemporaryQuests] = useState<TemporaryQuest[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({ TopicQuestTitle: '載入中...' });
-  const [modalMessage, setModalMessage] = useState<{ text: string, type: 'info' | 'error' | 'success' } | null>(null);
+  const [modalMessage, setModalMessage] = useState<{ text: string, type: 'info' | 'error' | 'success', image?: string } | null>(null);
   const [boardGameEntered, setBoardGameEntered] = useState(false);
   const [boardGameStats, setBoardGameStats] = useState<{ cash: number; blessing: number }>({ cash: 0, blessing: 0 });
   const [undoTarget, setUndoTarget] = useState<Quest | null>(null);
@@ -108,6 +117,9 @@ export default function App() {
 
   // States for Five Fortunes tie breaking
   const [tieBreakData, setTieBreakData] = useState<any>(null);
+  // 首次登入補填問卷（後台匯入用戶無 Role）
+  const [showFortuneOverlay, setShowFortuneOverlay] = useState(false);
+  const [fortuneForm, setFortuneForm] = useState<Record<string, number>>({ wealth: 5, relationship: 5, family: 5, career: 5, health: 5 });
 
   // Map state
   const [stepsRemaining, setStepsRemaining] = useState(0);
@@ -961,7 +973,31 @@ export default function App() {
     try {
       const { data: allUsers, error: queryError } = await supabase.from('CharacterStats').select('*');
       if (queryError) throw new Error(queryError.message);
-      const match = (allUsers as CharacterStats[])?.find(u => u.Name === name && u.UserID.endsWith(phoneSuffix));
+      let match = (allUsers as CharacterStats[])?.find(u => u.Name === name && u.UserID.endsWith(phoneSuffix));
+
+      // 若 CharacterStats 無此人，檢查 Rosters（後台匯入名冊）→ 自動建立角色
+      if (!match) {
+        const { data: rosters } = await supabase.from('Rosters').select('*');
+        const rosterMatch = (rosters as any[])?.find(r => r.name === name && r.email?.replace('@phone.local', '').endsWith(phoneSuffix));
+        if (rosterMatch) {
+          const userId = rosterMatch.email.replace('@phone.local', '');
+          const newChar: any = {
+            UserID: userId, Name: rosterMatch.name, Role: null,
+            Level: 1, Exp: 0, Coins: 0, Inventory: [], EnergyDice: 3,
+            Savvy: 10, Luck: 10, Charisma: 10, Spirit: 10, Physique: 10, Potential: 10,
+            Streak: 0, LastCheckIn: null, TotalFines: 0, CurrentQ: 0, CurrentR: 0,
+            Email: rosterMatch.email,
+            BigTeamLeagelName: rosterMatch.BigTeamLeagelName,
+            LittleTeamLeagelName: rosterMatch.LittleTeamLeagelName,
+            IsCaptain: rosterMatch.is_captain,
+            IsCommandant: rosterMatch.is_commandant,
+            Birthday: rosterMatch.birthday,
+          };
+          const { error: insertErr } = await supabase.from('CharacterStats').insert([newChar]);
+          if (!insertErr) match = newChar as CharacterStats;
+        }
+      }
+
       if (match) {
         localStorage.setItem('starry_session_uid', match.UserID);
         localStorage.setItem('starry_session_expiry', String(Date.now() + 24 * 60 * 60 * 1000));
@@ -976,6 +1012,11 @@ export default function App() {
         setUserData(match);
         setLogs(logsArray);
         setView('app');
+        // 後台匯入用戶無 Role → 顯示五運問卷
+        if (!match.Role) {
+          setShowFortuneOverlay(true);
+          setFortuneForm({ wealth: 5, relationship: 5, family: 5, career: 5, health: 5 });
+        }
       } else { setModalMessage({ text: "查無此修行者印記。", type: 'error' }); }
     } catch (err) { setModalMessage({ text: "靈通感應異常。", type: 'error' }); } finally { setIsSyncing(false); }
   };
@@ -1050,7 +1091,46 @@ export default function App() {
     }
   };
 
+  // ── 補填問卷提交（後台匯入用戶首次登入）───────────────────
+  const handleFortuneOverlaySubmit = async () => {
+    if (!userData) return;
+    const evalRes = evaluateFate(fortuneForm);
+    if (evalRes.isTie) {
+      // 平手 → 轉交 tieBreak 流程，但完成後要更新而非新建
+      setShowFortuneOverlay(false);
+      setTieBreakData({ isExistingUser: true, evalRes });
+      return;
+    }
+    await applyFortuneRole(evalRes.assignedRole, evalRes.lowestScore);
+  };
+
+  const applyFortuneRole = async (role: string, lowestScore: number) => {
+    if (!userData) return;
+    setIsSyncing(true);
+    let extraDice = 0;
+    let extraExp = 0;
+    let extraLevel = 1;
+    let ddaDiff = 'Normal';
+    if (lowestScore <= 3) { extraExp = 1970; extraLevel = 5; }
+    else if (lowestScore <= 7) { extraDice = 2; }
+    else { ddaDiff = 'Hard'; }
+    await supabase.from('CharacterStats').update({
+      Role: role, Level: extraLevel, Exp: extraExp,
+      EnergyDice: (userData.EnergyDice || 3) + extraDice,
+      DDA_Difficulty: ddaDiff, InitialFortunes: fortuneForm,
+    }).eq('UserID', userData.UserID);
+    setUserData({ ...userData, Role: role, Level: extraLevel, Exp: extraExp, EnergyDice: (userData.EnergyDice || 3) + extraDice } as CharacterStats);
+    setShowFortuneOverlay(false);
+    setTieBreakData(null);
+    setModalMessage({ text: `天命已定！您的守護角色為【${role}】。`, type: 'success', image: `/images/avatars/${role}.png` });
+    setIsSyncing(false);
+  };
+
   const handleTieBreakSelect = (role: string) => {
+    if (tieBreakData?.isExistingUser) {
+      applyFortuneRole(role, tieBreakData.evalRes.lowestScore);
+      return;
+    }
     executeRegisterFlow({ ...tieBreakData, assignedRole: role, lowestScore: tieBreakData.evalRes.lowestScore });
   };
 
@@ -1276,6 +1356,11 @@ export default function App() {
           setUserData(stats as CharacterStats);
           setLogs(logsArray);
           setView('app'); // 先進入畫面，次要資料背景載入，避免任一 fetch 卡住導致永久 loading
+          // 後台匯入用戶無 Role → 顯示五運問卷
+          if (!(stats as CharacterStats).Role) {
+            setShowFortuneOverlay(true);
+            setFortuneForm({ wealth: 5, relationship: 5, family: 5, career: 5, health: 5 });
+          }
 
           // 背景載入次要資料（不阻塞畫面切換）
           const secondaryFetches: Promise<unknown>[] = [
@@ -1422,19 +1507,19 @@ export default function App() {
       )}
 
       <nav className="sticky top-0 z-20 bg-slate-950/90 backdrop-blur-md flex p-4 gap-2 border-b border-white/5 shadow-xl overflow-x-auto no-scrollbar">
-        <button onClick={() => setActiveTab('daily')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'daily' ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-slate-900 text-slate-50'}`}>修行定課</button>
-        <button onClick={handleOpenWeeklyTab} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'weekly' ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-900 text-slate-50'}`}>加分副本</button>
-        <button onClick={() => setActiveTab('shop')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'shop' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-600/20' : 'bg-slate-900 text-slate-50'}`}>🏪藏寶閣</button>
-        <button onClick={() => setActiveTab('rank')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'rank' ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-900 text-slate-50'}`}>修為榜</button>
-        <button onClick={() => setActiveTab('stats')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'stats' ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-900 text-slate-50'}`}>六維與罰金</button>
-        <button onClick={() => setActiveTab('achievements')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'achievements' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-slate-900 text-slate-50'}`}>🏆成就</button>
-        <button onClick={() => setActiveTab('course')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'course' ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'bg-slate-900 text-slate-50'}`}>📅課程</button>
-        <button onClick={() => setActiveTab('peakTrial')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'peakTrial' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'bg-slate-900 text-slate-50'}`}>🏆巔峰試煉</button>
+        <button onClick={() => setActiveTab('daily')} aria-current={activeTab === 'daily' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Flame size={16} />修行定課</button>
+        <button onClick={handleOpenWeeklyTab} aria-current={activeTab === 'weekly' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Sparkles size={16} />加分副本</button>
+        <button onClick={() => setActiveTab('shop')} aria-current={activeTab === 'shop' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'shop' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Store size={16} />藏寶閣</button>
+        <button onClick={() => setActiveTab('rank')} aria-current={activeTab === 'rank' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'rank' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Trophy size={16} />修為榜</button>
+        <button onClick={() => setActiveTab('stats')} aria-current={activeTab === 'stats' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'stats' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><BarChart3 size={16} />六維與罰金</button>
+        <button onClick={() => setActiveTab('achievements')} aria-current={activeTab === 'achievements' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'achievements' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Medal size={16} />成就</button>
+        <button onClick={() => setActiveTab('course')} aria-current={activeTab === 'course' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'course' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><CalendarDays size={16} />課程</button>
+        <button onClick={() => setActiveTab('peakTrial')} aria-current={activeTab === 'peakTrial' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'peakTrial' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Mountain size={16} />試煉</button>
         {showCaptainTab && (
-          <button onClick={handleOpenCaptainTab} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'captain' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-900 text-slate-50'}`}>👩‍✈️指揮所</button>
+          <button onClick={handleOpenCaptainTab} aria-current={activeTab === 'captain' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'captain' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Compass size={16} />指揮所</button>
         )}
         {showCommandantTab && (
-          <button onClick={() => setActiveTab('commandant')} className={`shrink-0 px-6 py-4 rounded-2xl text-xs font-black transition-all ${activeTab === 'commandant' ? 'bg-rose-700 text-white shadow-lg shadow-rose-700/20' : 'bg-slate-900 text-slate-50'}`}>⚔️指揮部</button>
+          <button onClick={() => setActiveTab('commandant')} aria-current={activeTab === 'commandant' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'commandant' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Swords size={16} />指揮部</button>
         )}
       </nav>
 
@@ -1615,6 +1700,47 @@ export default function App() {
           onGoToLogin={() => setView('login')}
           isSyncing={isSyncing}
         />
+      )}
+
+      {/* 首次登入補填五運問卷（後台匯入用戶） */}
+      {showFortuneOverlay && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-slate-950/95 backdrop-blur-md animate-in fade-in zoom-in duration-300 overflow-y-auto">
+          <div className="bg-slate-900 border-2 border-indigo-500/30 p-8 rounded-[2.5rem] shadow-2xl max-w-md w-full space-y-6 my-auto">
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-black text-white">五運占星</h2>
+              <p className="text-sm text-indigo-400 font-bold leading-relaxed">
+                歡迎回來！系統偵測到您尚未完成天命占星。<br />請憑直覺作答，分數越低代表越困頓。
+              </p>
+            </div>
+            <div className="space-y-5 bg-slate-800/50 p-5 rounded-3xl border border-white/5">
+              {([
+                { key: 'wealth', label: '金錢運', desc: '對物質、財務的安全感' },
+                { key: 'relationship', label: '感情運', desc: '與伴侶、人際互動的和諧度' },
+                { key: 'family', label: '家庭運', desc: '與原生家庭、親情的圓滿度' },
+                { key: 'career', label: '事業運', desc: '工作成就、社會定位的滿意度' },
+                { key: 'health', label: '身體運', desc: '健康狀況、精神活力的充沛度' },
+              ] as const).map(f => (
+                <div key={f.key} className="space-y-2">
+                  <div className="flex justify-between items-end">
+                    <label className="text-white font-black text-sm">{f.label}</label>
+                    <span className="text-indigo-400 font-bold text-xs bg-indigo-950 px-2 py-0.5 rounded">{fortuneForm[f.key]} 分</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-bold">{f.desc}</p>
+                  <input type="range" min="1" max="10" step="1" value={fortuneForm[f.key]}
+                    onChange={e => setFortuneForm(prev => ({ ...prev, [f.key]: parseInt(e.target.value, 10) }))}
+                    className="w-full accent-indigo-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer" />
+                  <div className="flex justify-between text-[10px] text-slate-600 font-bold px-1">
+                    <span>1 (匱乏)</span><span>10 (豐盛)</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={handleFortuneOverlaySubmit} disabled={isSyncing}
+              className="w-full py-5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-lg shadow-lg hover:opacity-90 active:scale-95 transition-all disabled:opacity-50">
+              {isSyncing ? '天命配對中...' : '提交占星結果'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Tie Break Modal Overlay */}
@@ -1808,7 +1934,7 @@ dbEntities={mapEntities}
         </div>
       )}
 
-      {modalMessage && <MessageBox message={modalMessage.text} type={modalMessage.type} onClose={() => setModalMessage(null)} />}
+      {modalMessage && <MessageBox message={modalMessage.text} type={modalMessage.type} image={modalMessage.image} onClose={() => setModalMessage(null)} />}
     </div>
   );
 }

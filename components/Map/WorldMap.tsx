@@ -1033,7 +1033,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({
                         });
 
                         if (res.success) {
-                            onShowMessage(res.message, res.isVictory ? 'success' : 'info');
+                            onShowMessage(res.message ?? '', res.isVictory ? 'success' : 'info');
 
                             if (res.isVictory && combatTarget.key) {
                                 setDismissedCombatKeys(prev => new Set(prev).add(getEntityKey(combatTarget)));
