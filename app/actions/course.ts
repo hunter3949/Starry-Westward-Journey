@@ -156,6 +156,35 @@ export async function markAttendance(
         return { success: false, error: '報到寫入失敗，請重試' };
     }
 
+    // 發放報到獎勵（從 Courses 表讀取設定）
+    try {
+        const { data: course } = await supabase
+            .from('Courses')
+            .select('reward_exp, reward_coins')
+            .eq('id', courseKey)
+            .single();
+        const rewardExp = course?.reward_exp ?? 0;
+        const rewardCoins = course?.reward_coins ?? 0;
+        if (rewardExp > 0 || rewardCoins > 0) {
+            const { data: stats } = await supabase
+                .from('CharacterStats')
+                .select('Exp, Coins')
+                .eq('UserID', reg.user_id)
+                .single();
+            if (stats) {
+                const updates: Record<string, number> = {};
+                if (rewardExp > 0) updates.Exp = (stats.Exp ?? 0) + rewardExp;
+                if (rewardCoins > 0) updates.Coins = (stats.Coins ?? 0) + rewardCoins;
+                await supabase.from('CharacterStats').update(updates).eq('UserID', reg.user_id);
+            }
+        }
+        if (rewardExp > 0 || rewardCoins > 0) {
+            const { writeTransactionLog } = await import('./txlog');
+            const courseName = (await supabase.from('Courses').select('name').eq('id', courseKey).single()).data?.name ?? courseKey;
+            await writeTransactionLog(reg.user_id, 'course_reward', `${courseName} 報到獎勵`, rewardExp, rewardCoins, { courseKey });
+        }
+    } catch { /* 獎勵發放失敗不影響報到結果 */ }
+
     return { success: true, userName, courseKey, alreadyCheckedIn: false };
 }
 
@@ -242,4 +271,13 @@ export async function getCourseAttendanceList(
         userName: nameMap.get(r.user_id) ?? r.user_id,
         attendedAt: r.attended_at,
     }));
+}
+
+// ── 查詢用戶已出席的課程 ─────────────────────────────────────────────────
+export async function getUserAttendance(userId: string): Promise<string[]> {
+    const { data } = await supabase
+        .from('CourseAttendance')
+        .select('course_key')
+        .eq('user_id', userId);
+    return (data ?? []).map(r => r.course_key);
 }

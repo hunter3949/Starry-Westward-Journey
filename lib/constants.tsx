@@ -15,12 +15,27 @@ export const BASE_START_DATE_STR = "2026-02-01";
 export const END_DATE = "2026-06-28";
 export const PENALTY_PER_DAY = 50;
 
+// 等級門檻快取（從 DB 載入後覆蓋預設公式）
+let _levelExpCache: number[] | null = null; // index = level (1-99), value = exp_required
+
+export function setLevelExpCache(table: { level: number; exp_required: number }[]) {
+    _levelExpCache = new Array(100).fill(0);
+    for (const row of table) {
+        if (row.level >= 1 && row.level <= 99) _levelExpCache[row.level] = row.exp_required;
+    }
+}
+
+function getLevelExpRequired(level: number): number {
+    if (_levelExpCache && _levelExpCache[level]) return _levelExpCache[level];
+    return level * 5 + 480; // fallback 預設公式
+}
+
 export function calculateLevelFromExp(exp: number): number {
     let currentLevel = 1;
     let accumulatedExp = 0;
 
     while (currentLevel < 99) {
-        const nextLevelRequired = currentLevel * 5 + 480;
+        const nextLevelRequired = getLevelExpRequired(currentLevel);
         if (exp >= accumulatedExp + nextLevelRequired) {
             accumulatedExp += nextLevelRequired;
             currentLevel++;
@@ -33,7 +48,7 @@ export function calculateLevelFromExp(exp: number): number {
 
 export function getExpForNextLevel(currentLevel: number): number {
     if (currentLevel >= 99) return 0;
-    return currentLevel * 5 + 480;
+    return getLevelExpRequired(currentLevel);
 }
 
 export const ARTIFACTS_CONFIG = [

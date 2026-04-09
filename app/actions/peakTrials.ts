@@ -323,9 +323,11 @@ export async function approvePeakTrialReview(reviewId: string, reviewedBy: strin
     if (!members || members.length === 0) return { success: false, error: '找不到成員資料' };
 
     // 每位參與者各獲得完整修為池（非平均）
-    await Promise.all(members.map(m =>
-        supabase.from('CharacterStats').update({ Exp: (m.Exp || 0) + review.reward_per_person }).eq('UserID', m.UserID)
-    ));
+    const { writeTransactionLog } = await import('./txlog');
+    await Promise.all(members.map(async m => {
+        await supabase.from('CharacterStats').update({ Exp: (m.Exp || 0) + review.reward_per_person }).eq('UserID', m.UserID);
+        await writeTransactionLog(m.UserID, 'peak_trial_reward', '巔峰試煉獎勵', review.reward_per_person, 0, { reviewId, trialId: review.trial_id });
+    }));
 
     const { error } = await supabase.from('PeakTrialReviews').update({
         status: 'approved', reviewed_by: reviewedBy, reviewed_at: new Date().toISOString(),

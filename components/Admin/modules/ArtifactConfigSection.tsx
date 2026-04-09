@@ -10,6 +10,7 @@ const EMPTY_ARTIFACT_FORM: Omit<ArtifactConfigRow, 'created_at'> = {
     is_team_binding: false, limit: 1, exclusive_with: null,
     exp_multiplier_personal: null, exp_multiplier_team: null,
     exp_bonus_personal: null, exp_bonus_team: null,
+    applies_to: ['all'],
     is_active: true, sort_order: 0,
 };
 
@@ -43,6 +44,7 @@ export function ArtifactConfigSection() {
                 exp_multiplier_team: (a as any).expMultiplierTeam ?? null,
                 exp_bonus_personal: (a as any).expBonusPersonal ?? null,
                 exp_bonus_team: (a as any).expBonusTeam ?? null,
+                applies_to: ['all'],
                 is_active: true, sort_order: i + 1, created_at: '',
             })));
             setIsFromDb(false);
@@ -60,7 +62,7 @@ export function ArtifactConfigSection() {
     };
 
     const openEdit = (r: ArtifactConfigRow) => {
-        setForm({ id: r.id, name: r.name, description: r.description, effect: r.effect, icon: r.icon, price: r.price, is_team_binding: r.is_team_binding, limit: r.limit, exclusive_with: r.exclusive_with, exp_multiplier_personal: r.exp_multiplier_personal, exp_multiplier_team: r.exp_multiplier_team, exp_bonus_personal: r.exp_bonus_personal, exp_bonus_team: r.exp_bonus_team, is_active: r.is_active, sort_order: r.sort_order });
+        setForm({ id: r.id, name: r.name, description: r.description, effect: r.effect, icon: r.icon, price: r.price, is_team_binding: r.is_team_binding, limit: r.limit, exclusive_with: r.exclusive_with, exp_multiplier_personal: r.exp_multiplier_personal, exp_multiplier_team: r.exp_multiplier_team, exp_bonus_personal: r.exp_bonus_personal, exp_bonus_team: r.exp_bonus_team, applies_to: r.applies_to ?? ['all'], is_active: r.is_active, sort_order: r.sort_order });
         setEditingId(r.id);
         setFormOpen(true);
         setError('');
@@ -103,9 +105,9 @@ export function ArtifactConfigSection() {
         const { upsertArtifactConfig } = await import('@/app/actions/admin');
         const { ARTIFACTS_CONFIG } = await import('@/lib/constants');
         // Known bonus values per artifact
-        const bonusMap: Record<string, { emp?: number; emt?: number; ebp?: number; ebt?: number }> = {
-            a1: { emp: 1.2 }, a2: { ebp: 150 }, a3: { emt: 1.5 },
-            a4: { emp: 1.5 }, a5: { emp: 1.2 }, a6: {},
+        const bonusMap: Record<string, { emp?: number; emt?: number; ebp?: number; ebt?: number; applies_to?: string[] }> = {
+            a1: { emp: 1.2, applies_to: ['all'] }, a2: { ebp: 150, applies_to: ['q1_dawn'] }, a3: { emt: 1.5, applies_to: ['q1', 'q1_dawn'] },
+            a4: { emp: 1.5, applies_to: ['prefix:t'] }, a5: { emp: 1.2, applies_to: ['all'] }, a6: { applies_to: [] },
         };
         for (let i = 0; i < ARTIFACTS_CONFIG.length; i++) {
             const a = ARTIFACTS_CONFIG[i];
@@ -119,6 +121,7 @@ export function ArtifactConfigSection() {
                 exp_multiplier_team: b.emt ?? null,
                 exp_bonus_personal: b.ebp ?? null,
                 exp_bonus_team: b.ebt ?? null,
+                applies_to: b.applies_to ?? ['all'],
                 is_active: true, sort_order: i + 1,
             });
         }
@@ -285,6 +288,20 @@ export function ArtifactConfigSection() {
                                 </div>
                                 <input placeholder="e.g. a1" value={form.exclusive_with ?? ''}
                                     onChange={e => setForm(f => ({ ...f, exclusive_with: e.target.value.trim() || null }))}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-violet-500 text-sm" />
+                            </div>
+                            {/* 觸發條件 */}
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">適用定課（觸發條件）</label>
+                                <p className="text-[9px] text-slate-600 px-1 mb-1">
+                                    填入定課 ID 以逗號分隔。特殊格式：<span className="text-violet-400">all</span> = 所有定課、<span className="text-violet-400">prefix:q</span> = q 開頭、<span className="text-violet-400">prefix:t</span> = t 開頭
+                                </p>
+                                <input placeholder="e.g. all 或 q1,q1_dawn 或 prefix:t"
+                                    value={(form as any).applies_to_str ?? (form as any).applies_to?.join(',') ?? 'all'}
+                                    onChange={e => {
+                                        const str = e.target.value;
+                                        setForm((f: any) => ({ ...f, applies_to_str: str, applies_to: str.split(',').map((s: string) => s.trim()).filter(Boolean) }));
+                                    }}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-violet-500 text-sm" />
                             </div>
                             {/* 經驗加成 */}

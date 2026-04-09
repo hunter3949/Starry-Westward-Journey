@@ -7,13 +7,13 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   AlertTriangle, CheckCircle2, Sparkles,
   Dice5, Loader2, RotateCcw,
-  Flame, Store, Trophy, BarChart3, Medal, CalendarDays, Compass, Swords, Mountain
+  Flame, Store, Trophy, BarChart3, Medal, CalendarDays, Compass, Swords, Mountain, ScrollText
 } from 'lucide-react';
 
 import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, FinePaymentRecord, AchievementRecord, Course, MainQuestEntry, PeakTrial, PeakTrialRegistration } from '@/types';
 import { getLogicalDateStr, getWeeklyMonday } from '@/lib/utils/time';
 import { standardizePhone } from '@/lib/utils/phone';
-import { ROLE_CURE_MAP, DEFAULT_CONFIG, ADVENTURE_COST, ADMIN_PASSWORD, calculateLevelFromExp, ROLE_GROWTH_RATES, DEFAULT_QUEST_ROLES } from '@/lib/constants';
+import { ROLE_CURE_MAP, DEFAULT_CONFIG, ADVENTURE_COST, ADMIN_PASSWORD, calculateLevelFromExp, ROLE_GROWTH_RATES, DEFAULT_QUEST_ROLES, setLevelExpCache } from '@/lib/constants';
 const WorldMap = dynamic(() => import('@/components/Map/WorldMap').then(m => ({ default: m.WorldMap })), {
     ssr: false,
     loading: () => <div className="flex items-center justify-center h-64 text-slate-400">載入地圖中...</div>,
@@ -32,6 +32,7 @@ import { ShopTab } from '@/components/Tabs/ShopTab';
 import { AchievementsTab } from '@/components/Tabs/AchievementsTab';
 import CourseTab from '@/components/Tabs/CourseTab';
 import { PeakTrialTab } from '@/components/Tabs/PeakTrialTab';
+import { HistoryTab } from '@/components/Tabs/HistoryTab';
 import { AchievementIcon } from '@/components/AchievementIcon';
 import { ACHIEVEMENT_MAP, RARITY_STYLE, type AchievementDef } from '@/lib/achievements';
 import { getUserAchievements } from '@/app/actions/achievements';
@@ -73,7 +74,7 @@ export default function App() {
   const [view, setView] = useState<'login' | 'register' | 'app' | 'loading' | 'admin' | 'map'>('loading');
   const [isSyncing, setIsSyncing] = useState(false);
   const [lineBannerDismissed, setLineBannerDismissed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course' | 'peakTrial'>('daily');
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course' | 'peakTrial' | 'history'>('daily');
   type GmViewMode = 'all' | 'player' | 'captain' | 'commandant';
   const [gmViewMode, setGmViewMode] = useState<GmViewMode>('all');
   const [userData, setUserData] = useState<CharacterStats | null>(null);
@@ -589,16 +590,16 @@ export default function App() {
     }
   };
 
-  const handleAddTempQuest = async (title: string, sub: string, desc: string, reward: number, coins?: number) => {
+  const handleAddTempQuest = async (title: string, sub: string, desc: string, reward: number, coins?: number, startDate?: string, endDate?: string, category: 'temp' | 'special' = 'temp') => {
     setIsSyncing(true);
     try {
-      const id = `temp_${Date.now()}`;
-      const dbRow = { id, title, sub, desc, reward, coins: coins ?? null, limit_count: 1, active: true };
+      const id = `${category === 'special' ? 'special' : 'temp'}_${Date.now()}`;
+      const dbRow = { id, title, sub, desc, reward, coins: coins ?? null, limit: 1, active: true, start_date: startDate ?? null, end_date: endDate ?? null, category };
       const { error } = await supabase.from('temporaryquests').insert([dbRow]);
       if (error) throw error;
-      const newQuest: TemporaryQuest = { id, title, sub, desc, reward, coins, limit: 1, active: true };
+      const newQuest: TemporaryQuest = { id, title, sub, desc, reward, coins, limit: 1, active: true, start_date: startDate, end_date: endDate, category };
       setTemporaryQuests(prev => [newQuest, ...prev]);
-      await logAdminAction('temp_quest_add', adminOperator, id, title, { reward, coins });
+      await logAdminAction(category === 'special' ? 'special_quest_add' : 'temp_quest_add', adminOperator, id, title, { reward, coins, startDate, endDate });
     } catch (err) {
       console.error(err);
       setModalMessage({ text: "新增臨時任務失敗。", type: 'error' });
@@ -951,6 +952,11 @@ export default function App() {
       setLogs(updatedLogs);
       setUserData({ ...userData, ...update } as CharacterStats);
       setUndoTarget(null);
+
+      // 回溯明細
+      const { writeTransactionLog } = await import('@/app/actions/txlog');
+      await writeTransactionLog(userData.UserID, 'quest_undo', `回溯：${quest.title || quest.id}`, -actualReward, -coinToDeduct, { questId: quest.id });
+
       setModalMessage({ text: "時光回溯成功，心識已歸位。", type: 'success' });
     } catch (err) { setModalMessage({ text: "回溯失敗，業力阻擋。", type: 'error' }); } finally { setIsSyncing(false); }
   };
@@ -1317,6 +1323,12 @@ export default function App() {
         localStorage.removeItem('starry_session_expiry');
         return null;
       })();
+      // 載入等級門檻設定（覆蓋預設公式）
+      try {
+        const { data: lvCfg } = await supabase.from('LevelConfig').select('level, exp_required').order('level');
+        if (lvCfg && lvCfg.length > 0) setLevelExpCache(lvCfg);
+      } catch { /* fallback to default formula */ }
+
       if (savedUid && !userData) {
         // Fetch map entities only once on initial login (not on every userData change)
         try {
@@ -1515,13 +1527,14 @@ export default function App() {
 
       <nav className="sticky top-0 z-20 bg-slate-950/90 backdrop-blur-md flex p-4 gap-2 border-b border-white/5 shadow-xl overflow-x-auto no-scrollbar">
         <button onClick={() => setActiveTab('daily')} aria-current={activeTab === 'daily' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Flame size={16} />修行定課</button>
-        <button onClick={handleOpenWeeklyTab} aria-current={activeTab === 'weekly' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Sparkles size={16} />加分副本</button>
+        <button onClick={handleOpenWeeklyTab} aria-current={activeTab === 'weekly' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Sparkles size={16} />任務中心</button>
         <button onClick={() => setActiveTab('shop')} aria-current={activeTab === 'shop' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'shop' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Store size={16} />藏寶閣</button>
         <button onClick={() => setActiveTab('rank')} aria-current={activeTab === 'rank' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'rank' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Trophy size={16} />修為榜</button>
         <button onClick={() => setActiveTab('stats')} aria-current={activeTab === 'stats' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'stats' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><BarChart3 size={16} />六維與罰金</button>
         <button onClick={() => setActiveTab('achievements')} aria-current={activeTab === 'achievements' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'achievements' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Medal size={16} />成就</button>
         <button onClick={() => setActiveTab('course')} aria-current={activeTab === 'course' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'course' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><CalendarDays size={16} />課程</button>
         <button onClick={() => setActiveTab('peakTrial')} aria-current={activeTab === 'peakTrial' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'peakTrial' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Mountain size={16} />試煉</button>
+        <button onClick={() => setActiveTab('history')} aria-current={activeTab === 'history' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'history' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><ScrollText size={16} />明細</button>
         {showCaptainTab && (
           <button onClick={handleOpenCaptainTab} aria-current={activeTab === 'captain' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'captain' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Compass size={16} />指揮所</button>
         )}
@@ -1552,7 +1565,8 @@ export default function App() {
             logs={logs}
             currentWeeklyMonday={currentWeeklyMonday}
             isTopicDone={isTopicDone}
-            temporaryQuests={temporaryQuests.filter(t => t.active)}
+            temporaryQuests={temporaryQuests.filter(t => t.active && t.category !== 'special')}
+            specialQuests={temporaryQuests.filter(t => t.active && t.category === 'special')}
             userInventory={typeof userData?.Inventory === 'string' ? JSON.parse(userData.Inventory) : (userData?.Inventory || [])}
             teamInventory={typeof teamSettings?.inventory === 'string' ? JSON.parse(teamSettings.inventory) : (teamSettings?.inventory || [])}
             w4Applications={w4Applications}
@@ -1640,6 +1654,9 @@ export default function App() {
             }}
             onShowMessage={(msg, type) => setModalMessage({ text: msg, type })}
           />
+        )}
+        {activeTab === 'history' && userData && (
+          <HistoryTab logs={logs} userData={userData} isCaptain={!!(userData.IsCaptain || userData.IsGM)} squadName={userData.LittleTeamLeagelName} />
         )}
       </main>
 

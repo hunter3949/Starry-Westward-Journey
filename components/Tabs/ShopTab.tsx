@@ -1,8 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Coins, Users, User, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { ARTIFACTS_CONFIG } from '@/lib/constants';
 import { purchaseArtifact, transferCoinsToTeam } from '@/app/actions/store';
 import { CharacterStats, TeamSettings } from '@/types';
+
+interface ArtifactDisplay {
+    id: string; name: string; description: string; effect: string;
+    price: number; isTeamBinding: boolean; limit: number; exclusiveWith?: string | null;
+}
+
+async function loadArtifactDisplay(): Promise<ArtifactDisplay[]> {
+    try {
+        const { listArtifactConfig } = await import('@/app/actions/admin');
+        const rows = await listArtifactConfig();
+        if (rows.length > 0) {
+            return rows
+                .filter(r => r.is_active)
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map(r => ({
+                    id: r.id, name: r.name, description: r.description, effect: r.effect,
+                    price: r.price, isTeamBinding: r.is_team_binding, limit: r.limit,
+                    exclusiveWith: r.exclusive_with,
+                }));
+        }
+    } catch { /* DB 不存在 fallback */ }
+    return ARTIFACTS_CONFIG.map(a => ({ ...a, exclusiveWith: (a as any).exclusiveWith ?? null }));
+}
 
 const ARTIFACT_IMAGES: Record<string, string> = {
     a1: '/images/artifacts/a1.png',
@@ -79,6 +102,9 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
     const [isBuying, setIsBuying] = useState<string | null>(null);
     const [transferAmount, setTransferAmount] = useState<number | ''>('');
     const [isTransferring, setIsTransferring] = useState(false);
+    const [artifacts, setArtifacts] = useState<ArtifactDisplay[]>(ARTIFACTS_CONFIG.map(a => ({ ...a, exclusiveWith: (a as any).exclusiveWith ?? null })));
+
+    useEffect(() => { loadArtifactDisplay().then(setArtifacts); }, []);
 
     const handleTransfer = async () => {
         if (!userData.BigTeamLeagelName || !transferAmount || typeof transferAmount !== 'number' || transferAmount <= 0) return;
@@ -128,14 +154,14 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
     const myInventory: string[] = typeof userData.Inventory === 'string' ? JSON.parse(userData.Inventory) : (userData.Inventory || []);
     const teamInventory: string[] = teamSettings ? (typeof teamSettings.inventory === 'string' ? JSON.parse(teamSettings.inventory) : (teamSettings.inventory || [])) : [];
 
-    const ownedArtifacts = ARTIFACTS_CONFIG.filter(a =>
+    const ownedArtifacts = artifacts.filter(a =>
         a.isTeamBinding ? teamInventory.includes(a.id) : myInventory.includes(a.id)
     );
 
-    const personalArtifacts = ARTIFACTS_CONFIG.filter(a => !a.isTeamBinding);
-    const teamArtifacts = ARTIFACTS_CONFIG.filter(a => a.isTeamBinding);
+    const personalArtifacts = artifacts.filter(a => !a.isTeamBinding);
+    const teamArtifacts = artifacts.filter(a => a.isTeamBinding);
 
-    function ArtifactCard({ artifact }: { artifact: typeof ARTIFACTS_CONFIG[0] }) {
+    function ArtifactCard({ artifact }: { artifact: ArtifactDisplay }) {
         const isOwned = artifact.isTeamBinding
             ? teamInventory.includes(artifact.id)
             : myInventory.includes(artifact.id);

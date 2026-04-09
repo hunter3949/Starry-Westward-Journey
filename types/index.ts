@@ -88,14 +88,23 @@ export interface Quest {
 export interface TemporaryQuest extends Quest {
   active: boolean;
   created_at?: string;
+  start_date?: string;  // YYYY-MM-DD，空 = 立即開始
+  end_date?: string;    // YYYY-MM-DD，空 = 不限時
+  category?: 'temp' | 'special'; // temp=臨時任務, special=特殊任務
 }
 
 export interface BonusQuestRule {
-  id: string;
-  label: string;          // 顯示名稱
-  keywords: string[];     // 任一關鍵字命中即觸發
+  id: string;             // 副本 ID（如 w1, w2, w3, w4, 或自訂 b_xxx）
+  label: string;          // 副本名稱（同時作為打卡標題）
+  sub?: string;           // 副標題
+  icon?: string;          // 圖示（emoji 或 URL）
+  reward: number;         // 修為獎勵
+  coins?: number | null;  // 金幣獎勵（null = reward × 0.1）
+  limit: number;          // 上限次數
+  limitPeriod?: 'week' | 'month'; // 上限週期，預設 week
+  keywords: string[];     // 任一關鍵字命中即觸發額外骰子
   bonusType: 'energy_dice' | 'golden_dice';
-  bonusAmount: number;
+  bonusAmount: number;    // 額外骰子數量
   active: boolean;
 }
 
@@ -107,6 +116,10 @@ export interface MainQuestEntry {
   reward: number;
   coins: number;
   startDate: string; // YYYY-MM-DD
+  // 額外獎勵：全員達成率門檻
+  bonusThresholdPct?: number;    // 達成率門檻 %（如 80 = 80%），四捨五入
+  bonusRewardType?: 'coins' | 'exp'; // 獎勵類型
+  bonusRewardAmount?: number;    // 獎勵數量
 }
 
 export interface SystemSettings {
@@ -127,6 +140,7 @@ export interface SystemSettings {
   CardMottos?: string; // JSON: string[]
   CardBackImage?: string; // base64 data URL
   BonusQuestConfig?: string; // JSON: BonusQuestRule[]
+  WeeklyQuestOverrides?: string; // JSON: { [id: string]: { reward?, coins?, limit?, icon?, title?, sub? } }
   BoardGameEnabled?: string;              // 'true' | 'false'
   BoardGameBuyRate?: string;              // 買匯：1 福報 = N 現金（福報→現金）
   BoardGameSellRate?: string;             // 賣匯：N 現金 = 1 福報（現金→福報）
@@ -291,6 +305,8 @@ export interface Course {
   is_active: boolean;
   sort_order: number;
   created_at?: string;
+  reward_exp?: number;    // 報到完成獎勵修為
+  reward_coins?: number;  // 報到完成獎勵金幣
 }
 
 export interface PeakTrial {

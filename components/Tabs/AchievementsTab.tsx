@@ -1,7 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP, RARITY_STYLE, type AchievementDef } from '@/lib/achievements';
 import { AchievementIcon } from '@/components/AchievementIcon';
 import type { AchievementRecord, CharacterStats } from '@/types';
+
+// 從 DB 讀取成就定義，覆蓋 name/icon/hint/description/is_active
+async function loadAchievementDefs(): Promise<AchievementDef[]> {
+    try {
+        const { listAchievementConfig } = await import('@/app/actions/admin');
+        const rows = await listAchievementConfig();
+        if (rows.length > 0) {
+            const dbMap = new Map(rows.map(r => [r.id, r]));
+            // 以 ACHIEVEMENTS 為骨架（保留 unlock 邏輯用的 id），用 DB 覆蓋顯示欄位
+            return ACHIEVEMENTS.map(def => {
+                const db = dbMap.get(def.id);
+                if (!db) return def;
+                return {
+                    ...def,
+                    name: db.name || def.name,
+                    icon: db.icon || def.icon,
+                    hint: db.hint || def.hint,
+                    description: db.description || def.description,
+                    rarity: (db.rarity as AchievementDef['rarity']) || def.rarity,
+                    roleExclusive: db.role_exclusive ?? def.roleExclusive,
+                };
+            }).filter(def => {
+                const db = rows.find(r => r.id === def.id);
+                return db ? db.is_active : true; // 被停用的成就不顯示
+            });
+        }
+    } catch { /* DB 不存在 fallback */ }
+    return ACHIEVEMENTS;
+}
 
 interface AchievementsTabProps {
     achievements: AchievementRecord[];
@@ -61,15 +90,18 @@ function AchievementCard({ def, unlocked_at, isOwner }: {
 
 export function AchievementsTab({ achievements, userData }: AchievementsTabProps) {
     const [filter, setFilter] = useState<RarityFilter>('all');
+    const [achDefs, setAchDefs] = useState<AchievementDef[]>(ACHIEVEMENTS);
+
+    useEffect(() => { loadAchievementDefs().then(setAchDefs); }, []);
 
     const unlockedMap = new Map(achievements.map(a => [a.achievement_id, a.unlocked_at]));
     const unlockedCount = achievements.length;
-    const achievableCount = ACHIEVEMENTS.filter(
+    const achievableCount = achDefs.filter(
         def => !def.roleExclusive || def.roleExclusive === userData.Role
     ).length;
-    const progressPct = Math.round((unlockedCount / achievableCount) * 100);
+    const progressPct = achievableCount > 0 ? Math.round((unlockedCount / achievableCount) * 100) : 0;
 
-    const filtered = (filter === 'all' ? ACHIEVEMENTS : ACHIEVEMENTS.filter(a => a.rarity === filter))
+    const filtered = (filter === 'all' ? achDefs : achDefs.filter(a => a.rarity === filter))
         .filter(def => !def.roleExclusive || def.roleExclusive === userData.Role);
 
     return (

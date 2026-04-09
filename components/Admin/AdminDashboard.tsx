@@ -16,6 +16,7 @@ import { ArtifactConfigSection } from './modules/ArtifactConfigSection';
 import { BonusQuestConfigSection } from './modules/BonusQuestConfigSection';
 import { AchievementConfigSection } from './modules/AchievementConfigSection';
 import { RoleConfigSection } from './modules/RoleConfigSection';
+import { LevelConfigSection } from './modules/LevelConfigSection';
 import { BasicParamsSection } from './modules/BasicParamsSection';
 import { CardMottoSection } from './modules/CardMottoSection';
 import { QuestRoleSection } from './modules/QuestRoleSection';
@@ -55,6 +56,140 @@ interface ParsedRosterRow {
 
 // PLACEHOLDER_START (do not remove this line)
 // NOTE: The inline component definitions that were here (lines ~29-2231)
+// ── 傳愛分數 W4 參數面板 ─────────────────────────────────────────────────
+
+function MqBonusSettleButton({ entry }: { entry: MainQuestEntry }) {
+    const [settling, setSettling] = React.useState(false);
+    const [result, setResult] = React.useState<any>(null);
+
+    const handleSettle = async () => {
+        if (!confirm(`確定結算「${entry.title}」的額外獎勵？\n門檻：${entry.bonusThresholdPct}%\n獎勵：每位達成者 +${entry.bonusRewardAmount} ${entry.bonusRewardType === 'exp' ? '修為' : '金幣'}`)) return;
+        setSettling(true);
+        const { settleMainQuestBonus } = await import('@/app/actions/admin');
+        const res = await settleMainQuestBonus(
+            entry.id,
+            entry.bonusThresholdPct!,
+            entry.bonusRewardType || 'coins',
+            entry.bonusRewardAmount!,
+            entry.startDate
+        );
+        if (!res.success && res.error) { alert(res.error); setSettling(false); return; }
+        setResult(res);
+        setSettling(false);
+    };
+
+    if (result) {
+        const squads = result.squadResults ?? [];
+        const passedSquads = squads.filter((s: any) => s.passed);
+        const failedSquads = squads.filter((s: any) => !s.passed);
+        return (
+            <div className="rounded-xl p-3 space-y-2 bg-slate-800/50 border border-slate-700">
+                <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-300">結算完成 · 已發放 {result.rewardedCount} 人</span>
+                    <span className="text-slate-500">門檻 {entry.bonusThresholdPct}%</span>
+                </div>
+                {passedSquads.length > 0 && (
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black text-emerald-400">✅ 達標小隊：</p>
+                        {passedSquads.map((s: any) => (
+                            <div key={s.squad} className="flex items-center justify-between text-[10px] px-2 py-1 bg-emerald-500/10 rounded-lg">
+                                <span className="text-emerald-300 font-bold">{s.squad}</span>
+                                <span className="text-emerald-400">{s.achieved}/{s.members} 人（{s.pct}%）</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {failedSquads.length > 0 && (
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black text-red-400">❌ 未達標小隊：</p>
+                        {failedSquads.map((s: any) => (
+                            <div key={s.squad} className="flex items-center justify-between text-[10px] px-2 py-1 bg-red-500/10 rounded-lg">
+                                <span className="text-red-300 font-bold">{s.squad}</span>
+                                <span className="text-red-400">{s.achieved}/{s.members} 人（{s.pct}%）</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <button onClick={handleSettle} disabled={settling}
+            className="w-full py-2 rounded-xl font-black text-xs bg-amber-600 hover:bg-amber-500 text-white transition-all active:scale-95 disabled:opacity-50">
+            {settling ? '結算中...' : '🎁 結算額外獎勵'}
+        </button>
+    );
+}
+
+function W4ConfigPanel({ systemSettings, updateGlobalSetting }: { systemSettings: SystemSettings; updateGlobalSetting: (key: string, value: string) => void }) {
+    const [open, setOpen] = React.useState(false);
+    const [draft, setDraft] = React.useState({ reward: 1000, coins: null as number | null, limit: 99 });
+    const [saved, setSaved] = React.useState(false);
+
+    // 從 BonusQuestConfig 找 w4 規則
+    const rules: any[] = React.useMemo(() => {
+        try { return JSON.parse(systemSettings.BonusQuestConfig ?? '[]'); } catch { return []; }
+    }, [systemSettings.BonusQuestConfig]);
+
+    // 開啟時載入當前值
+    React.useEffect(() => {
+        const w4 = rules.find((r: any) => r.id === 'w4');
+        setDraft({ reward: w4?.reward ?? 1000, coins: w4?.coins ?? null, limit: w4?.limit ?? 99 });
+    }, [rules]);
+
+    const handleSave = () => {
+        let updated = rules.map((r: any) => r.id === 'w4' ? { ...r, ...draft } : r);
+        if (!rules.some((r: any) => r.id === 'w4')) {
+            updated.push({ id: 'w4', label: '傳愛分數', sub: '訪談成功加分', icon: '❤️', reward: draft.reward, coins: draft.coins, limit: draft.limit, keywords: ['傳愛'], bonusType: 'energy_dice', bonusAmount: 1, active: true });
+        }
+        updateGlobalSetting('BonusQuestConfig', JSON.stringify(updated));
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+    };
+
+    if (!open) return (
+        <button onClick={() => setOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-400 text-xs font-black rounded-2xl transition-colors">
+            ⚙️ 傳愛分數參數設定
+        </button>
+    );
+
+    return (
+        <div className="bg-pink-950/20 border border-pink-500/20 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-pink-400 uppercase tracking-widest">⚙️ 傳愛分數參數</p>
+                <button onClick={() => setOpen(false)} className="p-1 text-slate-500 hover:text-white"><X size={14} /></button>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                    <label className="text-[10px] text-pink-400/70 font-bold">修為獎勵</label>
+                    <input type="number" min={0} value={draft.reward}
+                        onChange={e => setDraft(d => ({ ...d, reward: parseInt(e.target.value) || 0 }))}
+                        className="w-full bg-slate-950 border border-pink-500/30 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-pink-500 text-sm" />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] text-pink-400/70 font-bold">金幣獎勵 <span className="text-slate-600 font-normal">空=×0.1</span></label>
+                    <input type="number" min={0} placeholder={`${Math.floor(draft.reward * 0.1)}`}
+                        value={draft.coins ?? ''}
+                        onChange={e => setDraft(d => ({ ...d, coins: e.target.value !== '' ? parseInt(e.target.value) : null }))}
+                        className="w-full bg-slate-950 border border-pink-500/30 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-yellow-500 text-sm" />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] text-pink-400/70 font-bold">每週上限</label>
+                    <input type="number" min={1} value={draft.limit}
+                        onChange={e => setDraft(d => ({ ...d, limit: parseInt(e.target.value) || 1 }))}
+                        className="w-full bg-slate-950 border border-pink-500/30 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-pink-500 text-sm" />
+                </div>
+            </div>
+            <button onClick={handleSave}
+                className={`w-full py-2.5 rounded-xl font-black text-sm transition-all ${saved ? 'bg-emerald-600 text-white' : 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg active:scale-95'}`}>
+                {saved ? '✓ 已儲存' : '💾 儲存參數'}
+            </button>
+        </div>
+    );
+}
+
 const ACTION_LABELS: Record<string, string> = {
     temp_quest_add: '新增臨時任務',
     temp_quest_toggle: '切換臨時任務狀態',
@@ -141,7 +276,7 @@ interface AdminDashboardProps {
     adminLogs: AdminLog[];
     testimonies: Testimony[];
     courses: Course[];
-    onAddTempQuest: (title: string, sub: string, desc: string, reward: number, coins?: number) => void;
+    onAddTempQuest: (title: string, sub: string, desc: string, reward: number, coins?: number, startDate?: string, endDate?: string, category?: 'temp' | 'special') => void;
     onToggleTempQuest: (id: string, active: boolean) => void;
     onDeleteTempQuest: (id: string) => void;
     onUpdateTempQuest: (id: string, reward: number, coins: number | null) => void;
@@ -183,12 +318,17 @@ export function AdminDashboard({
         try { return JSON.parse(systemSettings.MainQuestSchedule ?? '[]'); } catch { return []; }
     }, [systemSettings.MainQuestSchedule]);
 
-    const [mqFormEntry, setMqFormEntry] = React.useState({ topicTitle: '', title: '', description: '', reward: '1000', coins: '100', startDate: '' });
+    const [mqFormEntry, setMqFormEntry] = React.useState({ topicTitle: '', title: '', description: '', reward: '1000', coins: '0', startDate: '', bonusThresholdPct: '', bonusRewardType: 'coins' as 'coins' | 'exp', bonusRewardAmount: '' });
 
     // 臨時任務內聯編輯
     const [tqEditId, setTqEditId] = React.useState<string | null>(null);
+    const [tqEditTitle, setTqEditTitle] = React.useState('');
+    const [tqEditSub, setTqEditSub] = React.useState('');
+    const [tqEditDesc, setTqEditDesc] = React.useState('');
     const [tqEditReward, setTqEditReward] = React.useState('');
     const [tqEditCoins, setTqEditCoins] = React.useState('');
+    const [tqEditStartDate, setTqEditStartDate] = React.useState('');
+    const [tqEditEndDate, setTqEditEndDate] = React.useState('');
 
     const today = new Date().toISOString().split('T')[0];
     const activeMqEntry = [...mainQuestSchedule]
@@ -203,12 +343,15 @@ export function AdminDashboard({
             title: mqFormEntry.title.trim(),
             description: mqFormEntry.description.trim() || undefined,
             reward: parseInt(mqFormEntry.reward, 10) || 1000,
-            coins: parseInt(mqFormEntry.coins, 10) || 100,
+            coins: Number(mqFormEntry.coins) || 0,
             startDate: mqFormEntry.startDate,
+            bonusThresholdPct: mqFormEntry.bonusThresholdPct ? parseInt(mqFormEntry.bonusThresholdPct, 10) : undefined,
+            bonusRewardType: mqFormEntry.bonusThresholdPct ? mqFormEntry.bonusRewardType : undefined,
+            bonusRewardAmount: mqFormEntry.bonusRewardAmount ? parseInt(mqFormEntry.bonusRewardAmount, 10) : undefined,
         };
         const sorted = [...mainQuestSchedule, newEntry].sort((a, b) => a.startDate.localeCompare(b.startDate));
         updateGlobalSetting('MainQuestSchedule', JSON.stringify(sorted));
-        setMqFormEntry({ topicTitle: '', title: '', description: '', reward: '1000', coins: '100', startDate: '' });
+        setMqFormEntry({ topicTitle: '', title: '', description: '', reward: '1000', coins: '0', startDate: '', bonusThresholdPct: '', bonusRewardType: 'coins', bonusRewardAmount: '' });
     };
 
     const handleRemoveMqEntry = (id: string) => {
@@ -216,11 +359,11 @@ export function AdminDashboard({
     };
 
     const [mqEditId, setMqEditId] = React.useState<string | null>(null);
-    const [mqEditForm, setMqEditForm] = React.useState({ topicTitle: '', title: '', description: '', reward: '1000', coins: '100', startDate: '' });
+    const [mqEditForm, setMqEditForm] = React.useState({ topicTitle: '', title: '', description: '', reward: '1000', coins: '0', startDate: '', bonusThresholdPct: '', bonusRewardType: 'coins' as 'coins' | 'exp', bonusRewardAmount: '' });
 
     const handleOpenMqEdit = (entry: MainQuestEntry) => {
         setMqEditId(entry.id);
-        setMqEditForm({ topicTitle: entry.topicTitle || '', title: entry.title, description: entry.description || '', reward: String(entry.reward), coins: String(entry.coins), startDate: entry.startDate });
+        setMqEditForm({ topicTitle: entry.topicTitle || '', title: entry.title, description: entry.description || '', reward: String(entry.reward), coins: String(entry.coins), startDate: entry.startDate, bonusThresholdPct: entry.bonusThresholdPct ? String(entry.bonusThresholdPct) : '', bonusRewardType: entry.bonusRewardType || 'coins', bonusRewardAmount: entry.bonusRewardAmount ? String(entry.bonusRewardAmount) : '' });
     };
 
     const handleSaveMqEdit = () => {
@@ -231,8 +374,11 @@ export function AdminDashboard({
             title: mqEditForm.title.trim(),
             description: mqEditForm.description.trim() || undefined,
             reward: parseInt(mqEditForm.reward, 10) || 1000,
-            coins: parseInt(mqEditForm.coins, 10) || 100,
+            coins: Number(mqEditForm.coins) || 0,
             startDate: mqEditForm.startDate,
+            bonusThresholdPct: mqEditForm.bonusThresholdPct ? parseInt(mqEditForm.bonusThresholdPct, 10) : undefined,
+            bonusRewardType: mqEditForm.bonusThresholdPct ? mqEditForm.bonusRewardType : undefined,
+            bonusRewardAmount: mqEditForm.bonusRewardAmount ? parseInt(mqEditForm.bonusRewardAmount, 10) : undefined,
         } : e).sort((a, b) => a.startDate.localeCompare(b.startDate));
         updateGlobalSetting('MainQuestSchedule', JSON.stringify(updated));
         setMqEditId(null);
@@ -562,19 +708,22 @@ export function AdminDashboard({
     // 課程報名彈窗
     const [regModalCourse, setRegModalCourse] = React.useState<Course | null>(null);
 
-    type CourseFormState = { id: string; name: string; date: string; startTime: string; endTime: string; location: string; address: string; is_active: boolean; sort_order: number };
-    const emptyCourseForm: CourseFormState = { id: '', name: '', date: '', startTime: '', endTime: '', location: '', address: '', is_active: true, sort_order: 0 };
+    type CourseFormState = { id: string; name: string; date: string; startTime: string; endTime: string; location: string; address: string; is_active: boolean; sort_order: number; reward_exp: string; reward_coins: string };
+    const emptyCourseForm: CourseFormState = { id: '', name: '', date: '', startTime: '', endTime: '', location: '', address: '', is_active: true, sort_order: 0, reward_exp: '0', reward_coins: '0' };
     const [courseForm, setCourseForm] = React.useState<CourseFormState>(emptyCourseForm);
     const [editingCourseId, setEditingCourseId] = React.useState<string | null>(null);
     const [courseSubmitting, setCourseSubmitting] = React.useState(false);
     const [showCourseModal, setShowCourseModal] = React.useState(false);
     const [showMqModal, setShowMqModal] = React.useState(false);
     const [showTqModal, setShowTqModal] = React.useState(false);
+    const [showSpecialModal, setShowSpecialModal] = React.useState(false);
     const [tqFormTitle, setTqFormTitle] = React.useState('');
     const [tqFormSub, setTqFormSub] = React.useState('');
     const [tqFormDesc, setTqFormDesc] = React.useState('');
     const [tqFormReward, setTqFormReward] = React.useState('500');
     const [tqFormCoins, setTqFormCoins] = React.useState('');
+    const [tqFormStartDate, setTqFormStartDate] = React.useState('');
+    const [tqFormEndDate, setTqFormEndDate] = React.useState('');
 
     // ── 巔峰試煉管理 state ───────────────────────────────────
     const emptyPtForm = { title: '', description: '', date: '', time: '', location: '', max_participants: '' };
@@ -772,6 +921,8 @@ export function AdminDashboard({
             address: courseForm.address,
             is_active: courseForm.is_active,
             sort_order: Number(courseForm.sort_order),
+            reward_exp: parseInt(courseForm.reward_exp) || 0,
+            reward_coins: parseInt(courseForm.reward_coins) || 0,
         });
         await logAdminAction(courseForm.id ? 'course_update' : 'course_create', 'admin', courseForm.id, courseForm.name, { date: courseForm.date, time: courseForm.startTime && courseForm.endTime ? `${courseForm.startTime}–${courseForm.endTime}` : courseForm.startTime, location: courseForm.location });
         setCourseSubmitting(false);
@@ -782,7 +933,7 @@ export function AdminDashboard({
 
     const handleEditCourse = (c: Course) => {
         const [startTime = '', endTime = ''] = c.time.split('–');
-        setCourseForm({ id: c.id, name: c.name, date: c.date, startTime: startTime.trim(), endTime: endTime.trim(), location: c.location, address: c.address ?? '', is_active: c.is_active, sort_order: c.sort_order });
+        setCourseForm({ id: c.id, name: c.name, date: c.date, startTime: startTime.trim(), endTime: endTime.trim(), location: c.location, address: c.address ?? '', is_active: c.is_active, sort_order: c.sort_order, reward_exp: String(c.reward_exp ?? 0), reward_coins: String(c.reward_coins ?? 0) });
         setEditingCourseId(c.id);
         setShowCourseModal(true);
     };
@@ -1133,6 +1284,10 @@ export function AdminDashboard({
                                 ❤️ 傳愛分數終審（管理員）
                                 {reviewPendingCount > 0 && <span className="text-[10px] font-black text-white bg-red-500 px-2 py-0.5 rounded-full">{reviewPendingCount} 待審</span>}
                             </div>
+
+                            {/* W4 參數管理 */}
+                            <W4ConfigPanel systemSettings={systemSettings} updateGlobalSetting={updateGlobalSetting} />
+
                             <div className="bg-slate-900 border-2 border-pink-500/20 p-8 rounded-4xl shadow-xl space-y-4">
                                 {squadApprovedW4Apps.length === 0 ? (
                                     <p className="text-sm text-slate-500 text-center py-4">目前無待審核申請</p>
@@ -2726,7 +2881,7 @@ export function AdminDashboard({
                     <section className="space-y-6">
                         <div className="flex items-center gap-2 text-yellow-500 font-black text-sm uppercase tracking-widest">
                             <Calendar size={16} /> 主線任務管理
-                            <button onClick={() => { setMqFormEntry({ topicTitle: '', title: '', description: '', reward: '1000', coins: '100', startDate: '' }); setShowMqModal(true); }}
+                            <button onClick={() => { setMqFormEntry({ topicTitle: '', title: '', description: '', reward: '1000', coins: '0', startDate: '', bonusThresholdPct: '', bonusRewardType: 'coins', bonusRewardAmount: '' }); setShowMqModal(true); }}
                                 className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-black rounded-xl transition-colors">
                                 <Plus size={13} /> 新增排程
                             </button>
@@ -2737,7 +2892,7 @@ export function AdminDashboard({
                             <div className="space-y-2">
                                 <p className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">⚔️ 當前主線任務（唯讀）</p>
                                 {activeMqEntry ? (
-                                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 space-y-1">
+                                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 space-y-2">
                                         {activeMqEntry.topicTitle && (
                                             <p className="text-xs font-black text-yellow-400 uppercase tracking-widest">{activeMqEntry.topicTitle}</p>
                                         )}
@@ -2748,6 +2903,14 @@ export function AdminDashboard({
                                         <p className="text-[10px] text-slate-500 pt-1">
                                             開始：{activeMqEntry.startDate}　·　+{activeMqEntry.reward} 修為　·　+{activeMqEntry.coins} 🪙
                                         </p>
+                                        {activeMqEntry.bonusThresholdPct && activeMqEntry.bonusRewardAmount && (
+                                            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mt-2 space-y-2">
+                                                <p className="text-[10px] text-amber-400 font-bold">
+                                                    🎁 額外獎勵：全員 {activeMqEntry.bonusThresholdPct}% 達成 → 每人 +{activeMqEntry.bonusRewardAmount} {activeMqEntry.bonusRewardType === 'exp' ? '修為' : '金幣'}
+                                                </p>
+                                                <MqBonusSettleButton entry={activeMqEntry} />
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-sm text-slate-500 italic">尚無進行中的主線任務</p>
@@ -2822,6 +2985,26 @@ export function AdminDashboard({
                                                                     onChange={e => setMqEditForm(f => ({ ...f, startDate: e.target.value }))}
                                                                     className="col-span-2 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-yellow-500" />
                                                             </div>
+                                                            {/* 額外獎勵 */}
+                                                            <div className="bg-amber-950/20 border border-amber-500/20 rounded-xl p-3 space-y-2">
+                                                                <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest">🎁 額外獎勵</p>
+                                                                <div className="grid grid-cols-3 gap-2">
+                                                                    <input type="number" min={1} max={100} placeholder="達成率%"
+                                                                        value={mqEditForm.bonusThresholdPct}
+                                                                        onChange={e => setMqEditForm(f => ({ ...f, bonusThresholdPct: e.target.value }))}
+                                                                        className="bg-slate-900 border border-amber-500/30 rounded-xl px-2 py-2 text-white text-xs text-center outline-none focus:border-amber-500" />
+                                                                    <select value={mqEditForm.bonusRewardType}
+                                                                        onChange={e => setMqEditForm(f => ({ ...f, bonusRewardType: e.target.value as 'coins' | 'exp' }))}
+                                                                        className="bg-slate-900 border border-amber-500/30 rounded-xl px-2 py-2 text-white text-xs outline-none focus:border-amber-500">
+                                                                        <option value="coins">🪙 金幣</option>
+                                                                        <option value="exp">✨ 修為</option>
+                                                                    </select>
+                                                                    <input type="number" min={1} placeholder="數量"
+                                                                        value={mqEditForm.bonusRewardAmount}
+                                                                        onChange={e => setMqEditForm(f => ({ ...f, bonusRewardAmount: e.target.value }))}
+                                                                        className="bg-slate-900 border border-amber-500/30 rounded-xl px-2 py-2 text-white text-xs text-center outline-none focus:border-amber-500" />
+                                                                </div>
+                                                            </div>
                                                             <div className="flex gap-2">
                                                                 <button onClick={() => setMqEditId(null)}
                                                                     className="flex-1 py-2 rounded-xl text-xs font-black text-slate-400 bg-slate-800 hover:bg-slate-700 transition-colors">
@@ -2862,20 +3045,8 @@ export function AdminDashboard({
                         </div>
                     </section>
 
-                    {/* ── 動態難度與共業系統 ── */}
-                    <section className="space-y-6">
-                        <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest"><Settings size={16} /> 動態難度與共業系統 (DDA)</div>
-                        <div className="bg-slate-900 border-2 border-slate-800 p-8 rounded-4xl space-y-6 shadow-xl text-center">
-                            <div className="space-y-2">
-                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">目前共業狀態</p>
-                                <p className="text-xl font-bold text-white">{systemSettings.WorldState || 'normal'}</p>
-                                <p className="text-xs text-slate-400 mt-2">{systemSettings.WorldStateMsg || '環境保持平衡。'}</p>
-                            </div>
-                            <button onClick={onTriggerSnapshot} className="w-full bg-blue-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-blue-500 transition-colors">🔄 執行每週業力結算 (Weekly Snapshot)</button>
-                            <button onClick={onCheckW3Compliance} className="w-full bg-red-700 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-red-600 transition-colors">⚖️ 執行 w3 週罰款結算（未完成者 +NT$200）</button>
-                            <button onClick={onAutoDrawAllSquads} className="w-full bg-indigo-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-indigo-500 transition-colors">🎲 全服自動抽籤（為未抽小隊代選本週定課）</button>
-                        </div>
-                    </section>
+                    {/* ── 副本任務管理 ── */}
+                    <BonusQuestConfigSection systemSettings={systemSettings} updateGlobalSetting={updateGlobalSetting} />
 
                     <section className="space-y-6">
                         <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest">
@@ -2887,7 +3058,7 @@ export function AdminDashboard({
                         </div>
                         <div className="bg-slate-900 border-2 border-slate-800 p-8 rounded-4xl space-y-6 shadow-xl">
                             <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
-                                {temporaryQuests.map(tq => {
+                                {temporaryQuests.filter(tq => tq.category !== 'special').map(tq => {
                                     const isEditing = tqEditId === tq.id;
                                     return (
                                         <div key={tq.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
@@ -2904,6 +3075,11 @@ export function AdminDashboard({
                                                     </div>
                                                     {tq.sub && <p className="text-xs text-orange-400 font-bold mt-1">{tq.sub}</p>}
                                                     {tq.desc && <p className="text-xs text-slate-500 mt-0.5">{tq.desc}</p>}
+                                                    {(tq.start_date || tq.end_date) && (
+                                                        <p className="text-[10px] text-indigo-400 mt-1">
+                                                            {tq.start_date && `${tq.start_date} 起`}{tq.start_date && tq.end_date && ' ~ '}{tq.end_date && `${tq.end_date} 止`}
+                                                        </p>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <button onClick={() => onToggleTempQuest(tq.id, !tq.active)}
@@ -2915,8 +3091,13 @@ export function AdminDashboard({
                                                             setTqEditId(null);
                                                         } else {
                                                             setTqEditId(tq.id);
+                                                            setTqEditTitle(tq.title);
+                                                            setTqEditSub(tq.sub || '');
+                                                            setTqEditDesc(tq.desc || '');
                                                             setTqEditReward(String(tq.reward));
                                                             setTqEditCoins(tq.coins !== undefined ? String(tq.coins) : '');
+                                                            setTqEditStartDate(tq.start_date || '');
+                                                            setTqEditEndDate(tq.end_date || '');
                                                         }
                                                     }} className={`p-2 rounded-xl transition-colors ${isEditing ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-800 text-slate-400 hover:text-orange-400'}`}>
                                                         <Pencil size={14} />
@@ -2925,22 +3106,63 @@ export function AdminDashboard({
                                                 </div>
                                             </div>
                                             {isEditing && (
-                                                <div className="flex gap-3 items-end border-t border-slate-800 pt-3">
-                                                    <div className="space-y-1 flex-1">
-                                                        <label className="text-[10px] text-slate-500 font-bold">修為</label>
-                                                        <input type="number" value={tqEditReward} onChange={e => setTqEditReward(e.target.value)}
-                                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-orange-500 text-sm" />
+                                                <div className="border-t border-slate-800 pt-3 space-y-3">
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] text-slate-500 font-bold">主標題</label>
+                                                        <input value={tqEditTitle} onChange={e => setTqEditTitle(e.target.value)}
+                                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-orange-500 text-sm" />
                                                     </div>
-                                                    <div className="space-y-1 flex-1">
-                                                        <label className="text-[10px] text-slate-500 font-bold">金幣（空白 = × 10%）</label>
-                                                        <input type="number" value={tqEditCoins} onChange={e => setTqEditCoins(e.target.value)}
-                                                            placeholder="自動" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-orange-500 text-sm" />
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] text-slate-500 font-bold">副標題</label>
+                                                            <input value={tqEditSub} onChange={e => setTqEditSub(e.target.value)}
+                                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-orange-500 text-sm" />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] text-slate-500 font-bold">說明</label>
+                                                            <input value={tqEditDesc} onChange={e => setTqEditDesc(e.target.value)}
+                                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-orange-500 text-sm" />
+                                                        </div>
                                                     </div>
-                                                    <button onClick={() => {
+                                                    <div className="flex gap-3 items-end">
+                                                        <div className="space-y-1 flex-1">
+                                                            <label className="text-[10px] text-slate-500 font-bold">修為</label>
+                                                            <input type="number" value={tqEditReward} onChange={e => setTqEditReward(e.target.value)}
+                                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-orange-500 text-sm" />
+                                                        </div>
+                                                        <div className="space-y-1 flex-1">
+                                                            <label className="text-[10px] text-slate-500 font-bold">金幣（空白 = × 10%）</label>
+                                                            <input type="number" value={tqEditCoins} onChange={e => setTqEditCoins(e.target.value)}
+                                                                placeholder="自動" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-orange-500 text-sm" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-3 items-end">
+                                                        <div className="space-y-1 flex-1">
+                                                            <label className="text-[10px] text-slate-500 font-bold">開始日期</label>
+                                                            <input type="date" value={tqEditStartDate} onChange={e => setTqEditStartDate(e.target.value)}
+                                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-orange-500 text-sm" />
+                                                        </div>
+                                                        <div className="space-y-1 flex-1">
+                                                            <label className="text-[10px] text-slate-500 font-bold">結束日期</label>
+                                                            <input type="date" value={tqEditEndDate} onChange={e => setTqEditEndDate(e.target.value)}
+                                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-orange-500 text-sm" />
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={async () => {
                                                         const r = parseInt(tqEditReward, 10);
                                                         const c = tqEditCoins.trim() ? parseInt(tqEditCoins, 10) : null;
-                                                        if (r > 0) { onUpdateTempQuest(tq.id, r, c); setTqEditId(null); }
-                                                    }} className="flex items-center gap-1 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2.5 rounded-xl font-black text-xs transition-colors">
+                                                        if (r > 0) {
+                                                            const { createClient } = await import('@supabase/supabase-js');
+                                                            const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+                                                            await sb.from('temporaryquests').update({
+                                                                title: tqEditTitle, sub: tqEditSub, desc: tqEditDesc, reward: r, coins: c,
+                                                                start_date: tqEditStartDate || null,
+                                                                end_date: tqEditEndDate || null,
+                                                            }).eq('id', tq.id);
+                                                            onUpdateTempQuest(tq.id, r, c);
+                                                            setTqEditId(null);
+                                                        }
+                                                    }} className="w-full flex items-center justify-center gap-1 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2.5 rounded-xl font-black text-xs transition-colors">
                                                         <Save size={13} /> 儲存
                                                     </button>
                                                 </div>
@@ -2949,6 +3171,148 @@ export function AdminDashboard({
                                     );
                                 })}
                             </div>
+                        </div>
+                    </section>
+
+                    {/* ── 特殊任務管理 ── */}
+                    <section className="space-y-6">
+                        <div className="flex items-center gap-2 text-purple-400 font-black text-sm uppercase tracking-widest">
+                            <Settings size={16} /> 特殊任務管理
+                            <button onClick={() => {
+                                setTqFormTitle(''); setTqFormSub(''); setTqFormDesc(''); setTqFormReward('500'); setTqFormCoins(''); setTqFormStartDate(''); setTqFormEndDate('');
+                                setShowSpecialModal(true);
+                            }}
+                                className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black rounded-xl transition-colors">
+                                <Plus size={13} /> 新增任務
+                            </button>
+                        </div>
+                        <div className="bg-slate-900 border-2 border-purple-500/20 p-8 rounded-4xl space-y-6 shadow-xl">
+                            <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
+                                {temporaryQuests.filter(tq => tq.category === 'special').length === 0 && (
+                                    <p className="text-sm text-slate-500 text-center py-4">尚無特殊任務</p>
+                                )}
+                                {temporaryQuests.filter(tq => tq.category === 'special').map(tq => {
+                                    const isEditing = tqEditId === tq.id;
+                                    return (
+                                    <div key={tq.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                                        <div className="flex justify-between items-start gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h4 className="font-bold text-slate-200">{tq.title}</h4>
+                                                    <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-lg">+{tq.reward} 修為</span>
+                                                    <span className="text-[10px] font-black text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-lg">+{tq.coins ?? Math.floor(tq.reward * 0.1)} 🪙</span>
+                                                </div>
+                                                {tq.sub && <p className="text-xs text-purple-400 font-bold mt-1">{tq.sub}</p>}
+                                                {tq.desc && <p className="text-xs text-slate-500 mt-0.5">{tq.desc}</p>}
+                                                {(tq.start_date || tq.end_date) && (
+                                                    <p className="text-[10px] text-indigo-400 mt-1">
+                                                        {tq.start_date && `${tq.start_date} 起`}{tq.start_date && tq.end_date && ' ~ '}{tq.end_date && `${tq.end_date} 止`}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <button onClick={() => onToggleTempQuest(tq.id, !tq.active)}
+                                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${tq.active ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-600/50' : 'bg-slate-800 text-slate-400'}`}>
+                                                    {tq.active ? '🟢 啟用' : '🔴 暫停'}
+                                                </button>
+                                                <button onClick={() => {
+                                                    if (isEditing) { setTqEditId(null); } else {
+                                                        setTqEditId(tq.id);
+                                                        setTqEditTitle(tq.title);
+                                                        setTqEditSub(tq.sub || '');
+                                                        setTqEditDesc(tq.desc || '');
+                                                        setTqEditReward(String(tq.reward));
+                                                        setTqEditCoins(tq.coins !== undefined ? String(tq.coins) : '');
+                                                        setTqEditStartDate(tq.start_date || '');
+                                                        setTqEditEndDate(tq.end_date || '');
+                                                    }
+                                                }} className={`p-2 rounded-xl transition-colors ${isEditing ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-400 hover:text-purple-400'}`}>
+                                                    <Pencil size={14} />
+                                                </button>
+                                                <button onClick={() => { if (confirm(`確定刪除特殊任務「${tq.title}」？`)) onDeleteTempQuest(tq.id); }} className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-colors"><X size={14} /></button>
+                                            </div>
+                                        </div>
+                                        {isEditing && (
+                                            <div className="border-t border-slate-800 pt-3 space-y-3">
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] text-slate-500 font-bold">主標題</label>
+                                                    <input value={tqEditTitle} onChange={e => setTqEditTitle(e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-purple-500 text-sm" />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] text-slate-500 font-bold">副標題</label>
+                                                        <input value={tqEditSub} onChange={e => setTqEditSub(e.target.value)}
+                                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-purple-500 text-sm" />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] text-slate-500 font-bold">說明</label>
+                                                        <input value={tqEditDesc} onChange={e => setTqEditDesc(e.target.value)}
+                                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-purple-500 text-sm" />
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-3 items-end">
+                                                    <div className="space-y-1 flex-1">
+                                                        <label className="text-[10px] text-slate-500 font-bold">修為</label>
+                                                        <input type="number" value={tqEditReward} onChange={e => setTqEditReward(e.target.value)}
+                                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-purple-500 text-sm" />
+                                                    </div>
+                                                    <div className="space-y-1 flex-1">
+                                                        <label className="text-[10px] text-slate-500 font-bold">金幣（空白 = × 10%）</label>
+                                                        <input type="number" value={tqEditCoins} onChange={e => setTqEditCoins(e.target.value)}
+                                                            placeholder="自動" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-purple-500 text-sm" />
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-3 items-end">
+                                                    <div className="space-y-1 flex-1">
+                                                        <label className="text-[10px] text-slate-500 font-bold">開始日期</label>
+                                                        <input type="date" value={tqEditStartDate} onChange={e => setTqEditStartDate(e.target.value)}
+                                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-purple-500 text-sm" />
+                                                    </div>
+                                                    <div className="space-y-1 flex-1">
+                                                        <label className="text-[10px] text-slate-500 font-bold">結束日期</label>
+                                                        <input type="date" value={tqEditEndDate} onChange={e => setTqEditEndDate(e.target.value)}
+                                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-bold outline-none focus:border-purple-500 text-sm" />
+                                                    </div>
+                                                </div>
+                                                <button onClick={async () => {
+                                                    const r = parseInt(tqEditReward, 10);
+                                                    const c = tqEditCoins.trim() ? parseInt(tqEditCoins, 10) : null;
+                                                    if (r > 0) {
+                                                        const { createClient } = await import('@supabase/supabase-js');
+                                                        const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+                                                        await sb.from('temporaryquests').update({
+                                                            title: tqEditTitle, sub: tqEditSub, desc: tqEditDesc, reward: r, coins: c,
+                                                            start_date: tqEditStartDate || null,
+                                                            end_date: tqEditEndDate || null,
+                                                        }).eq('id', tq.id);
+                                                        onUpdateTempQuest(tq.id, r, c);
+                                                        setTqEditId(null);
+                                                    }
+                                                }} className="w-full flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl font-black text-xs transition-colors">
+                                                    <Save size={13} /> 儲存
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* ── 動態難度與共業系統 ── */}
+                    <section className="space-y-6">
+                        <div className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-widest"><Settings size={16} /> 動態難度與共業系統 (DDA)</div>
+                        <div className="bg-slate-900 border-2 border-slate-800 p-8 rounded-4xl space-y-6 shadow-xl text-center">
+                            <div className="space-y-2">
+                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">目前共業狀態</p>
+                                <p className="text-xl font-bold text-white">{systemSettings.WorldState || 'normal'}</p>
+                                <p className="text-xs text-slate-400 mt-2">{systemSettings.WorldStateMsg || '環境保持平衡。'}</p>
+                            </div>
+                            <button onClick={onTriggerSnapshot} className="w-full bg-blue-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-blue-500 transition-colors">🔄 執行每週業力結算 (Weekly Snapshot)</button>
+                            <button onClick={onCheckW3Compliance} className="w-full bg-red-700 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-red-600 transition-colors">⚖️ 執行 w3 週罰款結算（未完成者 +NT$200）</button>
+                            <button onClick={onAutoDrawAllSquads} className="w-full bg-indigo-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-indigo-500 transition-colors">🎲 全服自動抽籤（為未抽小隊代選本週定課）</button>
                         </div>
                     </section>
 
@@ -3085,8 +3449,8 @@ export function AdminDashboard({
                 {/* ══ 參數管理模組 ══ */}
                 {adminModule === 'params' && (<>
                     <BasicParamsSection systemSettings={systemSettings} updateGlobalSetting={updateGlobalSetting} />
+                    <LevelConfigSection />
                     <DailyQuestConfigSection />
-                    <BonusQuestConfigSection systemSettings={systemSettings} updateGlobalSetting={updateGlobalSetting} />
                     <ArtifactConfigSection />
                     <AchievementConfigSection />
                     <RoleConfigSection />
@@ -3246,6 +3610,23 @@ export function AdminDashboard({
                                     onChange={e => setCourseForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
                                     className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-amber-500" />
                             </div>
+                            <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 space-y-3">
+                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">🎁 報到完成獎勵（報名＋掃碼報到後自動發放）</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] text-emerald-400/70 font-bold">修為獎勵</label>
+                                        <input type="number" min={0} value={courseForm.reward_exp}
+                                            onChange={e => setCourseForm(f => ({ ...f, reward_exp: e.target.value }))}
+                                            className="w-full bg-slate-950 border border-emerald-500/30 rounded-xl p-3 text-white font-bold text-center outline-none focus:border-emerald-500 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] text-emerald-400/70 font-bold">金幣獎勵</label>
+                                        <input type="number" min={0} value={courseForm.reward_coins}
+                                            onChange={e => setCourseForm(f => ({ ...f, reward_coins: e.target.value }))}
+                                            className="w-full bg-slate-950 border border-emerald-500/30 rounded-xl p-3 text-white font-bold text-center outline-none focus:border-yellow-500 text-sm" />
+                                    </div>
+                                </div>
+                            </div>
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => { setShowCourseModal(false); setCourseForm(emptyCourseForm); setEditingCourseId(null); }}
                                     className="px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl font-black text-sm">取消</button>
@@ -3304,6 +3685,37 @@ export function AdminDashboard({
                                 <input type="date" value={mqFormEntry.startDate} onChange={e => setMqFormEntry(p => ({ ...p, startDate: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm [color-scheme:dark]" />
                             </div>
+                            {/* 額外獎勵設定 */}
+                            <div className="bg-amber-950/20 border border-amber-500/20 rounded-2xl p-4 space-y-3">
+                                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">🎁 額外獎勵設定（選填）</p>
+                                <p className="text-[10px] text-slate-500">若全員達成率（四捨五入）達標，每位達成者額外獲得獎勵。</p>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] text-amber-400/70 font-bold">達成率門檻 %</label>
+                                        <input type="number" min={1} max={100} placeholder="如 80"
+                                            value={mqFormEntry.bonusThresholdPct}
+                                            onChange={e => setMqFormEntry(p => ({ ...p, bonusThresholdPct: e.target.value }))}
+                                            className="w-full bg-slate-950 border border-amber-500/30 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-amber-500 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] text-amber-400/70 font-bold">獎勵類型</label>
+                                        <select value={mqFormEntry.bonusRewardType}
+                                            onChange={e => setMqFormEntry(p => ({ ...p, bonusRewardType: e.target.value as 'coins' | 'exp' }))}
+                                            className="w-full bg-slate-950 border border-amber-500/30 rounded-xl p-2.5 text-white font-bold outline-none focus:border-amber-500 text-sm">
+                                            <option value="coins">🪙 金幣</option>
+                                            <option value="exp">✨ 修為</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] text-amber-400/70 font-bold">獎勵數量</label>
+                                        <input type="number" min={1} placeholder="如 50"
+                                            value={mqFormEntry.bonusRewardAmount}
+                                            onChange={e => setMqFormEntry(p => ({ ...p, bonusRewardAmount: e.target.value }))}
+                                            className="w-full bg-slate-950 border border-amber-500/30 rounded-xl p-2.5 text-white font-bold text-center outline-none focus:border-amber-500 text-sm" />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="flex gap-3">
                                 <button onClick={() => setShowMqModal(false)}
                                     className="px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl font-black text-sm">取消</button>
@@ -3359,6 +3771,18 @@ export function AdminDashboard({
                                         placeholder="自動" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold text-center outline-none focus:border-orange-500" />
                                 </div>
                             </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">開始日期（選填）</label>
+                                    <input type="date" value={tqFormStartDate} onChange={e => setTqFormStartDate(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-orange-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">結束日期（選填）</label>
+                                    <input type="date" value={tqFormEndDate} onChange={e => setTqFormEndDate(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-orange-500" />
+                                </div>
+                            </div>
                             <div className="flex gap-3">
                                 <button onClick={() => setShowTqModal(false)}
                                     className="px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl font-black text-sm">取消</button>
@@ -3368,11 +3792,83 @@ export function AdminDashboard({
                                         const reward = parseInt(tqFormReward, 10);
                                         const coins = tqFormCoins.trim() ? parseInt(tqFormCoins, 10) : undefined;
                                         if (tqFormTitle && tqFormSub && reward) {
-                                            onAddTempQuest(tqFormTitle, tqFormSub, tqFormDesc, reward, coins);
+                                            onAddTempQuest(tqFormTitle, tqFormSub, tqFormDesc, reward, coins, tqFormStartDate || undefined, tqFormEndDate || undefined);
                                             setShowTqModal(false);
                                         }
                                     }}
                                     className="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white p-4 rounded-2xl font-black shadow-lg transition-colors">
+                                    ➕ 新增
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── 特殊任務彈窗 ── */}
+            {showSpecialModal && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+                    <div className="w-full max-w-lg bg-slate-900 border-2 border-purple-500/30 rounded-4xl shadow-2xl my-4">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                            <p className="font-black text-white text-base">➕ 新增特殊任務</p>
+                            <button onClick={() => setShowSpecialModal(false)} className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors"><X size={16} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="space-y-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">主標題</label>
+                                    <input value={tqFormTitle} onChange={e => setTqFormTitle(e.target.value)}
+                                        required placeholder="任務名稱" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-purple-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">副標題<span className="text-red-400 ml-1">*</span></label>
+                                    <input value={tqFormSub} onChange={e => setTqFormSub(e.target.value)}
+                                        required placeholder="例：特殊活動說明" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-purple-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">任務說明（選填）</label>
+                                    <input value={tqFormDesc} onChange={e => setTqFormDesc(e.target.value)}
+                                        placeholder="詳細描述" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-purple-500" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">修為</label>
+                                    <input type="number" value={tqFormReward} onChange={e => setTqFormReward(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold text-center outline-none focus:border-purple-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">金幣（空白 = × 10%）</label>
+                                    <input type="number" value={tqFormCoins} onChange={e => setTqFormCoins(e.target.value)}
+                                        placeholder="自動" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold text-center outline-none focus:border-purple-500" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">開始日期（選填）</label>
+                                    <input type="date" value={tqFormStartDate} onChange={e => setTqFormStartDate(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-purple-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 font-bold">結束日期（選填）</label>
+                                    <input type="date" value={tqFormEndDate} onChange={e => setTqFormEndDate(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white font-bold outline-none focus:border-purple-500" />
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowSpecialModal(false)}
+                                    className="px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl font-black text-sm">取消</button>
+                                <button
+                                    disabled={!tqFormTitle.trim() || !tqFormSub.trim() || !tqFormReward}
+                                    onClick={() => {
+                                        const reward = parseInt(tqFormReward, 10);
+                                        const coins = tqFormCoins.trim() ? parseInt(tqFormCoins, 10) : undefined;
+                                        if (tqFormTitle && tqFormSub && reward) {
+                                            onAddTempQuest(tqFormTitle, tqFormSub, tqFormDesc, reward, coins, tqFormStartDate || undefined, tqFormEndDate || undefined, 'special');
+                                            setShowSpecialModal(false);
+                                        }
+                                    }}
+                                    className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white p-4 rounded-2xl font-black shadow-lg transition-colors">
                                     ➕ 新增
                                 </button>
                             </div>

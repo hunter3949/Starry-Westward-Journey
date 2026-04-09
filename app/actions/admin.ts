@@ -603,6 +603,7 @@ export interface ArtifactConfigRow {
     exp_multiplier_team: number | null;
     exp_bonus_personal: number | null;
     exp_bonus_team: number | null;
+    applies_to: string[] | null;  // ["all"], ["q1","q1_dawn"], ["prefix:t"] etc.
     is_active: boolean;
     sort_order: number;
     created_at: string;
@@ -923,4 +924,181 @@ export async function getDashboardStats(): Promise<{
         success: true, total, active, fallen,
         fallenUsers: fallenList.map(u => ({ name: u.Name, teamName: u.BigTeamLeagelName ?? null, squadName: u.LittleTeamLeagelName ?? null })),
     };
+}
+
+// ── 主線任務額外獎勵結算 ────────────────────────────────────────────────
+export async function settleMainQuestBonus(
+    entryId: string,
+    thresholdPct: number,
+    rewardType: 'coins' | 'exp',
+    rewardAmount: number,
+    startDate: string,
+    actor: string = 'admin'
+): Promise<{
+    success: boolean;
+    error?: string;
+    totalMembers?: number;
+    achievedCount?: number;
+    achievedPct?: number;
+    rewardedCount?: number;
+    rewardedNames?: string[];
+    squadResults?: { squad: string; members: number; achieved: number; pct: number; passed: boolean }[];
+}> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+
+    // 參數防護
+    if (thresholdPct < 1 || thresholdPct > 100) return { success: false, error: '門檻必須在 1-100% 之間' };
+    if (rewardAmount <= 0) return { success: false, error: '獎勵數量必須大於 0' };
+    if (rewardType !== 'coins' && rewardType !== 'exp') rewardType = 'coins';
+
+    // 冪等保護：檢查是否已結算過
+    const { data: existingLog } = await supabase
+        .from('AdminActivityLog')
+        .select('id')
+        .eq('action', 'main_quest_bonus_settle')
+        .eq('target_id', entryId)
+        .limit(1);
+    if (existingLog && existingLog.length > 0) {
+        return { success: false, error: '此主線任務已結算過額外獎勵，不可重複執行。' };
+    }
+
+    // 1. 取得所有活躍成員（含小隊名稱），排除無小隊的散戶
+    const { data: allUsers, error: usersErr } = await supabase
+        .from('CharacterStats')
+        .select('UserID, Name, LittleTeamLeagelName')
+        .not('Role', 'is', null)
+        .not('LittleTeamLeagelName', 'is', null);
+    if (usersErr || !allUsers) return { success: false, error: usersErr?.message ?? '無法讀取用戶' };
+
+    // 2. 查詢在 startDate 之後有 t1 打卡紀錄的用戶
+    const { data: logs, error: logsErr } = await supabase
+        .from('DailyLogs')
+        .select('UserID')
+        .eq('QuestID', 't1')
+        .gte('Timestamp', `${startDate}T00:00:00`);
+    if (logsErr) return { success: false, error: logsErr.message };
+
+    const achievedUserIds = new Set((logs ?? []).map(l => l.UserID));
+
+    // 3. 按小隊分組，計算每隊達成率
+    const squads = new Map<string, { members: typeof allUsers; achieved: typeof allUsers }>();
+    for (const u of allUsers) {
+        const squad = u.LittleTeamLeagelName!;
+        if (!squads.has(squad)) squads.set(squad, { members: [], achieved: [] });
+        const entry = squads.get(squad)!;
+        entry.members.push(u);
+        if (achievedUserIds.has(u.UserID)) entry.achieved.push(u);
+    }
+
+    // 4. 對達標小隊的達成者發放獎勵
+    const rewardedNames: string[] = [];
+    const field = rewardType === 'coins' ? 'Coins' : 'Exp';
+    let totalMembers = 0;
+    let totalAchieved = 0;
+
+    for (const [, squad] of squads) {
+        totalMembers += squad.members.length;
+        totalAchieved += squad.achieved.length;
+        const squadPct = Math.round((squad.achieved.length / squad.members.length) * 100);
+        if (squadPct < thresholdPct) continue; // 此小隊未達標
+
+        // 該小隊達標 → 發獎給小隊內的達成者
+        for (const user of squad.achieved) {
+            const { data: current } = await supabase
+                .from('CharacterStats')
+                .select(field)
+                .eq('UserID', user.UserID)
+                .single();
+            if (current) {
+                const newVal = ((current as any)[field] || 0) + rewardAmount;
+                await supabase
+                    .from('CharacterStats')
+                    .update({ [field]: newVal })
+                    .eq('UserID', user.UserID);
+                rewardedNames.push(user.Name);
+                // Transaction log
+                const { writeTransactionLog } = await import('./txlog');
+                await writeTransactionLog(user.UserID, 'bonus_settle', '主線任務額外獎勵',
+                    rewardType === 'exp' ? rewardAmount : 0,
+                    rewardType === 'coins' ? rewardAmount : 0,
+                    { entryId });
+            }
+        }
+    }
+
+    const achievedCount = totalAchieved;
+    const achievedPct = totalMembers > 0 ? Math.round((achievedCount / totalMembers) * 100) : 0;
+
+    const squadResults = [...squads.entries()]
+        .map(([name, sq]) => ({
+            squad: name,
+            members: sq.members.length,
+            achieved: sq.achieved.length,
+            pct: Math.round((sq.achieved.length / sq.members.length) * 100),
+            passed: Math.round((sq.achieved.length / sq.members.length) * 100) >= thresholdPct,
+        }))
+        .sort((a, b) => b.pct - a.pct);
+
+    await logAdminAction('main_quest_bonus_settle', actor, entryId, undefined, {
+        thresholdPct, rewardType, rewardAmount,
+        totalMembers, achievedCount, achievedPct,
+        rewardedCount: rewardedNames.length,
+        squadResults,
+    });
+
+    return {
+        success: true,
+        totalMembers,
+        achievedCount,
+        achievedPct,
+        rewardedCount: rewardedNames.length,
+        rewardedNames,
+        squadResults,
+    };
+}
+
+// ── 等級門檻管理 ────────────────────────────────────────────────────────
+
+export interface LevelConfigRow {
+    level: number;
+    exp_required: number;
+}
+
+export async function listLevelConfig(): Promise<LevelConfigRow[]> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { data } = await supabase
+        .from('LevelConfig')
+        .select('level, exp_required')
+        .order('level', { ascending: true });
+    return (data ?? []) as LevelConfigRow[];
+}
+
+export async function updateLevelConfig(level: number, expRequired: number): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    const { error } = await supabase
+        .from('LevelConfig')
+        .update({ exp_required: expRequired })
+        .eq('level', level);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+export async function batchUpdateLevelConfig(rows: LevelConfigRow[]): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    for (const row of rows) {
+        const { error } = await supabase
+            .from('LevelConfig')
+            .update({ exp_required: row.exp_required })
+            .eq('level', row.level);
+        if (error) return { success: false, error: `Lv.${row.level}: ${error.message}` };
+    }
+    return { success: true };
+}
+
+export async function resetLevelConfigToDefault(): Promise<{ success: boolean }> {
+    const supabase = createClient(_supabaseUrl, _supabaseKey);
+    for (let lv = 1; lv <= 99; lv++) {
+        await supabase.from('LevelConfig').update({ exp_required: lv * 5 + 480 }).eq('level', lv);
+    }
+    return { success: true };
 }

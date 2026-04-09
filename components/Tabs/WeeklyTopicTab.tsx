@@ -1,7 +1,29 @@
 import { useState } from 'react';
-import { Quest, DailyLog, SystemSettings, TemporaryQuest, W4Application, WeeklyReview } from '@/types';
+import { Quest, DailyLog, SystemSettings, TemporaryQuest, W4Application, WeeklyReview, MainQuestEntry } from '@/types';
 import { WEEKLY_QUEST_CONFIG } from '@/lib/constants';
 import { getLogicalDateStr } from '@/lib/utils/time';
+
+// 從 BonusQuestConfig 讀取副本列表，轉換為 Quest[]。fallback 到 WEEKLY_QUEST_CONFIG 常數
+function loadBonusQuests(bonusConfigJson?: string): Quest[] {
+    if (!bonusConfigJson) return WEEKLY_QUEST_CONFIG;
+    try {
+        const rules: any[] = JSON.parse(bonusConfigJson);
+        if (rules.length === 0) return WEEKLY_QUEST_CONFIG;
+        return rules
+            .filter((r: any) => r.active !== false)
+            .map((r: any) => ({
+                id: r.id,
+                title: r.label || r.title || '',
+                sub: r.sub || '',
+                reward: r.reward ?? 500,
+                coins: r.coins ?? undefined,
+                limit: r.limit ?? 1,
+                limitPeriod: r.limitPeriod || 'week',
+                icon: r.icon || undefined,
+                dice: 0,
+            }));
+    } catch { return WEEKLY_QUEST_CONFIG; }
+}
 
 interface WeeklyTopicTabProps {
     systemSettings: SystemSettings;
@@ -9,6 +31,7 @@ interface WeeklyTopicTabProps {
     currentWeeklyMonday: Date;
     isTopicDone: boolean;
     temporaryQuests: TemporaryQuest[];
+    specialQuests?: TemporaryQuest[];
     userInventory: string[];
     teamInventory?: string[];
     w4Applications: W4Application[];
@@ -27,11 +50,22 @@ const W4_STATUS_LABELS: Record<string, { label: string; color: string }> = {
     rejected:            { label: '🔴 已駁回', color: 'text-red-400' },
 };
 
-export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTopicDone, temporaryQuests, userInventory, teamInventory = [], w4Applications, weeklyReview, isLoadingReview, onCheckIn, onUndo, onSubmitW4 }: WeeklyTopicTabProps) {
+export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTopicDone, temporaryQuests, specialQuests = [], userInventory, teamInventory = [], w4Applications, weeklyReview, isLoadingReview, onCheckIn, onUndo, onSubmitW4 }: WeeklyTopicTabProps) {
+    const weeklyQuests = loadBonusQuests(systemSettings.BonusQuestConfig);
+    const w4Config = weeklyQuests.find((q: Quest) => q.id === 'w4');
+    const logicalTodayStr = getLogicalDateStr();
     const topicBaseReward = parseInt(systemSettings.TopicQuestReward || '1000', 10);
     const topicCoins = parseInt(systemSettings.TopicQuestCoins || '100', 10);
     // a4 (幌金繩)：t 開頭定課 ×1.5（與 quest.ts 伺服器邏輯一致）
     const topicExp = Math.ceil(topicBaseReward * (teamInventory.includes('a4') ? 1.5 : 1));
+
+    // 解析當前主線任務的額外獎勵設定（用邏輯日期以保持一致）
+    const activeMqEntry: MainQuestEntry | undefined = (() => {
+        try {
+            const schedule: MainQuestEntry[] = JSON.parse(systemSettings.MainQuestSchedule ?? '[]');
+            return [...schedule].filter(e => e.startDate <= logicalTodayStr).sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
+        } catch { return undefined; }
+    })();
 
     const [showW4Form, setShowW4Form] = useState(false);
     const [w4Target, setW4Target] = useState('');
@@ -95,45 +129,158 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                         <div className="text-xs font-bold text-yellow-400">+{topicCoins} 🪙</div>
                     </div>
                 </div>
+                {activeMqEntry?.bonusThresholdPct && activeMqEntry.bonusRewardAmount && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 mb-4 text-center">
+                        <p className="text-[11px] text-amber-400 font-bold">
+                            🎁 小隊 {activeMqEntry.bonusThresholdPct}% 達成 → 每位達成者額外 +{activeMqEntry.bonusRewardAmount} {activeMqEntry.bonusRewardType === 'exp' ? '修為' : '金幣'}
+                        </p>
+                    </div>
+                )}
                 <button
-                    onClick={() => !isTopicDone ? onCheckIn({ id: 't1', title: '主題親證', reward: topicBaseReward }) : onUndo({ id: 't1', title: '主題親證', reward: topicBaseReward })}
+                    onClick={() => !isTopicDone ? onCheckIn({ id: 't1', title: '主題親證', reward: topicBaseReward, coins: topicCoins }) : onUndo({ id: 't1', title: '主題親證', reward: topicBaseReward, coins: topicCoins })}
                     className={`w-full py-4 rounded-2xl font-black text-lg transition-all ${isTopicDone ? 'bg-emerald-600/20 text-emerald-400 shadow-inner' : 'bg-yellow-500 text-slate-950 shadow-lg active:scale-95'}`}>
                     {isTopicDone ? "本期已圓滿 (點擊回溯) ✓" : "回報主題修行"}
                 </button>
             </div>
 
-            {WEEKLY_QUEST_CONFIG.filter(q => q.id !== 'w4').map(q => {
-                const comps = logs.filter(l => l.QuestID.startsWith(q.id) && new Date(l.Timestamp) >= currentWeeklyMonday).length;
+            {/* 臨時加分任務（主題任務與副本之間） */}
+            {temporaryQuests.length > 0 && (
+                <div className="py-4 border-y-2 border-dashed border-slate-800 space-y-4">
+                    <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest text-center">⏳ 臨時加分任務</h3>
+                    {temporaryQuests.map(tq => {
+                        const today = logicalTodayStr;
+                        const inRange = (!tq.start_date || today >= tq.start_date) && (!tq.end_date || today <= tq.end_date);
+                        const doneLog = logs.find(l => l.QuestID.startsWith(tq.id));
+                        const isDone = !!doneLog;
+                        const doneDate = doneLog ? getLogicalDateStr(doneLog.Timestamp) : null;
+                        const canUndo = isDone && doneDate === today;
+                        if (!inRange && !isDone) return null;
+                        return (
+                            <div key={tq.id} className={`p-6 rounded-3xl bg-slate-900 border border-emerald-500/20 shadow-xl relative overflow-hidden ${isDone && !canUndo ? 'opacity-50 grayscale' : ''}`}>
+                                <div className="absolute top-0 right-0 bg-emerald-600/20 text-emerald-500 px-3 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest">
+                                    大會臨時發布
+                                </div>
+                                <div className="flex items-center gap-4 mb-4 mt-1">
+                                    <div className="text-4xl shrink-0">✨</div>
+                                    <div className="flex-1 text-left">
+                                        <h3 className="text-lg font-black text-white">{tq.title}</h3>
+                                        {tq.sub && <p className="text-xs text-orange-300 font-bold">{tq.sub}</p>}
+                                        {tq.desc && <p className="text-[11px] text-slate-400 italic">{tq.desc}</p>}
+                                    </div>
+                                    <div className="text-right bg-emerald-400/10 px-3 py-2 rounded-xl shrink-0">
+                                        <div className="text-sm font-black text-emerald-400">+{tq.reward} 修為</div>
+                                        <div className="text-xs font-bold text-yellow-400">+{tq.coins != null ? tq.coins : Math.floor(tq.reward * 0.1)} 🪙</div>
+                                    </div>
+                                </div>
+                                {(tq.start_date || tq.end_date) && (
+                                    <p className="text-[10px] text-slate-500 text-center mb-3">
+                                        {tq.start_date && `${tq.start_date} 起`}{tq.start_date && tq.end_date && ' ~ '}{tq.end_date && `${tq.end_date} 止`}
+                                    </p>
+                                )}
+                                {!isDone ? (
+                                    <button onClick={() => onCheckIn({ ...tq, id: `${tq.id}|${today}` })}
+                                        className="w-full py-3 rounded-2xl font-black text-base bg-emerald-600 text-white shadow-lg active:scale-95 transition-all">
+                                        回報完成
+                                    </button>
+                                ) : canUndo ? (
+                                    <button onClick={() => onUndo({ ...tq, id: `${tq.id}|${doneDate}` })}
+                                        className="w-full py-3 rounded-2xl font-black text-base bg-emerald-600/20 text-emerald-400 shadow-inner transition-all">
+                                        已完成 ✓（今日可回溯）
+                                    </button>
+                                ) : (
+                                    <div className="w-full py-3 rounded-2xl font-black text-base bg-slate-800 text-slate-500 text-center">
+                                        已完成 ✓
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {weeklyQuests.filter(q => q.id !== 'w4').map(q => {
+                const isMonthly = (q as any).limitPeriod === 'month';
+                const periodStart = isMonthly
+                    ? new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+                    : currentWeeklyMonday;
+                const comps = logs.filter(l => l.QuestID.startsWith(q.id) && new Date(l.Timestamp) >= periodStart).length;
                 const isMax = q.limit !== 99 && comps >= (q.limit || 0);
+
+                // 月上限：找出本月所有完成紀錄
+                const monthlyLogs = isMonthly
+                    ? logs.filter(l => l.QuestID.startsWith(q.id) && new Date(l.Timestamp) >= periodStart)
+                        .sort((a, b) => new Date(b.Timestamp).getTime() - new Date(a.Timestamp).getTime())
+                    : [];
+                const lastLog = monthlyLogs[0];
+                const lastLogDate = lastLog ? getLogicalDateStr(lastLog.Timestamp) : null;
+                const canUndoMonthly = lastLogDate === logicalTodayStr;
+
                 return (
                     <div key={q.id} className={`p-8 rounded-4xl bg-slate-900 border border-white/5 shadow-2xl ${isMax ? 'opacity-50 grayscale' : ''}`}>
-                        <div className="flex items-center gap-6 mb-8 text-left text-center justify-center mx-auto">
-                            <div className="text-6xl mx-auto">{q.icon}</div>
+                        <div className="flex items-center gap-6 mb-6 text-left text-center justify-center mx-auto">
+                            <div className="text-6xl mx-auto shrink-0">
+                                {q.icon && (q.icon.startsWith('http') || q.icon.startsWith('/'))
+                                    ? <img src={q.icon} alt="" className="w-16 h-16 rounded-2xl object-cover" />
+                                    : (q.icon || '📋')}
+                            </div>
                             <div className="flex-1 text-left">
                                 <h3 className="text-2xl font-black text-white">{q.title}</h3>
                                 <p className="text-sm text-slate-400 font-bold italic">{q.sub}</p>
                             </div>
                             <div className="text-right bg-blue-400/10 px-3 py-2 rounded-xl">
                                 <div className="text-sm font-black text-blue-400">+{q.reward} 修為</div>
-                                <div className="text-xs font-bold text-yellow-400">+{Math.floor(q.reward * 0.1)} 🪙</div>
+                                <div className="text-xs font-bold text-yellow-400">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 🪙</div>
                             </div>
                         </div>
-                        <div className="flex justify-between items-center px-2 mx-auto">
-                            {['一', '二', '三', '四', '五', '六', '日'].map((day, idx) => {
-                                const d = new Date();
-                                const currentDay = d.getDay() || 7;
-                                const diff = (idx + 1) - currentDay;
-                                d.setDate(d.getDate() + diff);
-                                const qId = `${q.id}|${getLogicalDateStr(d)}`;
-                                const isDone = logs.some(l => l.QuestID === qId);
-                                return (
-                                    <div key={idx} className="flex flex-col items-center gap-1.5">
-                                        <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{d.getMonth() + 1}/{d.getDate()}</span>
-                                        <button title={`${day}`} onClick={() => !isDone ? (!isMax && onCheckIn({ ...q, id: qId })) : onUndo({ ...q, id: qId })} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${isDone ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{day}</button>
+
+                        {isMonthly ? (
+                            /* 月上限副本：單一按鈕 + 完成紀錄 */
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between px-2">
+                                    <p className="text-xs text-slate-500 font-bold">本月已完成 {comps}/{q.limit} 次</p>
+                                    {lastLog && (
+                                        <p className="text-[10px] text-slate-600">
+                                            最近：{new Date(lastLog.Timestamp).toLocaleDateString('zh-TW')}
+                                        </p>
+                                    )}
+                                </div>
+                                {!isMax ? (
+                                    <button
+                                        onClick={() => onCheckIn({ ...q, id: `${q.id}|${logicalTodayStr}` })}
+                                        className="w-full py-4 rounded-2xl font-black text-lg bg-blue-600 text-white shadow-lg active:scale-95 transition-all">
+                                        回報完成
+                                    </button>
+                                ) : canUndoMonthly ? (
+                                    <button
+                                        onClick={() => onUndo({ ...q, id: `${q.id}|${lastLogDate}` })}
+                                        className="w-full py-4 rounded-2xl font-black text-lg bg-emerald-600/20 text-emerald-400 shadow-inner transition-all">
+                                        本月已達上限（今日可回溯）
+                                    </button>
+                                ) : (
+                                    <div className="w-full py-4 rounded-2xl font-black text-lg bg-slate-800 text-slate-500 text-center">
+                                        本月已達上限 ✓
                                     </div>
-                                );
-                            })}
-                        </div>
+                                )}
+                            </div>
+                        ) : (
+                            /* 週上限副本：7 天按鈕 */
+                            <div className="flex justify-between items-center px-2 mx-auto">
+                                {['一', '二', '三', '四', '五', '六', '日'].map((day, idx) => {
+                                    const d = new Date();
+                                    const currentDay = d.getDay() || 7;
+                                    const diff = (idx + 1) - currentDay;
+                                    d.setDate(d.getDate() + diff);
+                                    const qId = `${q.id}|${getLogicalDateStr(d)}`;
+                                    const isDone = logs.some(l => l.QuestID === qId);
+                                    return (
+                                        <div key={idx} className="flex flex-col items-center gap-1.5">
+                                            <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{d.getMonth() + 1}/{d.getDate()}</span>
+                                            <button title={`${day}`} onClick={() => !isDone ? (!isMax && onCheckIn({ ...q, id: qId })) : onUndo({ ...q, id: qId })} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${isDone ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{day}</button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 );
             })}
@@ -141,14 +288,18 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
             {/* w4 傳愛分數 — 申請制 */}
             <div className="p-8 rounded-4xl bg-slate-900 border border-pink-500/20 shadow-2xl">
                 <div className="flex items-center gap-6 mb-6 text-left justify-center mx-auto">
-                    <div className="text-6xl mx-auto">❤️</div>
+                    <div className="text-6xl mx-auto shrink-0">
+                        {w4Config?.icon && (w4Config.icon.startsWith('http') || w4Config.icon.startsWith('/'))
+                            ? <img src={w4Config.icon} alt="" className="w-16 h-16 rounded-2xl object-cover" />
+                            : (w4Config?.icon || '❤️')}
+                    </div>
                     <div className="flex-1 text-left">
-                        <h3 className="text-2xl font-black text-white">傳愛分數</h3>
-                        <p className="text-sm text-slate-400 font-bold italic">訪談成功加分 · 三級審核制</p>
+                        <h3 className="text-2xl font-black text-white">{w4Config?.title || '傳愛分數'}</h3>
+                        <p className="text-sm text-slate-400 font-bold italic">{w4Config?.sub || '訪談成功加分 · 三級審核制'}</p>
                     </div>
                     <div className="text-right bg-pink-500/10 px-3 py-2 rounded-xl">
-                        <div className="text-sm font-black text-pink-400">+1000 修為</div>
-                        <div className="text-xs font-bold text-yellow-400">+100 🪙</div>
+                        <div className="text-sm font-black text-pink-400">+{w4Config?.reward || 1000} 修為</div>
+                        <div className="text-xs font-bold text-yellow-400">+{w4Config?.coins != null ? w4Config.coins : Math.floor((w4Config?.reward || 1000) * 0.1)} 🪙</div>
                     </div>
                 </div>
 
@@ -270,50 +421,61 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                 );
             })()}
 
-            {temporaryQuests.length > 0 && (
-                <div className="pt-8 border-t-2 border-slate-800 border-dashed space-y-8">
-                    <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest text-center">⏳ 臨時加分任務</h3>
-                    {temporaryQuests.map(tq => {
-                        const comps = logs.filter(l => l.QuestID.startsWith(tq.id)).length;
-                        const isMax = comps >= 1;
+            {/* 特殊任務 */}
+            {specialQuests.length > 0 && (
+                <div className="py-4 border-y-2 border-dashed border-slate-800 space-y-4">
+                    <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest text-center">⭐ 特殊任務</h3>
+                    {specialQuests.map(tq => {
+                        const today = logicalTodayStr;
+                        const inRange = (!tq.start_date || today >= tq.start_date) && (!tq.end_date || today <= tq.end_date);
+                        const doneLog = logs.find(l => l.QuestID.startsWith(tq.id));
+                        const isDone = !!doneLog;
+                        const doneDate = doneLog ? getLogicalDateStr(doneLog.Timestamp) : null;
+                        const canUndo = isDone && doneDate === today;
+                        if (!inRange && !isDone) return null;
                         return (
-                            <div key={tq.id} className={`p-8 rounded-4xl bg-slate-900 border border-emerald-500/20 shadow-2xl relative overflow-hidden ${isMax ? 'opacity-50 grayscale' : ''}`}>
-                                <div className="absolute top-0 right-0 bg-emerald-600/20 text-emerald-500 px-3 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest">
-                                    大會臨時發布
+                            <div key={tq.id} className={`p-6 rounded-3xl bg-slate-900 border border-purple-500/20 shadow-xl relative overflow-hidden ${isDone && !canUndo ? 'opacity-50 grayscale' : ''}`}>
+                                <div className="absolute top-0 right-0 bg-purple-600/20 text-purple-400 px-3 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest">
+                                    特殊任務
                                 </div>
-                                <div className="flex items-center gap-6 mb-8 text-left text-center justify-center mx-auto mt-2">
-                                    <div className="text-6xl mx-auto">✨</div>
+                                <div className="flex items-center gap-4 mb-4 mt-1">
+                                    <div className="text-4xl shrink-0">⭐</div>
                                     <div className="flex-1 text-left">
-                                        <h3 className="text-2xl font-black text-white">{tq.title}</h3>
-                                        {tq.sub && <p className="text-sm text-orange-300 font-bold mt-1">{tq.sub}</p>}
-                                        {tq.desc && <p className="text-xs text-slate-400 mt-1 italic">{tq.desc}</p>}
+                                        <h3 className="text-lg font-black text-white">{tq.title}</h3>
+                                        {tq.sub && <p className="text-xs text-purple-300 font-bold">{tq.sub}</p>}
+                                        {tq.desc && <p className="text-[11px] text-slate-400 italic">{tq.desc}</p>}
                                     </div>
-                                    <div className="text-right bg-emerald-400/10 px-3 py-2 rounded-xl">
-                                        <div className="text-sm font-black text-emerald-400">+{tq.reward} 修為</div>
-                                        <div className="text-xs font-bold text-yellow-400">+{Math.floor(tq.reward * 0.1)} 🪙</div>
+                                    <div className="text-right bg-purple-400/10 px-3 py-2 rounded-xl shrink-0">
+                                        <div className="text-sm font-black text-purple-400">+{tq.reward} 修為</div>
+                                        <div className="text-xs font-bold text-yellow-400">+{tq.coins != null ? tq.coins : Math.floor(tq.reward * 0.1)} 🪙</div>
                                     </div>
                                 </div>
-                                <div className="flex justify-between items-center px-2 mx-auto">
-                                    {['一', '二', '三', '四', '五', '六', '日'].map((day, idx) => {
-                                        const d = new Date();
-                                        const currentDay = d.getDay() || 7;
-                                        const diff = (idx + 1) - currentDay;
-                                        d.setDate(d.getDate() + diff);
-                                        const qId = `${tq.id}|${getLogicalDateStr(d)}`;
-                                        const isDone = logs.some(l => l.QuestID === qId);
-                                        return (
-                                            <div key={idx} className="flex flex-col items-center gap-1.5">
-                                                <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{d.getMonth() + 1}/{d.getDate()}</span>
-                                                <button title={`${day}`} onClick={() => !isDone ? (!isMax && onCheckIn({ ...tq, id: qId })) : onUndo({ ...tq, id: qId })} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${isDone ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{day}</button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                {(tq.start_date || tq.end_date) && (
+                                    <p className="text-[10px] text-slate-500 text-center mb-3">
+                                        {tq.start_date && `${tq.start_date} 起`}{tq.start_date && tq.end_date && ' ~ '}{tq.end_date && `${tq.end_date} 止`}
+                                    </p>
+                                )}
+                                {!isDone ? (
+                                    <button onClick={() => onCheckIn({ ...tq, id: `${tq.id}|${today}` })}
+                                        className="w-full py-3 rounded-2xl font-black text-base bg-purple-600 text-white shadow-lg active:scale-95 transition-all">
+                                        回報完成
+                                    </button>
+                                ) : canUndo ? (
+                                    <button onClick={() => onUndo({ ...tq, id: `${tq.id}|${doneDate}` })}
+                                        className="w-full py-3 rounded-2xl font-black text-base bg-purple-600/20 text-purple-400 shadow-inner transition-all">
+                                        已完成 ✓（今日可回溯）
+                                    </button>
+                                ) : (
+                                    <div className="w-full py-3 rounded-2xl font-black text-base bg-slate-800 text-slate-500 text-center">
+                                        已完成 ✓
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
                 </div>
             )}
+
         </div>
     );
 }

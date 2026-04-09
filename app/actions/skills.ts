@@ -53,6 +53,8 @@ export async function useNineToothRake(
 
             const newCoins = (user?.Coins ?? 0) + 50;
             await supabase.from('CharacterStats').update({ Coins: newCoins }).eq('UserID', userId);
+            const { writeTransactionLog } = await import('./txlog');
+            await writeTransactionLog(userId, 'skill_reward', '九齒釘耙掘地', 0, 50);
             return { success: true, type: 'ground', coinAmount: 50, message: '九齒釘耙掘地！挖出 50 金幣。' };
         }
         return { success: true, type: 'ground', coinAmount: 0, message: '九齒釘耙掘地，一無所獲。' };

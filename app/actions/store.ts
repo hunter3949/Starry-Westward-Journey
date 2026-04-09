@@ -4,7 +4,20 @@ import { connectDb } from '@/lib/db';
 import { ARTIFACTS_CONFIG, calculateLevelFromExp } from '@/lib/constants';
 
 export async function purchaseArtifact(userId: string, artifactId: string, teamName: string | null) {
-    const config = ARTIFACTS_CONFIG.find(a => a.id === artifactId);
+    // 優先從 DB 讀取法寶設定，fallback 到常數
+    let config: { id: string; name: string; price: number; isTeamBinding: boolean; limit: number; exclusiveWith?: string | null } | undefined;
+    try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { data: dbRow } = await supabase.from('ArtifactConfig').select('*').eq('id', artifactId).eq('is_active', true).single();
+        if (dbRow) {
+            config = { id: dbRow.id, name: dbRow.name, price: dbRow.price, isTeamBinding: dbRow.is_team_binding, limit: dbRow.limit, exclusiveWith: dbRow.exclusive_with };
+        }
+    } catch { /* DB 不存在 fallback */ }
+    if (!config) {
+        const c = ARTIFACTS_CONFIG.find(a => a.id === artifactId);
+        if (c) config = { id: c.id, name: c.name, price: c.price, isTeamBinding: c.isTeamBinding, limit: c.limit, exclusiveWith: (c as any).exclusiveWith };
+    }
     if (!config) return { success: false, error: "未知的法寶 ID" };
 
     const client = await connectDb();
@@ -119,6 +132,11 @@ export async function purchaseArtifact(userId: string, artifactId: string, teamN
         }
 
         await client.query('COMMIT');
+
+        // Write transaction log
+        const { writeTransactionLog } = await import('./txlog');
+        await writeTransactionLog(userId, 'artifact_purchase', `購買${config.name}`, 0, config.isTeamBinding ? 0 : -config.price, { artifactId: config.id });
+
         return { success: true };
 
     } catch (error: any) {
@@ -157,6 +175,10 @@ export async function transferCoinsToTeam(userId: string, teamName: string, amou
         await client.query(`UPDATE "TeamSettings" SET "team_coins" = $1 WHERE "LittleTeamLeagelName" = $2`, [currentTeamCoins + amount, teamName]);
 
         await client.query('COMMIT');
+
+        const { writeTransactionLog } = await import('./txlog');
+        await writeTransactionLog(userId, 'coin_transfer', `捐獻金幣至小隊`, 0, -amount, { teamName });
+
         return { success: true };
 
     } catch (error: any) {

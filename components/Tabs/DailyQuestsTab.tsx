@@ -24,13 +24,28 @@ async function loadQuestConfig(): Promise<Quest[]> {
     return DAILY_QUEST_CONFIG.map(q => ({ ...q, coins: undefined }));
 }
 
-function QuestIcon({ questId, isDone }: { questId: string; isDone: boolean }) {
+function QuestIcon({ questId, isDone, icon }: { questId: string; isDone: boolean; icon?: string }) {
     if (isDone) {
         return (
             <div className="w-[72px] h-[72px] rounded-2xl flex items-center justify-center text-2xl shrink-0 bg-emerald-500 text-white">✓</div>
         );
     }
     const baseId = questId === 'q1_dawn' ? 'q1' : questId;
+    // 優先用 DB icon（emoji 或 URL），fallback 到靜態圖片
+    if (icon && (icon.startsWith('http') || icon.startsWith('/'))) {
+        return (
+            <div className="w-[72px] h-[72px] rounded-2xl shrink-0 bg-slate-800 flex items-center justify-center overflow-hidden">
+                <img src={icon} alt={questId} className="w-full h-full object-cover" />
+            </div>
+        );
+    }
+    if (icon) {
+        return (
+            <div className="w-[72px] h-[72px] rounded-2xl shrink-0 bg-slate-800 flex items-center justify-center text-3xl">
+                {icon}
+            </div>
+        );
+    }
     return (
         <div className="w-[72px] h-[72px] rounded-2xl shrink-0 bg-slate-800 flex items-center justify-center">
             <img src={`/images/quest-icons/${baseId}.png`} alt={questId} className="w-full h-full object-contain" />
@@ -72,7 +87,7 @@ function Q1Card({ q, isDone, questLog, isDawn, setIsDawn, hasMirror, activeManda
     const handleCheckIn = () => {
         if (isDone) { onUndo(q); return; }
         if (isDawn) {
-            onCheckIn({ ...q, id: 'q1_dawn', title: '打拳（破曉）', reward: 200 });
+            onCheckIn({ ...q, id: 'q1_dawn', title: '打拳（破曉）', reward: q.reward, coins: q.coins });
         } else {
             onCheckIn(q);
         }
@@ -90,7 +105,7 @@ function Q1Card({ q, isDone, questLog, isDawn, setIsDawn, hasMirror, activeManda
     return (
         <div className={`relative w-full p-6 rounded-3xl border-2 transition-all ${borderClass}`}>
             <button onClick={handleCheckIn} className="flex items-center gap-4 w-full text-left">
-                <QuestIcon questId="q1" isDone={isDone} />
+                <QuestIcon questId="q1" isDone={isDone} icon={q.icon} />
                 <div className="flex-1">
                     <h3 className={`font-black text-lg ${isDone ? 'text-emerald-400' : 'text-white'}`}>{q.title}</h3>
                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{q.sub}</p>
@@ -232,7 +247,7 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
                             : 'bg-slate-900 border-white/5';
                 return (
                     <button key={q.id} onClick={() => !isDone ? onCheckIn(q) : onUndo(q)} className={`relative w-full p-6 rounded-3xl border-2 flex items-center gap-4 transition-all ${borderClass}`}>
-                        <QuestIcon questId={q.id} isDone={isDone} />
+                        <QuestIcon questId={q.id} isDone={isDone} icon={q.icon} />
                         <div className="flex-1 text-left"><h3 className={`font-black text-lg ${isDone ? 'text-emerald-400' : 'text-white'}`}>{q.title}</h3><p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{q.sub}</p></div>
                         {!isDone && isCapped ? <CurseBreakBadge /> : (
                             <div className="text-right">

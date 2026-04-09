@@ -27,6 +27,83 @@ export const StatCard = ({ label, value, icon, color }: StatCardProps) => (
     </div>
 );
 
+// ── 六維蛛網圖（純 SVG）──────────────────────────────────────
+
+const RADAR_STATS = [
+    { key: 'Spirit',    label: '神識', color: '#a855f7' },
+    { key: 'Physique',  label: '根骨', color: '#ef4444' },
+    { key: 'Charisma',  label: '魅力', color: '#ec4899' },
+    { key: 'Savvy',     label: '悟性', color: '#3b82f6' },
+    { key: 'Luck',      label: '機緣', color: '#10b981' },
+    { key: 'Potential', label: '潛力', color: '#eab308' },
+];
+
+function RadarChart({ userData }: { userData: CharacterStats }) {
+    const cx = 150, cy = 150, maxR = 110;
+    const maxVal = 100; // 屬性上限
+    const n = RADAR_STATS.length;
+
+    const getPoint = (i: number, r: number) => {
+        const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+        return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+    };
+
+    // 背景網格（5 層）
+    const gridLevels = [0.2, 0.4, 0.6, 0.8, 1.0];
+    const gridPaths = gridLevels.map(pct => {
+        const pts = Array.from({ length: n }, (_, i) => getPoint(i, maxR * pct));
+        return pts.map(p => `${p.x},${p.y}`).join(' ');
+    });
+
+    // 資料多邊形
+    const values = RADAR_STATS.map(s => Math.min(maxVal, (userData as any)[s.key] ?? 0));
+    const dataPoints = values.map((v, i) => getPoint(i, (v / maxVal) * maxR));
+    const dataPath = dataPoints.map(p => `${p.x},${p.y}`).join(' ');
+
+    return (
+        <div className="bg-slate-900 border-2 border-slate-800 rounded-4xl p-5 shadow-xl">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 text-center">六維屬性總覽</p>
+            <svg viewBox="0 0 300 300" className="w-full max-w-[280px] mx-auto">
+                {/* 背景網格 */}
+                {gridPaths.map((pts, i) => (
+                    <polygon key={i} points={pts} fill="none" stroke="rgba(148,163,184,0.1)" strokeWidth="1" />
+                ))}
+                {/* 軸線 */}
+                {RADAR_STATS.map((_, i) => {
+                    const p = getPoint(i, maxR);
+                    return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(148,163,184,0.08)" strokeWidth="1" />;
+                })}
+                {/* 資料區域 */}
+                <polygon points={dataPath} fill="rgba(249,115,22,0.15)" stroke="#f97316" strokeWidth="2" />
+                {/* 資料點 */}
+                {dataPoints.map((p, i) => (
+                    <circle key={i} cx={p.x} cy={p.y} r="4" fill={RADAR_STATS[i].color} stroke="#0f172a" strokeWidth="2" />
+                ))}
+                {/* 標籤 */}
+                {RADAR_STATS.map((s, i) => {
+                    const p = getPoint(i, maxR + 22);
+                    return (
+                        <text key={i} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
+                            className="text-[10px] font-black fill-slate-400">
+                            {s.label}
+                        </text>
+                    );
+                })}
+                {/* 數值 */}
+                {RADAR_STATS.map((s, i) => {
+                    const p = getPoint(i, maxR + 36);
+                    return (
+                        <text key={`v${i}`} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
+                            className="text-[9px] font-bold" fill={s.color}>
+                            {values[i]}
+                        </text>
+                    );
+                })}
+            </svg>
+        </div>
+    );
+}
+
 interface StatsTabProps {
     userData: CharacterStats;
 }
@@ -71,6 +148,8 @@ export function StatsTab({ userData }: StatsTabProps) {
                         : <span className="text-slate-500">尚未設定</span>}
                 </span>
             </div>
+
+            <RadarChart userData={userData} />
 
             <div className="grid grid-cols-1 gap-5 text-center mx-auto">
                 <StatCard label="神識 (Spirit)" value={userData.Spirit} icon={<Sparkles size={16} className="text-purple-400" />} color="bg-purple-500" />

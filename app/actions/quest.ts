@@ -7,10 +7,10 @@ import { checkAndUnlockAchievements } from './achievements';
 import type { BonusQuestRule } from '@/types';
 
 const DEFAULT_BONUS_RULES: BonusQuestRule[] = [
-    { id: 'b1', label: '家人互動親證', keywords: ['小天使通話', '與家人互動', '親證圓夢'], bonusType: 'energy_dice', bonusAmount: 1, active: true },
-    { id: 'b2', label: '參加心成活動', keywords: ['心成', '同學會', '定聚'], bonusType: 'energy_dice', bonusAmount: 2, active: true },
-    { id: 'b3', label: '傳愛分數', keywords: ['傳愛'], bonusType: 'energy_dice', bonusAmount: 1, active: true },
-    { id: 'b4', label: '大會主題活動', keywords: ['主題親證', '會長交接', '大會'], bonusType: 'golden_dice', bonusAmount: 1, active: true },
+    { id: 'w1', label: '小天使通話', reward: 500, limit: 1, keywords: ['小天使通話', '與家人互動', '親證圓夢'], bonusType: 'energy_dice', bonusAmount: 1, active: true },
+    { id: 'w2', label: '參加心成活動', reward: 500, limit: 2, keywords: ['心成', '同學會', '定聚'], bonusType: 'energy_dice', bonusAmount: 2, active: true },
+    { id: 'w4', label: '傳愛分數', reward: 1000, limit: 99, keywords: ['傳愛'], bonusType: 'energy_dice', bonusAmount: 1, active: true },
+    { id: 'b_topic', label: '大會主題活動', reward: 0, limit: 99, keywords: ['主題親證', '會長交接', '大會'], bonusType: 'golden_dice', bonusAmount: 1, active: true },
 ];
 
 // We import ROLE_CURE_MAP directly from constants now
@@ -103,24 +103,43 @@ export async function processCheckInTransaction(
             }
         }
 
-        // a1: 如意金箍棒 — 個人總經驗 ×1.2
-        if (myInventory.includes('a1')) expMultiplier *= 1.2;
+        // ── 法寶加成（從 DB 讀取觸發條件 + 倍率）──
+        let expBonusFlat = 0;
+        try {
+            const artifactRes = await client.query(`SELECT * FROM "ArtifactConfig" WHERE "is_active" = true`);
+            const allArtifacts = artifactRes.rows || [];
 
-        // a5: 金剛杖 — 個人總經驗 ×1.2（不可與 a1 疊加）
-        if (myInventory.includes('a5') && !myInventory.includes('a1')) expMultiplier *= 1.2;
+            const matchesQuest = (appliesTo: string[] | null, qid: string): boolean => {
+                if (!appliesTo || appliesTo.length === 0) return false;
+                for (const rule of appliesTo) {
+                    if (rule === 'all') return true;
+                    if (rule.startsWith('prefix:') && qid.startsWith(rule.slice(7))) return true;
+                    if (rule === qid) return true;
+                }
+                return false;
+            };
 
-        // a3: 七彩袈裟 — 全隊打拳（q1 / q1_dawn）×1.5
-        if (teamInventory.includes('a3') && (questId === 'q1' || questId === 'q1_dawn')) expMultiplier *= 1.5;
+            for (const art of allArtifacts) {
+                const artId = art.id;
+                const appliesTo: string[] = Array.isArray(art.applies_to) ? art.applies_to : (typeof art.applies_to === 'string' ? JSON.parse(art.applies_to) : []);
+                const isOwned = art.is_team_binding ? teamInventory.includes(artId) : myInventory.includes(artId);
+                if (!isOwned) continue;
 
-        // a4: 幌金繩 — 體系活動（t 開頭）×1.5
-        if (teamInventory.includes('a4') && questId.startsWith('t')) expMultiplier *= 1.5;
+                // 互斥檢查（個人法寶）
+                if (!art.is_team_binding && art.exclusive_with && myInventory.includes(art.exclusive_with)) continue;
 
-        let finalQuestReward = Math.ceil(baseReward * expMultiplier);
+                if (!matchesQuest(appliesTo, questId)) continue;
 
-        // a2: 照妖鏡 — 破曉打拳額外 +150 修為（個人持有，q1_dawn 專用）
-        if (myInventory.includes('a2') && questId === 'q1_dawn') {
-            finalQuestReward += 150;
-        }
+                // 經驗倍率
+                if (art.exp_multiplier_personal && !art.is_team_binding) expMultiplier *= Number(art.exp_multiplier_personal);
+                if (art.exp_multiplier_team && art.is_team_binding) expMultiplier *= Number(art.exp_multiplier_team);
+                // 經驗加值
+                if (art.exp_bonus_personal && !art.is_team_binding) expBonusFlat += Number(art.exp_bonus_personal);
+                if (art.exp_bonus_team && art.is_team_binding) expBonusFlat += Number(art.exp_bonus_team);
+            }
+        } catch { /* DB 不存在時 fallback — 不加成 */ }
+
+        let finalQuestReward = Math.ceil(baseReward * expMultiplier) + expBonusFlat;
 
         const currentExp = parseInt(String(userData.Exp), 10) || 0;
         const currentLevel = parseInt(String(userData.Level), 10) || 1;
@@ -205,6 +224,10 @@ export async function processCheckInTransaction(
 
         // Commit transaction
         await client.query('COMMIT');
+
+        // Write transaction log
+        const { writeTransactionLog } = await import('./txlog');
+        await writeTransactionLog(userId, 'quest_checkin', finalQuestTitle, finalQuestReward, gainedCoins, { questId });
 
         // Check achievements after commit (uses its own pg client, does not affect this transaction)
         const newAchievements = await checkAndUnlockAchievements(userId, questId);

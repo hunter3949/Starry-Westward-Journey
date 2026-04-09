@@ -25,9 +25,22 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
     const [studentView, setStudentView] = useState<StudentView>('select');
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
     const [regResults, setRegResults] = useState<Record<string, RegResult | null>>({});
+    const [attendedCourses, setAttendedCourses] = useState<Set<string>>(new Set());
 
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState('');
+
+    // 載入出席紀錄
+    useEffect(() => {
+        if (!userId) return;
+        (async () => {
+            try {
+                const { getUserAttendance } = await import('@/app/actions/course');
+                const keys = await getUserAttendance(userId);
+                setAttendedCourses(new Set(keys));
+            } catch { /* ignore */ }
+        })();
+    }, [userId]);
 
     const [volPassword, setVolPassword] = useState('');
     const [volAuthError, setVolAuthError] = useState('');
@@ -301,7 +314,6 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
     return (
         <div className="px-4 pb-8 space-y-5 max-w-lg mx-auto pt-4">
             <div>
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">2026 大無限開運親證班</p>
                 <h2 className="text-xl font-black text-white">課程報名</h2>
             </div>
 
@@ -314,13 +326,16 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                     {activeCourses.map(course => {
                         const reg = regResults[course.id];
                         const isRegistered = !!reg;
+                        const isAttended = attendedCourses.has(course.id);
                         return (
-                            <div key={course.id} className={`rounded-3xl border-2 p-5 space-y-3 transition-all ${isRegistered ? 'bg-gradient-to-br from-emerald-950/60 to-slate-900 border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-slate-900 border-slate-700/50'}`}>
-                                <div className="flex items-start justify-between gap-3">
+                            <div key={course.id} className={`rounded-3xl border-2 p-5 space-y-3 transition-all ${isAttended ? 'bg-gradient-to-br from-amber-950/40 to-slate-900 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : isRegistered ? 'bg-gradient-to-br from-emerald-950/60 to-slate-900 border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-slate-900 border-slate-700/50'}`}>
+                                <div className="flex items-center gap-4">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
                                             <h3 className="font-black text-white text-base">{course.name}</h3>
-                                            {isRegistered && <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-black rounded-lg shrink-0">已報名</span>}
+                                            {isAttended
+                                                ? <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-400 font-black rounded-lg shrink-0">已出席 ✓</span>
+                                                : isRegistered && <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-black rounded-lg shrink-0">已報名</span>}
                                         </div>
                                         <div className="space-y-1 text-xs text-slate-400">
                                             <div className="flex items-center gap-1.5"><CalendarDays size={11} className="text-slate-500 shrink-0" />{course.date_display}</div>
@@ -328,10 +343,22 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                                             <div className="flex items-center gap-1.5"><MapPin size={11} className="text-slate-500 shrink-0" />{course.location}</div>
                                         </div>
                                     </div>
+                                    {((course.reward_exp ?? 0) > 0 || (course.reward_coins ?? 0) > 0) && (
+                                        <div className="text-right shrink-0">
+                                            {(course.reward_exp ?? 0) > 0 && <div className="text-sm font-black text-orange-400">+{course.reward_exp} 修為</div>}
+                                            {(course.reward_coins ?? 0) > 0 && <div className="text-xs font-bold text-yellow-400">+{course.reward_coins} 🪙</div>}
+                                        </div>
+                                    )}
                                 </div>
-                                <button onClick={() => handleSelectCourse(course)} className={`w-full py-3 rounded-2xl font-black text-sm transition-all active:scale-95 ${isRegistered ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-amber-600 text-white hover:bg-amber-500 shadow-lg shadow-amber-900/20'}`}>
-                                    {isRegistered ? <><QrCode size={14} className="inline mr-1.5" />查看入場 QR 碼</> : '立即報名'}
-                                </button>
+                                {isAttended ? (
+                                    <div className="w-full py-3 rounded-2xl font-black text-sm text-center bg-amber-500/10 text-amber-400">
+                                        ✓ 已完成出席
+                                    </div>
+                                ) : (
+                                    <button onClick={() => handleSelectCourse(course)} className={`w-full py-3 rounded-2xl font-black text-sm transition-all active:scale-95 ${isRegistered ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-amber-600 text-white hover:bg-amber-500 shadow-lg shadow-amber-900/20'}`}>
+                                        {isRegistered ? <><QrCode size={14} className="inline mr-1.5" />查看入場 QR 碼</> : '立即報名'}
+                                    </button>
+                                )}
                             </div>
                         );
                     })}
