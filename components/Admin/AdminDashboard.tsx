@@ -1020,7 +1020,58 @@ export function AdminDashboard({
         setW4Notes(prev => { const n = { ...prev }; delete n[appId]; return n; });
     };
 
-    const [adminModule, setAdminModule] = React.useState<'personnel' | 'course' | 'quest' | 'monopoly' | 'params' | 'gallery' | 'dashboard' | 'logs' | 'review' | null>('dashboard');
+    type AdminModuleKey = 'personnel' | 'course' | 'quest' | 'monopoly' | 'params' | 'gallery' | 'dashboard' | 'logs' | 'review' | null;
+
+    const ADMIN_MODULE_ROUTES: Record<string, AdminModuleKey> = {
+        '/admin': null,
+        '/admin/dashboard': 'dashboard',
+        '/admin/review': 'review',
+        '/admin/personnel': 'personnel',
+        '/admin/course': 'course',
+        '/admin/quest': 'quest',
+        '/admin/monopoly': 'monopoly',
+        '/admin/params': 'params',
+        '/admin/gallery': 'gallery',
+        '/admin/logs': 'logs',
+    };
+    const ADMIN_MODULE_TO_PATH: Record<string, string> = {
+        dashboard: '/admin/dashboard',
+        review: '/admin/review',
+        personnel: '/admin/personnel',
+        course: '/admin/course',
+        quest: '/admin/quest',
+        monopoly: '/admin/monopoly',
+        params: '/admin/params',
+        gallery: '/admin/gallery',
+        logs: '/admin/logs',
+    };
+
+    const getInitialAdminModule = (): AdminModuleKey => {
+        if (typeof window === 'undefined') return 'dashboard';
+        const path = window.location.pathname;
+        return ADMIN_MODULE_ROUTES[path] ?? 'dashboard';
+    };
+
+    const [adminModule, _setAdminModule] = React.useState<AdminModuleKey>(getInitialAdminModule);
+
+    const setAdminModule = React.useCallback((mod: AdminModuleKey) => {
+        _setAdminModule(mod);
+        const path = mod ? ADMIN_MODULE_TO_PATH[mod] || '/admin' : '/admin';
+        if (window.location.pathname !== path) {
+            window.history.pushState({ adminModule: mod }, '', path);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        const handlePopState = () => {
+            const path = window.location.pathname;
+            if (path.startsWith('/admin')) {
+                _setAdminModule(ADMIN_MODULE_ROUTES[path] ?? 'dashboard');
+            }
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
 
     // 切換到審核中心時自動重新載入
     React.useEffect(() => { if (adminModule === 'review') refreshPtReviews(); }, [adminModule]); // eslint-disable-line react-hooks/exhaustive-deps

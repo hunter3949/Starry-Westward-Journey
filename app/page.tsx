@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
@@ -70,11 +70,98 @@ const MessageBox = ({ message, onClose, type = 'info', image }: { message: strin
   </div>
 );
 
+// ── URL 偽路由對照表 ──────────────────────────────────────────────
+type TabKey = 'daily' | 'weekly' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course' | 'peakTrial' | 'history';
+type ViewKey = 'login' | 'register' | 'app' | 'loading' | 'admin' | 'map';
+
+const TAB_ROUTES: Record<string, TabKey> = {
+  '/': 'daily',
+  '/dailypractice': 'daily',
+  '/mission': 'weekly',
+  '/shop': 'shop',
+  '/rank': 'rank',
+  '/stats': 'stats',
+  '/achievements': 'achievements',
+  '/course': 'course',
+  '/trial': 'peakTrial',
+  '/history': 'history',
+  '/captain': 'captain',
+  '/commandant': 'commandant',
+};
+
+const TAB_TO_PATH: Record<TabKey, string> = {
+  daily: '/',
+  weekly: '/mission',
+  shop: '/shop',
+  rank: '/rank',
+  stats: '/stats',
+  achievements: '/achievements',
+  course: '/course',
+  peakTrial: '/trial',
+  history: '/history',
+  captain: '/captain',
+  commandant: '/commandant',
+};
+
+const VIEW_ROUTES: Record<string, ViewKey> = {
+  '/admin': 'admin',
+  '/map': 'map',
+  '/login': 'login',
+  '/register': 'register',
+};
+
+function getInitialState(): { view: ViewKey; tab: TabKey } {
+  if (typeof window === 'undefined') return { view: 'loading', tab: 'daily' };
+  const path = window.location.pathname;
+  if (path.startsWith('/admin')) return { view: 'admin', tab: 'daily' };
+  if (VIEW_ROUTES[path]) return { view: VIEW_ROUTES[path], tab: 'daily' };
+  if (TAB_ROUTES[path]) return { view: 'loading', tab: TAB_ROUTES[path] };
+  return { view: 'loading', tab: 'daily' };
+}
+
 export default function App() {
-  const [view, setView] = useState<'login' | 'register' | 'app' | 'loading' | 'admin' | 'map'>('loading');
+  const initialState = getInitialState();
+  const [view, setView] = useState<ViewKey>(initialState.view);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lineBannerDismissed, setLineBannerDismissed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course' | 'peakTrial' | 'history'>('daily');
+  const [activeTab, _setActiveTab] = useState<TabKey>(initialState.tab);
+
+  // URL 同步：切換 Tab/View 時更新瀏覽器網址
+  const setActiveTab = useCallback((tab: TabKey) => {
+    _setActiveTab(tab);
+    const path = TAB_TO_PATH[tab] || '/';
+    if (window.location.pathname !== path) {
+      window.history.pushState({ tab, view: 'app' }, '', path);
+    }
+  }, []);
+
+  const setViewWithUrl = useCallback((v: ViewKey) => {
+    setView(v);
+    if (v === 'admin') {
+      window.history.pushState({ view: 'admin' }, '', '/admin');
+    } else if (v === 'map') {
+      window.history.pushState({ view: 'map' }, '', '/map');
+    } else if (v === 'login') {
+      window.history.pushState({ view: 'login' }, '', '/login');
+    }
+  }, []);
+
+  // 監聽瀏覽器上下頁
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const state = e.state;
+      if (state?.view === 'admin') { setView('admin'); return; }
+      if (state?.view === 'map') { setView('map'); return; }
+      // 回到前台
+      const path = window.location.pathname;
+      const tab = TAB_ROUTES[path];
+      if (tab) { setView('app'); _setActiveTab(tab); }
+      else { setView('app'); _setActiveTab('daily'); }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   type GmViewMode = 'all' | 'player' | 'captain' | 'commandant';
   const [gmViewMode, setGmViewMode] = useState<GmViewMode>('all');
   const [userData, setUserData] = useState<CharacterStats | null>(null);
@@ -1161,7 +1248,7 @@ export default function App() {
         return [...teammates, ...freshEntities];
       });
     }
-    setView('map');
+    setViewWithUrl('map');
   };
 
   const handleLogout = () => { localStorage.removeItem('starry_session_uid'); localStorage.removeItem('starry_session_expiry'); setUserData(null); setView('login'); };
@@ -1721,7 +1808,7 @@ export default function App() {
         <LoginForm
           onLogin={handleLogin}
           onGoToRegister={() => setView('register')}
-          onGoToAdmin={() => setView('admin')}
+          onGoToAdmin={() => setViewWithUrl('admin')}
           isSyncing={isSyncing}
           registrationMode={systemSettings.RegistrationMode}
           siteName={systemSettings.SiteName}
@@ -1836,7 +1923,7 @@ export default function App() {
           }}
           onDeleteAdminLog={handleDeleteAdminLog}
           onQuickLogin={handleQuickLogin}
-          onClose={() => { setAdminAuth(false); setAdminOperator(''); setView(userData ? 'app' : 'login'); }}
+          onClose={() => { setAdminAuth(false); setAdminOperator(''); setView(userData ? 'app' : 'login'); window.history.pushState({}, '', userData ? '/' : '/login'); }}
         />
       )}
 
