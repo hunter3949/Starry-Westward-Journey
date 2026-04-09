@@ -25,7 +25,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
     const [studentView, setStudentView] = useState<StudentView>('select');
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
     const [regResults, setRegResults] = useState<Record<string, RegResult | null>>({});
-    const [attendedCourses, setAttendedCourses] = useState<Set<string>>(new Set());
+    const [attendedCourses, setAttendedCourses] = useState<Set<string> | null>(null);
 
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState('');
@@ -326,7 +326,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                     {activeCourses.map(course => {
                         const reg = regResults[course.id];
                         const isRegistered = !!reg;
-                        const isAttended = attendedCourses.has(course.id);
+                        const isAttended = attendedCourses?.has(course.id) ?? false;
                         return (
                             <div key={course.id} className={`rounded-3xl border-2 p-5 space-y-3 transition-all ${isAttended ? 'bg-gradient-to-br from-amber-950/40 to-slate-900 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : isRegistered ? 'bg-gradient-to-br from-emerald-950/60 to-slate-900 border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-slate-900 border-slate-700/50'}`}>
                                 <div className="flex items-center gap-4">

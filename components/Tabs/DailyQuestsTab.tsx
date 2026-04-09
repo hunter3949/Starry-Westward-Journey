@@ -8,17 +8,15 @@ import { LifeHintCard } from '@/components/LifeHintCard';
 // 從 DB 讀取定課設定，失敗則 fallback 到硬編碼常數
 async function loadQuestConfig(): Promise<Quest[]> {
     try {
-        const { listDailyQuestConfig } = await import('@/app/actions/admin');
-        const rows = await listDailyQuestConfig();
-        if (rows.length > 0) {
-            return rows
-                .filter(r => r.is_active)
-                .sort((a, b) => a.sort_order - b.sort_order)
-                .map(r => ({
-                    id: r.id, title: r.title, sub: r.sub ?? '', desc: r.desc ?? '',
-                    reward: r.reward, dice: r.dice, icon: r.icon ?? undefined,
-                    coins: r.coins ?? undefined, limit: r.limit ?? undefined,
-                }));
+        const { createClient } = await import('@supabase/supabase-js');
+        const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+        const { data } = await sb.from('DailyQuestConfig').select('*').eq('is_active', true).order('sort_order');
+        if (data && data.length > 0) {
+            return data.map((r: any) => ({
+                id: r.id, title: r.title, sub: r.sub ?? '', desc: r.desc ?? '',
+                reward: r.reward, dice: r.dice, icon: r.icon ?? undefined,
+                coins: r.coins ?? undefined, limit: r.limit ?? undefined,
+            }));
         }
     } catch { /* DB 表不存在時 fallback */ }
     return DAILY_QUEST_CONFIG.map(q => ({ ...q, coins: undefined }));
@@ -140,7 +138,7 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
     const [isDawnMode, setIsDawnMode] = useState(false);
     const [showLifeCard, setShowLifeCard] = useState(false);
     const [todayCardText, setTodayCardText] = useState<string | null>(null);
-    const [questConfig, setQuestConfig] = useState<Quest[]>(DAILY_QUEST_CONFIG.map(q => ({ ...q, coins: undefined })));
+    const [questConfig, setQuestConfig] = useState<Quest[] | null>(null);
 
     useEffect(() => { loadQuestConfig().then(setQuestConfig); }, []);
 
@@ -163,6 +161,17 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
         setShowLifeCard(false);
         try { localStorage.setItem(cardKey, JSON.stringify({ text, date: logicalTodayStr })); } catch { /* ignore */ }
     };
+    if (!questConfig) {
+        return (
+            <div className="flex items-center justify-center py-20 animate-in fade-in">
+                <div className="text-center space-y-3">
+                    <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-xs text-slate-500 font-bold">載入定課設定中...</p>
+                </div>
+            </div>
+        );
+    }
+
     const hasMirror = userInventory.includes('a2');
     const weeklyQuestName = questConfig.find(q => q.id === weeklyQuestId)?.title;
 

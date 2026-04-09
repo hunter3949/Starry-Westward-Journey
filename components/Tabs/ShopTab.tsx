@@ -11,17 +11,15 @@ interface ArtifactDisplay {
 
 async function loadArtifactDisplay(): Promise<ArtifactDisplay[]> {
     try {
-        const { listArtifactConfig } = await import('@/app/actions/admin');
-        const rows = await listArtifactConfig();
-        if (rows.length > 0) {
-            return rows
-                .filter(r => r.is_active)
-                .sort((a, b) => a.sort_order - b.sort_order)
-                .map(r => ({
-                    id: r.id, name: r.name, description: r.description, effect: r.effect,
-                    price: r.price, isTeamBinding: r.is_team_binding, limit: r.limit,
-                    exclusiveWith: r.exclusive_with,
-                }));
+        const { createClient } = await import('@supabase/supabase-js');
+        const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+        const { data } = await sb.from('ArtifactConfig').select('*').eq('is_active', true).order('sort_order');
+        if (data && data.length > 0) {
+            return data.map((r: any) => ({
+                id: r.id, name: r.name, description: r.description, effect: r.effect,
+                price: r.price, isTeamBinding: r.is_team_binding, limit: r.limit,
+                exclusiveWith: r.exclusive_with,
+            }));
         }
     } catch { /* DB 不存在 fallback */ }
     return ARTIFACTS_CONFIG.map(a => ({ ...a, exclusiveWith: (a as any).exclusiveWith ?? null }));
@@ -102,7 +100,7 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
     const [isBuying, setIsBuying] = useState<string | null>(null);
     const [transferAmount, setTransferAmount] = useState<number | ''>('');
     const [isTransferring, setIsTransferring] = useState(false);
-    const [artifacts, setArtifacts] = useState<ArtifactDisplay[]>(ARTIFACTS_CONFIG.map(a => ({ ...a, exclusiveWith: (a as any).exclusiveWith ?? null })));
+    const [artifacts, setArtifacts] = useState<ArtifactDisplay[] | null>(null);
 
     useEffect(() => { loadArtifactDisplay().then(setArtifacts); }, []);
 
@@ -150,6 +148,17 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
             setIsBuying(null);
         }
     };
+
+    if (!artifacts) {
+        return (
+            <div className="flex items-center justify-center py-20 animate-in fade-in">
+                <div className="text-center space-y-3">
+                    <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-xs text-slate-500 font-bold">載入法寶設定中...</p>
+                </div>
+            </div>
+        );
+    }
 
     const myInventory: string[] = typeof userData.Inventory === 'string' ? JSON.parse(userData.Inventory) : (userData.Inventory || []);
     const teamInventory: string[] = teamSettings ? (typeof teamSettings.inventory === 'string' ? JSON.parse(teamSettings.inventory) : (teamSettings.inventory || [])) : [];

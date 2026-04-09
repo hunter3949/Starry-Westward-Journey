@@ -1,9 +1,17 @@
 'use server';
 
 import { connectDb } from '@/lib/db';
-import { ARTIFACTS_CONFIG, calculateLevelFromExp } from '@/lib/constants';
+import { ARTIFACTS_CONFIG, calculateLevelFromExp, setLevelExpCache } from '@/lib/constants';
 
 export async function purchaseArtifact(userId: string, artifactId: string, teamName: string | null) {
+    // Server-side: 載入等級門檻
+    try {
+        const { createClient: cc } = await import('@supabase/supabase-js');
+        const sbb = cc(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { data: lvCfg } = await sbb.from('LevelConfig').select('level, exp_required').order('level');
+        if (lvCfg && lvCfg.length > 0) setLevelExpCache(lvCfg);
+    } catch { /* fallback */ }
+
     // 優先從 DB 讀取法寶設定，fallback 到常數
     let config: { id: string; name: string; price: number; isTeamBinding: boolean; limit: number; exclusiveWith?: string | null } | undefined;
     try {

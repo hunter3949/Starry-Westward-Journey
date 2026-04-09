@@ -6,11 +6,11 @@ import type { AchievementRecord, CharacterStats } from '@/types';
 // 從 DB 讀取成就定義，覆蓋 name/icon/hint/description/is_active
 async function loadAchievementDefs(): Promise<AchievementDef[]> {
     try {
-        const { listAchievementConfig } = await import('@/app/actions/admin');
-        const rows = await listAchievementConfig();
-        if (rows.length > 0) {
-            const dbMap = new Map(rows.map(r => [r.id, r]));
-            // 以 ACHIEVEMENTS 為骨架（保留 unlock 邏輯用的 id），用 DB 覆蓋顯示欄位
+        const { createClient } = await import('@supabase/supabase-js');
+        const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+        const { data: rows } = await sb.from('AchievementConfig').select('*');
+        if (rows && rows.length > 0) {
+            const dbMap = new Map(rows.map((r: any) => [r.id, r]));
             return ACHIEVEMENTS.map(def => {
                 const db = dbMap.get(def.id);
                 if (!db) return def;
@@ -24,8 +24,8 @@ async function loadAchievementDefs(): Promise<AchievementDef[]> {
                     roleExclusive: db.role_exclusive ?? def.roleExclusive,
                 };
             }).filter(def => {
-                const db = rows.find(r => r.id === def.id);
-                return db ? db.is_active : true; // 被停用的成就不顯示
+                const db = rows.find((r: any) => r.id === def.id);
+                return db ? db.is_active : true;
             });
         }
     } catch { /* DB 不存在 fallback */ }
@@ -90,9 +90,20 @@ function AchievementCard({ def, unlocked_at, isOwner }: {
 
 export function AchievementsTab({ achievements, userData }: AchievementsTabProps) {
     const [filter, setFilter] = useState<RarityFilter>('all');
-    const [achDefs, setAchDefs] = useState<AchievementDef[]>(ACHIEVEMENTS);
+    const [achDefs, setAchDefs] = useState<AchievementDef[] | null>(null);
 
     useEffect(() => { loadAchievementDefs().then(setAchDefs); }, []);
+
+    if (!achDefs) {
+        return (
+            <div className="flex items-center justify-center py-20 animate-in fade-in">
+                <div className="text-center space-y-3">
+                    <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-xs text-slate-500 font-bold">載入成就設定中...</p>
+                </div>
+            </div>
+        );
+    }
 
     const unlockedMap = new Map(achievements.map(a => [a.achievement_id, a.unlocked_at]));
     const unlockedCount = achievements.length;

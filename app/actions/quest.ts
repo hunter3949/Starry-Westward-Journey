@@ -2,7 +2,7 @@
 
 import { connectDb } from '@/lib/db';
 import { getLogicalDateStr } from '@/lib/utils/time';
-import { ROLE_CURE_MAP, ROLE_GROWTH_RATES, calculateLevelFromExp } from '@/lib/constants';
+import { ROLE_CURE_MAP, ROLE_GROWTH_RATES, calculateLevelFromExp, setLevelExpCache } from '@/lib/constants';
 import { checkAndUnlockAchievements } from './achievements';
 import type { BonusQuestRule } from '@/types';
 
@@ -22,6 +22,14 @@ export async function processCheckInTransaction(
     questDice: number = 0,
     questCoins?: number
 ) {
+    // Server-side: 載入等級門檻到快取（每次 action 呼叫都重新載入，確保最新）
+    try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { data: lvCfg } = await sb.from('LevelConfig').select('level, exp_required').order('level');
+        if (lvCfg && lvCfg.length > 0) setLevelExpCache(lvCfg);
+    } catch { /* fallback to default formula */ }
+
     const client = await connectDb();
 
     try {

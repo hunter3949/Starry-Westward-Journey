@@ -201,13 +201,12 @@ export function LifeHintCard({ onClose, onDraw, texts, cardBackImage }: { onClos
                             <div
                                 className="lhc-back absolute inset-0 rounded-xl overflow-hidden"
                                 style={{
-                                    backgroundImage: cardBackImage ? `url(${cardBackImage})` : undefined,
-                                    backgroundSize: 'cover',
-                                    backgroundPosition: 'center',
                                     background: cardBackImage ? undefined : 'linear-gradient(135deg,#1e3a5f 0%,#0f2744 60%,#162032 100%)',
                                     boxShadow: '0 6px 16px rgba(0,0,0,0.5)',
                                 }}
-                            />
+                            >
+                                {cardBackImage && <img src={cardBackImage} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+                            </div>
                             {/* 正面：粉色系 + 文字 */}
                             <div
                                 className="lhc-front absolute inset-0 rounded-xl flex items-center justify-center p-3"
