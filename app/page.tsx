@@ -83,6 +83,7 @@ export default function App() {
   const [topicHistory, setTopicHistory] = useState<TopicHistory[]>([]);
   const [temporaryQuests, setTemporaryQuests] = useState<TemporaryQuest[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({ TopicQuestTitle: '載入中...' });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [modalMessage, setModalMessage] = useState<{ text: string, type: 'info' | 'error' | 'success', image?: string } | null>(null);
   const [boardGameEntered, setBoardGameEntered] = useState(false);
   const [boardGameStats, setBoardGameStats] = useState<{ cash: number; blessing: number }>({ cash: 0, blessing: 0 });
@@ -1182,7 +1183,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    document.title = systemSettings.SiteName || '大無限開運西遊';
+    document.title = systemSettings.SiteName || '巨笑開運西遊';
   }, [systemSettings.SiteName]);
 
   // One-time static data load — world map terrain, settings, history
@@ -1249,7 +1250,7 @@ export default function App() {
       const ptRes = await listPeakTrials({ activeOnly: false });
       if (ptRes.success) setPeakTrials(ptRes.trials);
     };
-    loadStaticData();
+    loadStaticData().finally(() => setSettingsLoaded(true));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -1709,7 +1710,14 @@ export default function App() {
         </div>
       )}
 
-      {view === 'login' && (
+      {view === 'login' && !settingsLoaded && (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-10 text-center mx-auto">
+          <Loader2 className="w-16 h-16 text-orange-500 animate-spin mb-6 mx-auto" />
+          <p className="text-orange-500 text-xl font-black animate-pulse text-center mx-auto">正在共感法界能量...</p>
+        </div>
+      )}
+
+      {view === 'login' && settingsLoaded && (
         <LoginForm
           onLogin={handleLogin}
           onGoToRegister={() => setView('register')}

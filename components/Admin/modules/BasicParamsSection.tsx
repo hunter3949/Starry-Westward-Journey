@@ -32,11 +32,11 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
 
     const handleSave = () => {
         setSaving(true);
-        updateGlobalSetting('SiteName', siteName.trim() || '大無限開運西遊');
+        updateGlobalSetting('SiteName', siteName.trim() || '巨笑開運西遊');
         setSaving(false);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
-        logAdminAction('site_name_update', 'admin', undefined, siteName.trim() || '大無限開運西遊');
+        logAdminAction('site_name_update', 'admin', undefined, siteName.trim() || '巨笑開運西遊');
     };
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,10 +120,10 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                         <input
                             value={siteName}
                             onChange={e => setSiteName(e.target.value)}
-                            placeholder="大無限開運西遊"
+                            placeholder="巨笑開運西遊"
                             className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold text-sm outline-none focus:border-orange-500"
                         />
-                        <p className="text-[10px] text-slate-600">留空則使用預設名稱「大無限開運西遊」</p>
+                        <p className="text-[10px] text-slate-600">留空則使用預設名稱「巨笑開運西遊」</p>
                     </div>
                     <button onClick={handleSave} disabled={saving}
                         className="w-full py-3 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-black text-sm rounded-2xl transition-colors">
@@ -157,7 +157,7 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                                     )}
                                     <div className="p-3 space-y-1">
                                         <p className="text-slate-900 font-bold text-sm truncate">
-                                            {ogTitle || systemSettings.SiteName || '大無限開運西遊'}
+                                            {ogTitle || systemSettings.SiteName || '巨笑開運西遊'}
                                         </p>
                                         <p className="text-slate-500 text-xs line-clamp-2">
                                             {ogDesc || '修行者轉生入口 — 2026 大無限開運親證班'}
@@ -173,7 +173,7 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                                 <input
                                     value={ogTitle}
                                     onChange={e => setOgTitle(e.target.value)}
-                                    placeholder={systemSettings.SiteName || '大無限開運西遊'}
+                                    placeholder={systemSettings.SiteName || '巨笑開運西遊'}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white font-bold text-sm outline-none focus:border-cyan-500 transition-colors"
                                 />
                                 <p className="text-[10px] text-slate-600">留空則使用網站名稱</p>

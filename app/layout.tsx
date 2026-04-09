@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const DEFAULT_TITLE = "大無限開運西遊";
-const DEFAULT_DESC = "修行者轉生入口 — 2026 大無限開運親證班";
+const DEFAULT_TITLE = "巨笑開運西遊";
+const DEFAULT_DESC = "修行者轉生入口 — 2026 巨笑開運親證班";
 const SITE_URL = "https://bigsmile.mindsuces.com";
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -20,7 +20,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onLogin, onGoToRegister, onGoToAdmin, isSyncing, registrationMode, siteName, siteLogo }: LoginFormProps) {
-    const displayName = siteName || '大無限開運西遊';
+    const displayName = siteName || '巨笑開運西遊';
     const logoSrc = siteLogo || '/images/logo.png';
     return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-6 py-10 space-y-8">
