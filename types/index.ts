@@ -137,6 +137,9 @@ export interface SystemSettings {
   DefinedBattalions?: string; // JSON: string[]
   SiteName?: string;
   SiteLogo?: string; // base64 data URL
+  OgTitle?: string;       // Open Graph 標題（LINE/FB 分享時顯示）
+  OgDescription?: string; // Open Graph 描述
+  OgImage?: string;       // Open Graph 圖片 URL
   CardMottos?: string; // JSON: string[]
   CardBackImage?: string; // base64 data URL
   BonusQuestConfig?: string; // JSON: BonusQuestRule[]
