@@ -62,7 +62,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
         const loaded: Record<string, RegResult | null> = {};
         for (const course of activeCourses) {
             try {
-                const raw = localStorage.getItem(`course_${course.id}_reg`);
+                const raw = localStorage.getItem(`course_${course.id}_reg_${userId}`);
                 if (raw) loaded[course.id] = JSON.parse(raw);
             } catch { /* ignore */ }
         }
@@ -92,7 +92,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
         }
         const result: RegResult = { registrationId: res.registrationId, userName: res.userName };
         setRegResults(prev => ({ ...prev, [selectedCourse.id]: result }));
-        try { localStorage.setItem(`course_${selectedCourse.id}_reg`, JSON.stringify(result)); } catch { /* ignore */ }
+        try { localStorage.setItem(`course_${selectedCourse.id}_reg_${userId}`, JSON.stringify(result)); } catch { /* ignore */ }
         setStudentView('qr');
     };
 
