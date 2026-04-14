@@ -206,14 +206,16 @@ export async function processCheckInTransaction(
             updateQuery += `, "GoldenDice" = COALESCE("GoldenDice", 0) + ${goldenDiceGain}`;
         }
 
+        // 合併屬性加值（避免同一欄位重複 SET）
+        const statGains: Record<string, number> = {};
+
         // Apply Level Up Base Multipliers
         const growthRates = ROLE_GROWTH_RATES[userData.Role] || {};
         for (const [stat, rate] of Object.entries(growthRates)) {
             if (rate && rate > 0) {
-                // Determine the total gain this level up cycle gives
                 const totalGain = rate * levelDelta;
                 if (totalGain > 0) {
-                    updateQuery += `, "${stat}" = "${stat}" + ${totalGain}`;
+                    statGains[stat] = (statGains[stat] || 0) + totalGain;
                 }
             }
         }
@@ -221,7 +223,12 @@ export async function processCheckInTransaction(
         // Apply Daily Fix Cure Bonus (+2) — skipped when reward is capped
         if (isCure && roleInfo && !rewardCapped) {
             const statKey = roleInfo.bonusStat;
-            updateQuery += `, "${statKey}" = "${statKey}" + 2`;
+            statGains[statKey] = (statGains[statKey] || 0) + 2;
+        }
+
+        // 一次寫入所有屬性變動
+        for (const [stat, gain] of Object.entries(statGains)) {
+            updateQuery += `, "${stat}" = "${stat}" + ${gain}`;
         }
 
         updateQuery += ` WHERE "UserID" = $6 RETURNING *`;
