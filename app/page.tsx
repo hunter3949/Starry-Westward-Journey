@@ -954,26 +954,22 @@ export default function App() {
       const res = await processCheckInTransaction(userData.UserID, quest.id, quest.title, quest.reward, quest.dice, quest.coins);
 
       if (res.success && res.user) {
-        const { data: newLogs } = await supabase.from('DailyLogs').select('*').eq('UserID', userData.UserID);
-        const updatedLogs = (newLogs as DailyLog[]) || [];
         setUserData(res.user as CharacterStats);
-        setLogs(updatedLogs);
+        // 本地追加 log（不重新載入整個列表）
+        const newLog: DailyLog = {
+          id: `local_${Date.now()}`,
+          UserID: userData.UserID,
+          QuestID: quest.id,
+          QuestTitle: quest.title,
+          RewardPoints: res.rewardCapped ? 0 : quest.reward,
+          Timestamp: new Date().toISOString(),
+        };
+        setLogs(prev => [newLog, ...prev]);
         setModalMessage(res.rewardCapped
           ? { text: "破咒打卡完成，今日三項修為已滿，本次不計修為。", type: 'info' }
           : { text: "修為提升，法喜充滿！", type: 'success' }
         );
-        if (res.newAchievements && res.newAchievements.length > 0) {
-          const newDefs = res.newAchievements
-            .map((id: string) => ACHIEVEMENT_MAP.get(id))
-            .filter(Boolean) as AchievementDef[];
-          if (newDefs.length > 0) setAchievementQueue(prev => [...prev, ...newDefs]);
-          const achRecords = await getUserAchievements(userData.UserID);
-          setUserAchievements(achRecords);
-        }
       } else {
-        // Sync logs so client state reflects server state (e.g. quest already done)
-        const { data: syncedLogs } = await supabase.from('DailyLogs').select('*').eq('UserID', userData.UserID);
-        if (syncedLogs) setLogs(syncedLogs as DailyLog[]);
         setModalMessage({ text: res.error || "記錄失敗，靈通中斷。", type: 'error' });
       }
     } catch (err) {

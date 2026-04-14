@@ -223,13 +223,11 @@ export async function processCheckInTransaction(
         // Commit transaction
         await client.query('COMMIT');
 
-        // Write transaction log
+        // 非阻塞：明細 + 成就檢查（不等待，加速回傳）
         writeTransactionLog(userId, 'quest_checkin', finalQuestTitle, finalQuestReward, gainedCoins, { questId });
+        checkAndUnlockAchievements(userId, questId).catch(() => {});
 
-        // Check achievements after commit (uses its own pg client, does not affect this transaction)
-        const newAchievements = await checkAndUnlockAchievements(userId, questId);
-
-        return { success: true, rewardCapped, user: updatedStatsRes.rows[0], newAchievements };
+        return { success: true, rewardCapped, user: updatedStatsRes.rows[0] };
     } catch (error: any) {
         await client.query('ROLLBACK');
         return { success: false, error: error.message };
