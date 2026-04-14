@@ -40,60 +40,57 @@ export async function processCheckInTransaction(
     try {
         await client.query('BEGIN');
 
-        // 1. Lock the user's CharacterStats row (排他鎖)
-        const statsRes = await client.query(
-            `SELECT * FROM "CharacterStats" WHERE "UserID" = $1 FOR UPDATE`,
-            [userId]
-        );
-
-        if (statsRes.rowCount === 0) {
-            throw new Error(`查無此用戶: ${userId}`);
-        }
-
-        const userData = statsRes.rows[0];
         const logicalTodayStr = getLogicalDateStr();
-
-        // Helper: logical date expression in SQL (Taiwan timezone, before-noon counts as previous day)
-        // Matches the client-side getLogicalDateStr() logic.
         const logicalDateExpr = `CASE
             WHEN EXTRACT(HOUR FROM "Timestamp" AT TIME ZONE 'Asia/Taipei') >= 12
             THEN (date("Timestamp" AT TIME ZONE 'Asia/Taipei'))::text
             ELSE (date("Timestamp" AT TIME ZONE 'Asia/Taipei') - INTERVAL '1 day')::text
           END`;
 
-        // 2. Fetch daily logs to check if rewards are capped (only for 'q' quests)
-        // First 3 q-quests give full rewards; 4th+ still record (for curse-breaking) but give 0 rewards.
-        let rewardCapped = false;
-        if (questId.startsWith('q')) {
-            const logsRes = await client.query(
+        // ── 合併查詢：一次取得 user + team + artifacts + 今日打卡數 + 重複檢查 ──
+        const q1Variants = (questId === 'q1' || questId === 'q1_dawn') ? ['q1', 'q1_dawn'] : [questId];
+        const isQQuest = questId.startsWith('q');
+
+        const [statsRes, countRes, dupRes, artifactRes, bonusCfgRes] = await Promise.all([
+            // 1. Lock user + join team inventory
+            client.query(
+                `SELECT cs.*, ts.inventory AS team_inv
+                 FROM "CharacterStats" cs
+                 LEFT JOIN "TeamSettings" ts ON ts."LittleTeamLeagelName" = cs."LittleTeamLeagelName"
+                 WHERE cs."UserID" = $1 FOR UPDATE OF cs`,
+                [userId]
+            ),
+            // 2. 今日 q 定課數量（日上限）
+            isQQuest ? client.query(
                 `SELECT COUNT(*) as count FROM "DailyLogs"
                  WHERE "UserID" = $1 AND "QuestID" LIKE 'q%' AND ${logicalDateExpr} = $2`,
                 [userId, logicalTodayStr]
-            );
-            const dailyCount = parseInt(logsRes.rows[0].count, 10);
-            rewardCapped = dailyCount >= 3;
+            ) : Promise.resolve({ rows: [{ count: '0' }] }),
+            // 3. 重複打卡檢查
+            isQQuest ? client.query(
+                `SELECT COUNT(*) as count FROM "DailyLogs"
+                 WHERE "UserID" = $1 AND "QuestID" = ANY($2) AND ${logicalDateExpr} = $3`,
+                [userId, q1Variants, logicalTodayStr]
+            ) : Promise.resolve({ rows: [{ count: '0' }] }),
+            // 4. 法寶設定
+            client.query(`SELECT * FROM "ArtifactConfig" WHERE "is_active" = true`).catch(() => ({ rows: [] })),
+            // 5. BonusQuestConfig
+            client.query(`SELECT "Value" FROM "SystemSettings" WHERE "SettingName" = 'BonusQuestConfig' LIMIT 1`).catch(() => ({ rows: [] })),
+        ]);
+
+        if (statsRes.rowCount === 0) throw new Error(`查無此用戶: ${userId}`);
+
+        const userData = statsRes.rows[0];
+
+        // 日上限檢查
+        let rewardCapped = false;
+        if (isQQuest) {
+            rewardCapped = parseInt(countRes.rows[0].count, 10) >= 3;
         }
 
-        // 3. Prevent duplicate check-in for the same quest today/week
-        if (questId.startsWith('q')) {
-            // q1 與 q1_dawn 互斥：同一天只能有其一
-            const q1Variants = (questId === 'q1' || questId === 'q1_dawn')
-                ? ['q1', 'q1_dawn']
-                : [questId];
-
-            const placeholders = q1Variants.map((_, i) => `$${i + 2}`).join(', ');
-            const dupCheck = await client.query(
-                `SELECT COUNT(*) as count FROM "DailyLogs"
-                 WHERE "UserID" = $1 AND "QuestID" IN (${placeholders}) AND ${logicalDateExpr} = $${q1Variants.length + 2}`,
-                [userId, ...q1Variants, logicalTodayStr]
-            );
-            if (parseInt(dupCheck.rows[0].count, 10) > 0) {
-                throw new Error(
-                    questId === 'q1_dawn'
-                        ? "今日已完成打拳，無法重複記錄。"
-                        : "此定課今日已完成。"
-                );
-            }
+        // 重複檢查
+        if (isQQuest && parseInt(dupRes.rows[0].count, 10) > 0) {
+            throw new Error(questId === 'q1_dawn' ? "今日已完成打拳，無法重複記錄。" : "此定課今日已完成。");
         }
 
         // 4. Determine bonus properties based on character role
@@ -101,56 +98,40 @@ export async function processCheckInTransaction(
         const isCure = roleInfo?.cureTaskId === questId;
         const finalQuestTitle = isCure ? `${questTitle} (天命對治)` : questTitle;
 
-        // If reward is capped, this is a curse-breaking-only check-in — zero out all rewards
         const baseReward = rewardCapped ? 0 : questReward;
         let expMultiplier = 1;
 
         const myInventory = typeof userData.Inventory === 'string' ? JSON.parse(userData.Inventory) : (userData.Inventory || []);
-        let teamInventory: string[] = [];
+        const teamInvRaw = userData.team_inv;
+        const teamInventory: string[] = teamInvRaw ? (typeof teamInvRaw === 'string' ? JSON.parse(teamInvRaw) : (teamInvRaw || [])) : [];
 
-        if (userData.LittleTeamLeagelName) {
-            const tsRes = await client.query(`SELECT inventory FROM "TeamSettings" WHERE "LittleTeamLeagelName" = $1`, [userData.LittleTeamLeagelName]);
-            if (tsRes.rowCount && tsRes.rowCount > 0) {
-                const tsData = tsRes.rows[0];
-                teamInventory = typeof tsData.inventory === 'string' ? JSON.parse(tsData.inventory) : (tsData.inventory || []);
-            }
-        }
-
-        // ── 法寶加成（從 DB 讀取觸發條件 + 倍率）──
+        // ── 法寶加成 ──
         let expBonusFlat = 0;
-        try {
-            const artifactRes = await client.query(`SELECT * FROM "ArtifactConfig" WHERE "is_active" = true`);
-            const allArtifacts = artifactRes.rows || [];
+        const allArtifacts = artifactRes.rows || [];
 
-            const matchesQuest = (appliesTo: string[] | null, qid: string): boolean => {
-                if (!appliesTo || appliesTo.length === 0) return false;
-                for (const rule of appliesTo) {
-                    if (rule === 'all') return true;
-                    if (rule.startsWith('prefix:') && qid.startsWith(rule.slice(7))) return true;
-                    if (rule === qid) return true;
-                }
-                return false;
-            };
-
-            for (const art of allArtifacts) {
-                const artId = art.id;
-                const appliesTo: string[] = Array.isArray(art.applies_to) ? art.applies_to : (typeof art.applies_to === 'string' ? JSON.parse(art.applies_to) : []);
-                const isOwned = art.is_team_binding ? teamInventory.includes(artId) : myInventory.includes(artId);
-                if (!isOwned) continue;
-
-                // 互斥檢查（個人法寶）
-                if (!art.is_team_binding && art.exclusive_with && myInventory.includes(art.exclusive_with)) continue;
-
-                if (!matchesQuest(appliesTo, questId)) continue;
-
-                // 經驗倍率
-                if (art.exp_multiplier_personal && !art.is_team_binding) expMultiplier *= Number(art.exp_multiplier_personal);
-                if (art.exp_multiplier_team && art.is_team_binding) expMultiplier *= Number(art.exp_multiplier_team);
-                // 經驗加值
-                if (art.exp_bonus_personal && !art.is_team_binding) expBonusFlat += Number(art.exp_bonus_personal);
-                if (art.exp_bonus_team && art.is_team_binding) expBonusFlat += Number(art.exp_bonus_team);
+        const matchesQuest = (appliesTo: string[] | null, qid: string): boolean => {
+            if (!appliesTo || appliesTo.length === 0) return false;
+            for (const rule of appliesTo) {
+                if (rule === 'all') return true;
+                if (rule.startsWith('prefix:') && qid.startsWith(rule.slice(7))) return true;
+                if (rule === qid) return true;
             }
-        } catch { /* DB 不存在時 fallback — 不加成 */ }
+            return false;
+        };
+
+        for (const art of allArtifacts) {
+            const artId = art.id;
+            const appliesTo: string[] = Array.isArray(art.applies_to) ? art.applies_to : (typeof art.applies_to === 'string' ? JSON.parse(art.applies_to) : []);
+            const isOwned = art.is_team_binding ? teamInventory.includes(artId) : myInventory.includes(artId);
+            if (!isOwned) continue;
+            if (!art.is_team_binding && art.exclusive_with && myInventory.includes(art.exclusive_with)) continue;
+            if (!matchesQuest(appliesTo, questId)) continue;
+
+            if (art.exp_multiplier_personal && !art.is_team_binding) expMultiplier *= Number(art.exp_multiplier_personal);
+            if (art.exp_multiplier_team && art.is_team_binding) expMultiplier *= Number(art.exp_multiplier_team);
+            if (art.exp_bonus_personal && !art.is_team_binding) expBonusFlat += Number(art.exp_bonus_personal);
+            if (art.exp_bonus_team && art.is_team_binding) expBonusFlat += Number(art.exp_bonus_team);
+        }
 
         let finalQuestReward = Math.ceil(baseReward * expMultiplier) + expBonusFlat;
 
@@ -170,15 +151,12 @@ export async function processCheckInTransaction(
         let bonusDice = 0;
         let goldenDiceGain = 0;
 
-        // --- 額外骰子：讀取 BonusQuestConfig，fallback 到預設規則 ---
+        // --- 額外骰子：使用預先載入的 BonusQuestConfig ---
         {
             let bonusRules = DEFAULT_BONUS_RULES;
             try {
-                const bcRes = await client.query(
-                    `SELECT "Value" FROM "SystemSettings" WHERE "SettingName" = 'BonusQuestConfig' LIMIT 1`
-                );
-                if (bcRes.rows[0]?.Value) {
-                    bonusRules = JSON.parse(bcRes.rows[0].Value);
+                if (bonusCfgRes.rows[0]?.Value) {
+                    bonusRules = JSON.parse(bonusCfgRes.rows[0].Value);
                 }
             } catch { /* fallback */ }
             for (const rule of bonusRules) {
