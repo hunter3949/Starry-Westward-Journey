@@ -97,7 +97,7 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
             ) : weeklyReview ? (
                 <div className="p-6 rounded-4xl border-2 border-indigo-500/40 bg-indigo-950/20 shadow-2xl space-y-4 text-left">
                     <div className="flex items-center gap-3">
-                        <span className="text-3xl">🔮</span>
+                        <span className="text-xl">🔮</span>
                         <div>
                             <span className="text-sm font-black text-indigo-400 uppercase tracking-widest">AI 修行週報</span>
                             <h3 className="text-lg font-black text-white">本週覆盤</h3>
@@ -118,18 +118,15 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                 </div>
             ) : null}
 
-            <div className="p-8 rounded-4xl border-2 border-yellow-500/50 bg-yellow-500/5 shadow-2xl relative overflow-hidden text-center mx-auto">
-                <div className="flex items-center gap-6 mb-6 text-left text-center justify-center">
-                    <div className="text-6xl mx-auto">🎯</div>
-                    <div className="flex-1">
-                        <span className="bg-yellow-500 text-slate-950 text-sm font-black px-2 py-0.5 rounded-full uppercase mb-1 inline-block">主線任務</span>
-                        <h3 className="text-2xl font-black text-white italic uppercase">主題親證</h3>
-                        <p className="text-sm text-yellow-400 font-bold mt-1 italic">「{systemSettings.TopicQuestTitle}」</p>
-                    </div>
-                    <div className="text-right bg-yellow-500/10 px-3 py-2 rounded-xl">
-                        <div className="text-sm font-black text-yellow-500">+{topicExp} 修為</div>
-                        <div className="text-sm font-bold text-yellow-400">+{topicCoins} 金幣</div>
-                    </div>
+            <div className="p-5 rounded-3xl border-2 border-yellow-500/50 bg-yellow-500/5 shadow-2xl relative overflow-hidden text-center mx-auto">
+                <div className="flex gap-2 mb-4">
+                    <div className="flex-1 bg-yellow-500/10 px-3 py-2 rounded-xl text-center truncate"><span className="text-sm font-black text-yellow-500">+{topicExp} 修為</span></div>
+                    <div className="flex-1 bg-yellow-400/10 px-3 py-2 rounded-xl text-center truncate"><span className="text-sm font-black text-yellow-400">+{topicCoins} 金幣</span></div>
+                </div>
+                <div className="mb-6">
+                    <span className="bg-yellow-500 text-slate-950 text-sm font-black px-2 py-0.5 rounded-full uppercase mb-1 inline-block">主線任務</span>
+                    <h3 className="text-xl font-black text-white italic uppercase">主題親證</h3>
+                    <p className="text-sm text-yellow-400 font-bold mt-1 italic">「{systemSettings.TopicQuestTitle}」</p>
                 </div>
                 {activeMqEntry?.bonusThresholdPct && activeMqEntry.bonusRewardAmount && (
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 mb-4 text-center">
@@ -164,17 +161,14 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                                 <div className="absolute top-0 right-0 bg-emerald-600/20 text-emerald-500 px-3 py-1 rounded-bl-2xl text-sm font-black uppercase tracking-widest">
                                     大會臨時發布
                                 </div>
-                                <div className="flex items-center gap-4 mb-4 mt-1">
-                                    <div className="text-4xl shrink-0">✨</div>
-                                    <div className="flex-1 text-left">
-                                        <h3 className="text-lg font-black text-white">{tq.title}</h3>
-                                        {tq.sub && <p className="text-sm text-orange-300 font-bold">{tq.sub}</p>}
-                                        {tq.desc && <p className="text-sm text-slate-400 italic">{tq.desc}</p>}
-                                    </div>
-                                    <div className="text-right bg-emerald-400/10 px-3 py-2 rounded-xl shrink-0">
-                                        <div className="text-sm font-black text-emerald-400">+{tq.reward} 修為</div>
-                                        <div className="text-sm font-bold text-yellow-400">+{tq.coins != null ? tq.coins : Math.floor(tq.reward * 0.1)} 金幣</div>
-                                    </div>
+                                <div className="flex gap-2 mb-3 mt-1">
+                                    <div className="flex-1 bg-emerald-400/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-emerald-400">+{tq.reward} 修為</span></div>
+                                    <div className="flex-1 bg-yellow-400/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-yellow-400">+{tq.coins != null ? tq.coins : Math.floor(tq.reward * 0.1)} 金幣</span></div>
+                                </div>
+                                <div className="mb-4">
+                                    <h3 className="text-lg font-black text-white">{tq.title}</h3>
+                                    {tq.sub && <p className="text-sm text-orange-300 font-bold">{tq.sub}</p>}
+                                    {tq.desc && <p className="text-sm text-slate-400 italic">{tq.desc}</p>}
                                 </div>
                                 {(tq.start_date || tq.end_date) && (
                                     <p className="text-sm text-slate-500 text-center mb-3">
@@ -221,21 +215,18 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                 const canUndoMonthly = lastLogDate === logicalTodayStr;
 
                 return (
-                    <div key={q.id} className={`p-8 rounded-4xl bg-slate-900 border border-white/5 shadow-2xl ${isMax ? 'opacity-50 grayscale' : ''}`}>
-                        <div className="flex items-center gap-6 mb-6 text-left text-center justify-center mx-auto">
-                            <div className="text-6xl mx-auto shrink-0">
-                                {q.icon && (q.icon.startsWith('http') || q.icon.startsWith('/'))
-                                    ? <img src={q.icon} alt="" className="w-16 h-16 rounded-2xl object-cover" />
-                                    : (q.icon || '📋')}
+                    <div key={q.id} className={`p-5 rounded-3xl bg-slate-900 border border-white/5 shadow-2xl ${isMax ? 'opacity-50 grayscale' : ''}`}>
+                        <div className="flex gap-2 mb-4">
+                            <div className="flex-1 bg-blue-400/10 px-3 py-2 rounded-xl text-center">
+                                <span className="text-sm font-black text-blue-400">+{q.reward} 修為</span>
                             </div>
-                            <div className="flex-1 text-left">
-                                <h3 className="text-2xl font-black text-white">{q.title}</h3>
-                                <p className="text-sm text-slate-400 font-bold italic">{q.sub}</p>
+                            <div className="flex-1 bg-yellow-400/10 px-3 py-2 rounded-xl text-center">
+                                <span className="text-sm font-black text-yellow-400">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</span>
                             </div>
-                            <div className="text-right bg-blue-400/10 px-3 py-2 rounded-xl">
-                                <div className="text-sm font-black text-blue-400">+{q.reward} 修為</div>
-                                <div className="text-sm font-bold text-yellow-400">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</div>
-                            </div>
+                        </div>
+                        <div className="mb-6">
+                            <h3 className="text-xl font-black text-white">{q.title}</h3>
+                            <p className="text-sm text-slate-400 font-bold italic">{q.sub}</p>
                         </div>
 
                         {isMonthly ? (
@@ -280,7 +271,7 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                                     return (
                                         <div key={idx} className="flex flex-col items-center gap-1.5">
                                             <span className="text-sm text-slate-500 font-mono tracking-tighter">{d.getMonth() + 1}/{d.getDate()}</span>
-                                            <button title={`${day}`} onClick={() => !isDone ? (!isMax && onCheckIn({ ...q, id: qId })) : onUndo({ ...q, id: qId })} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${isDone ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{day}</button>
+                                            <button title={`${day}`} onClick={() => !isDone ? (!isMax && onCheckIn({ ...q, id: qId })) : onUndo({ ...q, id: qId })} className={`w-9 h-9 min-w-[36px] rounded-full flex items-center justify-center font-bold text-sm transition-all ${isDone ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{day}</button>
                                         </div>
                                     );
                                 })}
@@ -291,21 +282,14 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
             })}
 
             {/* w4 傳愛分數 — 申請制 */}
-            <div className="p-8 rounded-4xl bg-slate-900 border border-pink-500/20 shadow-2xl">
-                <div className="flex items-center gap-6 mb-6 text-left justify-center mx-auto">
-                    <div className="text-6xl mx-auto shrink-0">
-                        {w4Config?.icon && (w4Config.icon.startsWith('http') || w4Config.icon.startsWith('/'))
-                            ? <img src={w4Config.icon} alt="" className="w-16 h-16 rounded-2xl object-cover" />
-                            : (w4Config?.icon || '❤️')}
-                    </div>
-                    <div className="flex-1 text-left">
-                        <h3 className="text-2xl font-black text-white">{w4Config?.title || '傳愛分數'}</h3>
-                        <p className="text-sm text-slate-400 font-bold italic">{w4Config?.sub || '訪談成功加分 · 三級審核制'}</p>
-                    </div>
-                    <div className="text-right bg-pink-500/10 px-3 py-2 rounded-xl">
-                        <div className="text-sm font-black text-pink-400">+{w4Config?.reward || 1000} 修為</div>
-                        <div className="text-sm font-bold text-yellow-400">+{w4Config?.coins != null ? w4Config.coins : Math.floor((w4Config?.reward || 1000) * 0.1)} 金幣</div>
-                    </div>
+            <div className="p-5 rounded-3xl bg-slate-900 border border-pink-500/20 shadow-2xl">
+                <div className="flex gap-2 mb-4">
+                    <div className="flex-1 bg-pink-500/10 px-3 py-2 rounded-xl text-center truncate"><span className="text-sm font-black text-pink-400">+{w4Config?.reward || 1000} 修為</span></div>
+                    <div className="flex-1 bg-yellow-400/10 px-3 py-2 rounded-xl text-center truncate"><span className="text-sm font-black text-yellow-400">+{w4Config?.coins != null ? w4Config.coins : Math.floor((w4Config?.reward || 1000) * 0.1)} 金幣</span></div>
+                </div>
+                <div className="mb-6">
+                    <h3 className="text-xl font-black text-white">{w4Config?.title || '傳愛分數'}</h3>
+                    <p className="text-sm text-slate-400 font-bold italic">{w4Config?.sub || '訪談成功加分 · 三級審核制'}</p>
                 </div>
 
                 {!showW4Form ? (
@@ -391,9 +375,9 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                             <h3 className="text-xl font-black text-purple-400 uppercase tracking-widest">🪬 親證圓夢計劃</h3>
                             <span className="text-sm font-black text-slate-500">{weekComps} / 3 次</span>
                         </div>
-                        <div className="p-8 rounded-4xl bg-purple-950/20 border border-purple-500/30 shadow-2xl">
+                        <div className="p-5 rounded-3xl bg-purple-950/20 border border-purple-500/30 shadow-2xl">
                             <div className="flex items-center gap-4 mb-6 justify-center">
-                                <div className="text-5xl">🪬</div>
+                                <div className="text-3xl">🪬</div>
                                 <div className="text-left">
                                     <h4 className="text-xl font-black text-white">親證圓夢計劃</h4>
                                     <p className="text-sm text-purple-300 font-bold mt-1">持有定風珠專屬 · 每週上限 3 次 · 每次 +300 修為 / +30 金幣</p>
@@ -415,7 +399,7 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                                                 title={day}
                                                 disabled={isDisabled}
                                                 onClick={() => !isDone ? onCheckIn({ id: qId, title: '親證圓夢計劃', reward: 300, dice: 0 }) : onUndo({ id: qId, title: '親證圓夢計劃', reward: 300, dice: 0 })}
-                                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${isDone ? 'bg-purple-500 text-white shadow-lg' : isDisabled ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+                                                className={`w-9 h-9 min-w-[36px] rounded-full flex items-center justify-center font-bold text-sm transition-all ${isDone ? 'bg-purple-500 text-white shadow-lg' : isDisabled ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
                                             >{day}</button>
                                         </div>
                                     );
@@ -449,17 +433,14 @@ export function WeeklyTopicTab({ systemSettings, logs, currentWeeklyMonday, isTo
                                 <div className="absolute top-0 right-0 bg-purple-600/20 text-purple-400 px-3 py-1 rounded-bl-2xl text-sm font-black uppercase tracking-widest">
                                     特殊任務
                                 </div>
-                                <div className="flex items-center gap-4 mb-4 mt-1">
-                                    <div className="text-4xl shrink-0">⭐</div>
-                                    <div className="flex-1 text-left">
-                                        <h3 className="text-lg font-black text-white">{tq.title}</h3>
-                                        {tq.sub && <p className="text-sm text-purple-300 font-bold">{tq.sub}</p>}
-                                        {tq.desc && <p className="text-sm text-slate-400 italic">{tq.desc}</p>}
-                                    </div>
-                                    <div className="text-right bg-purple-400/10 px-3 py-2 rounded-xl shrink-0">
-                                        <div className="text-sm font-black text-purple-400">+{tq.reward} 修為</div>
-                                        <div className="text-sm font-bold text-yellow-400">+{tq.coins != null ? tq.coins : Math.floor(tq.reward * 0.1)} 金幣</div>
-                                    </div>
+                                <div className="flex gap-2 mb-3 mt-1">
+                                    <div className="flex-1 bg-purple-400/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-purple-400">+{tq.reward} 修為</span></div>
+                                    <div className="flex-1 bg-yellow-400/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-yellow-400">+{tq.coins != null ? tq.coins : Math.floor(tq.reward * 0.1)} 金幣</span></div>
+                                </div>
+                                <div className="mb-4">
+                                    <h3 className="text-lg font-black text-white">{tq.title}</h3>
+                                    {tq.sub && <p className="text-sm text-purple-300 font-bold">{tq.sub}</p>}
+                                    {tq.desc && <p className="text-sm text-slate-400 italic">{tq.desc}</p>}
                                 </div>
                                 {(tq.start_date || tq.end_date) && (
                                     <p className="text-sm text-slate-500 text-center mb-3">

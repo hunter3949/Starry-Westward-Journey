@@ -1698,7 +1698,7 @@ export default function App() {
         );
       })()}
 
-      <footer className="fixed bottom-0 left-0 right-0 p-10 bg-gradient-to-t from-slate-950 via-slate-950 to-transparent pointer-events-none z-30 flex justify-center text-center mx-auto">
+      <footer className="fixed bottom-0 left-0 right-0 p-10 bg-gradient-to-t from-slate-950 via-slate-950 to-transparent pointer-events-none z-30 flex justify-center text-center mx-auto" style={{ zoom: 100 / fontSize }}>
         <button
           disabled={(userData?.EnergyDice || 0) < ADVENTURE_COST}
           onClick={handleStartAdventure}

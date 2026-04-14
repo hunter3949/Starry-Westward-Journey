@@ -107,8 +107,8 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                         {i + 1}
                                     </div>
                                     {/* 頭像 */}
-                                    <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md bg-slate-800 shrink-0">
-                                        <img src={`/images/avatars/${p.Role}.png`} alt={p.Role} className="w-full h-full object-cover object-top" />
+                                    <div className="w-10 h-10 rounded-full overflow-hidden shadow-md bg-slate-800 shrink-0">
+                                        <img src={`/images/avatars/${p.Role}.png`} alt={p.Role} className="w-full h-full object-cover scale-125" />
                                     </div>
                                     {/* 名字 */}
                                     <div className="flex-1 text-left">
@@ -122,7 +122,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                             })()}
                                         </div>
                                         <p className="text-sm text-slate-500 italic uppercase tracking-widest">
-                                            {p.Role}{p.LittleTeamLeagelName ? ` · ${p.LittleTeamLeagelName}` : ''}{p.BigTeamLeagelName ? ` · ${p.BigTeamLeagelName}` : ''}
+                                            {p.Role}{p.LittleTeamLeagelName ? ` · ${p.LittleTeamLeagelName}` : ''}
                                         </p>
                                     </div>
                                     {/* 修為 */}
@@ -156,8 +156,8 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                             {i + 1}
                                         </div>
                                         {/* 隊長頭像（最高修為成員） */}
-                                        <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md bg-slate-800 shrink-0">
-                                            <img src={`/images/avatars/${sq.topMember.Role}.png`} alt={sq.topMember.Role} className="w-full h-full object-cover object-top" />
+                                        <div className="w-10 h-10 rounded-full overflow-hidden shadow-md bg-slate-800 shrink-0">
+                                            <img src={`/images/avatars/${sq.topMember.Role}.png`} alt={sq.topMember.Role} className="w-full h-full object-cover scale-125" />
                                         </div>
                                         {/* 小隊名稱 */}
                                         <div className="flex-1 text-left">
@@ -179,7 +179,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                             .sort((a, b) => b.Exp - a.Exp)
                                             .map(m => (
                                                 <div key={m.UserID} className="flex items-center gap-1 bg-slate-800/60 rounded-lg px-2 py-1 text-sm">
-                                                    <img src={`/images/avatars/${m.Role}.png`} alt={m.Role} className="w-4 h-4 rounded-sm object-cover object-top" />
+                                                    <img src={`/images/avatars/${m.Role}.png`} alt={m.Role} className="w-5 h-5 rounded-full overflow-hidden object-cover scale-125" />
                                                     <span className="text-slate-300 font-bold">{m.Name}</span>
                                                     <span className="text-slate-500">{m.Exp.toLocaleString()}</span>
                                                 </div>

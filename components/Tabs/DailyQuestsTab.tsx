@@ -68,9 +68,13 @@ interface DailyQuestsTabProps {
 
 function CurseBreakBadge() {
     return (
-        <div className="text-right">
-            <div className="font-black text-purple-400 text-sm">🔮 破咒打卡</div>
-            <div className="text-sm text-slate-500 mt-0.5">不計修為</div>
+        <div className="flex gap-2">
+            <div className="flex-1 bg-purple-500/10 px-3 py-1.5 rounded-xl text-center">
+                <span className="text-sm font-black text-purple-400">🔮 破咒打卡</span>
+            </div>
+            <div className="flex-1 bg-slate-800 px-3 py-1.5 rounded-xl text-center">
+                <span className="text-sm font-black text-slate-500">不計修為</span>
+            </div>
         </div>
     );
 }
@@ -102,33 +106,48 @@ function Q1Card({ q, isDone, questLog, isDawn, setIsDawn, hasMirror, activeManda
     const displayExp = isDawn ? dawnExp : baseExp;
     return (
         <div className={`relative w-full p-6 rounded-3xl border-2 transition-all ${borderClass}`}>
-            <button onClick={handleCheckIn} className="flex items-center gap-4 w-full text-left">
-                <QuestIcon questId="q1" isDone={isDone} icon={q.icon} />
-                <div className="flex-1">
-                    <h3 className={`font-black text-lg ${isDone ? 'text-emerald-400' : 'text-white'}`}>{q.title}</h3>
-                    <p className="text-sm text-slate-500 font-black uppercase tracking-widest">{q.sub}</p>
-                </div>
-                {!isDone && isCapped ? <CurseBreakBadge /> : (
-                    <div className="text-right">
-                        <div className="font-black text-orange-500">+{displayExp} 修為</div>
-                        <div className="text-sm font-bold text-yellow-400 mt-0.5">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</div>
+            <button onClick={handleCheckIn} className="w-full text-left space-y-3">
+                {isDone ? (
+                    <div className="flex gap-2">
+                        <div className="flex-1 bg-emerald-500/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-emerald-400">+{displayExp} 修為</span></div>
+                        <div className="flex-1 bg-emerald-500/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-emerald-400">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</span></div>
+                    </div>
+                ) : isCapped ? (
+                    <CurseBreakBadge />
+                ) : (
+                    <div className="flex gap-2">
+                        <div className="flex-1 bg-orange-500/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-orange-400">+{displayExp} 修為</span></div>
+                        <div className="flex-1 bg-yellow-400/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-yellow-400">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</span></div>
                     </div>
                 )}
+                <div className="flex items-center gap-4">
+                    <QuestIcon questId="q1" isDone={isDone} icon={q.icon} />
+                    <div className="flex-1">
+                        <h3 className={`font-black text-base ${isDone ? 'text-emerald-400' : 'text-white'}`}>{q.title}</h3>
+                        <p className="text-sm text-slate-500 font-black uppercase tracking-widest">{q.sub}</p>
+                    </div>
+                </div>
             </button>
-            {!isDone && (
-                <label className="flex items-center gap-2 mt-3 ml-16 cursor-pointer select-none" onClick={e => e.stopPropagation()}>
-                    <input
-                        type="checkbox"
-                        checked={isDawn}
-                        onChange={e => setIsDawn(e.target.checked)}
-                        className="w-4 h-4 rounded accent-orange-500"
-                    />
-                    <span className="text-sm text-slate-400 font-bold">
-                        本次為破曉打拳（05:00–08:00 完成）
-                        {hasMirror && !isCapped && <span className="text-orange-400 ml-1">+150 修為</span>}
-                    </span>
-                </label>
-            )}
+            {!isDone && (() => {
+                const nowTW = new Date(Date.now() + 8 * 3600 * 1000);
+                const hourTW = nowTW.getUTCHours();
+                const canDawn = hourTW < 7;
+                return (
+                    <label className={`flex items-center gap-2 mt-3 ml-16 select-none ${canDawn || isDawn ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`} onClick={e => e.stopPropagation()}>
+                        <input
+                            type="checkbox"
+                            checked={isDawn}
+                            onChange={e => { if (canDawn) setIsDawn(e.target.checked); }}
+                            disabled={!canDawn && !isDawn}
+                            className="w-4 h-4 rounded accent-orange-500"
+                        />
+                        <span className="text-sm text-slate-400 font-bold">
+                            {isDawn ? '破曉打拳' : canDawn ? '破曉打拳（上午七點前可勾選）' : '破曉打拳（已超過早上 7 點）'}
+                            {hasMirror && !isCapped && isDawn && <span className="text-orange-400 ml-1">+150 修為</span>}
+                        </span>
+                    </label>
+                );
+            })()}
             {isDone && questLog && <div className="absolute bottom-1 right-2 text-sm font-mono text-emerald-500 opacity-60">{formatCheckInTime(questLog.Timestamp)}</div>}
         </div>
     );
@@ -264,16 +283,28 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
                             ? 'bg-slate-900 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
                             : 'bg-slate-900 border-white/5';
                 return (
-                    <button key={q.id} onClick={() => !isDone ? onCheckIn(q) : onUndo(q)} className={`relative w-full p-6 rounded-3xl border-2 flex items-center gap-4 transition-all ${borderClass}`}>
-                        <QuestIcon questId={q.id} isDone={isDone} icon={q.icon} />
-                        <div className="flex-1 text-left"><h3 className={`font-black text-lg ${isDone ? 'text-emerald-400' : 'text-white'}`}>{q.title}</h3><p className="text-sm text-slate-500 font-black uppercase tracking-widest">{q.sub}</p></div>
-                        {!isDone && isCapped ? <CurseBreakBadge /> : (
-                            <div className="text-right">
-                                <div className="font-black text-orange-500">+{Math.ceil(q.reward * baseMultiplier)} 修為</div>
-                                <div className="text-sm font-bold text-yellow-400 mt-0.5">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</div>
+                    <button key={q.id} onClick={() => !isDone ? onCheckIn(q) : onUndo(q)} className={`relative w-full p-6 rounded-3xl border-2 space-y-3 transition-all ${borderClass}`}>
+                        {isDone ? (
+                            <div className="flex gap-2">
+                                <div className="flex-1 bg-emerald-500/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-emerald-400">+{Math.ceil(q.reward * baseMultiplier)} 修為</span></div>
+                                <div className="flex-1 bg-emerald-500/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-emerald-400">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</span></div>
+                            </div>
+                        ) : isCapped ? (
+                            <CurseBreakBadge />
+                        ) : (
+                            <div className="flex gap-2">
+                                <div className="flex-1 bg-orange-500/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-orange-400">+{Math.ceil(q.reward * baseMultiplier)} 修為</span></div>
+                                <div className="flex-1 bg-yellow-400/10 px-3 py-1.5 rounded-xl text-center truncate"><span className="text-sm font-black text-yellow-400">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</span></div>
                             </div>
                         )}
-                        {isDone && questLog && <div className="absolute bottom-1 right-2 text-sm font-mono text-emerald-500 opacity-60">{formatCheckInTime(questLog.Timestamp)}</div>}
+                        <div className="flex items-center gap-4">
+                            <QuestIcon questId={q.id} isDone={isDone} icon={q.icon} />
+                            <div className="flex-1 text-left">
+                                <h3 className={`font-black text-base ${isDone ? 'text-emerald-400' : 'text-white'}`}>{q.title}</h3>
+                                <p className="text-sm text-slate-500 font-black uppercase tracking-widest">{q.sub}</p>
+                                {isDone && questLog && <p className="text-sm font-mono text-emerald-500 opacity-60 mt-1">{formatCheckInTime(questLog.Timestamp)}</p>}
+                            </div>
+                        </div>
                     </button>
                 );
             })}

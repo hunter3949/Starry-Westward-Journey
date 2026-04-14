@@ -21,7 +21,7 @@ export function AchievementIcon({ def, size }: { def: AchievementDef; size: 'md'
                 <img
                     src={`/images/achievements/${def.id}.png`}
                     alt={def.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover scale-125"
                     onError={() => setImgFailed(true)}
                 />
             </div>

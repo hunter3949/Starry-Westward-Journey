@@ -53,7 +53,7 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
     }
 
     return (
-        <header className="px-6 py-8 bg-slate-900 border-b border-white/10 flex items-center gap-6 relative justify-center">
+        <header className="px-6 py-8 bg-slate-900 border-b border-white/10 relative" style={{ zoom: 100 / fontSize }}>
             {/* 右上角：設定 + 登出 */}
             <div className="absolute top-6 right-6 flex items-center gap-2">
                 {/* 設定按鈕 */}
@@ -115,71 +115,77 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
                 </button>
             </div>
 
-            <div className="relative shrink-0 mx-auto text-center">
-                {userData?.Role && ROLE_CURE_MAP[userData.Role] ? (
-                    <img
-                        src={`/images/avatars/${userData.Role}.png`}
-                        alt={userData.Role}
-                        className="w-24 h-24 rounded-4xl shadow-lg mx-auto object-cover"
-                    />
-                ) : (
-                    <div className="w-24 h-24 bg-orange-600 rounded-4xl flex items-center justify-center text-white text-5xl font-black shadow-lg mx-auto">
-                        {userData?.Name?.[0]}
+            <div className="flex items-center gap-6 justify-center">
+                <div className="relative shrink-0 text-center">
+                    {userData?.Role && ROLE_CURE_MAP[userData.Role] ? (
+                        <div className="w-24 h-24 rounded-full shadow-lg mx-auto overflow-hidden">
+                            <img
+                                src={`/images/avatars/${userData.Role}.png`}
+                                alt={userData.Role}
+                                className="w-full h-full object-cover scale-125"
+                            />
+                        </div>
+                    ) : (
+                        <div className="w-24 h-24 bg-orange-600 rounded-full flex items-center justify-center text-white text-5xl font-black shadow-lg mx-auto">
+                            {userData?.Name?.[0]}
+                        </div>
+                    )}
+                    <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-slate-950 text-sm font-black px-2 py-1 rounded-full border-4 border-slate-900">
+                        LV.{userData?.Level}
                     </div>
-                )}
-                <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-slate-950 text-sm font-black px-2 py-1 rounded-full border-4 border-slate-900">
-                    LV.{userData?.Level}
                 </div>
-            </div>
 
-            <div className="flex-1 text-left">
-                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <h1 className="text-3xl font-black text-white">{userData?.Name}</h1>
-                </div>
-                {(userData?.LittleTeamLeagelName || (userData && ROLE_CURE_MAP[userData.Role]?.poison)) && (
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        {userData && ROLE_CURE_MAP[userData.Role]?.poison && (
-                            <span className={`text-sm font-black text-white px-2.5 py-1 rounded-lg ${ROLE_CURE_MAP[userData.Role]?.color}`}>
-                                {ROLE_CURE_MAP[userData.Role]?.poison}
-                            </span>
-                        )}
-                        {userData?.LittleTeamLeagelName && (() => {
-                            let label = '';
-                            if (userData.IsCommandant) {
-                                const team = userData.BigTeamLeagelName || '';
-                                const nick = battalionNickname ? `（${battalionNickname}）` : '';
-                                label = `${team}${nick}．大隊長`;
-                            } else if (userData.IsCaptain) {
-                                const team = userData.LittleTeamLeagelName;
-                                const nick = squadNickname ? `（${squadNickname}）` : '';
-                                label = `${team}${nick}．小隊長`;
-                            } else if (questRoleNames && questRoleNames.length > 0) {
-                                const team = userData.LittleTeamLeagelName;
-                                const nick = squadNickname ? `（${squadNickname}）` : '';
-                                label = `${team}${nick}．${questRoleNames.join('・')}`;
-                            } else {
-                                label = squadNickname || userData.LittleTeamLeagelName;
-                            }
-                            return (
-                                <span className="text-sm font-black text-white bg-red-600 border border-red-500 px-2.5 py-1 rounded-lg">
-                                    {label}
-                                </span>
-                            );
-                        })()}
+                <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <h1 className="text-3xl font-black text-white">{userData?.Name}</h1>
                     </div>
-                )}
-                <div className="flex justify-between items-end mb-2">
-                    <div className="flex items-center gap-2">
+                    {(userData?.LittleTeamLeagelName || (userData && ROLE_CURE_MAP[userData.Role]?.poison)) && (
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {userData && ROLE_CURE_MAP[userData.Role]?.poison && (
+                                <span className={`text-sm font-black text-white px-2.5 py-1 rounded-lg ${ROLE_CURE_MAP[userData.Role]?.color}`}>
+                                    {ROLE_CURE_MAP[userData.Role]?.poison}
+                                </span>
+                            )}
+                            {userData?.LittleTeamLeagelName && (() => {
+                                let label = '';
+                                if (userData.IsCommandant) {
+                                    const team = userData.BigTeamLeagelName || '';
+                                    const nick = battalionNickname ? `（${battalionNickname}）` : '';
+                                    label = `${team}${nick}．大隊長`;
+                                } else if (userData.IsCaptain) {
+                                    const team = userData.LittleTeamLeagelName;
+                                    const nick = squadNickname ? `（${squadNickname}）` : '';
+                                    label = `${team}${nick}．小隊長`;
+                                } else if (questRoleNames && questRoleNames.length > 0) {
+                                    const team = userData.LittleTeamLeagelName;
+                                    const nick = squadNickname ? `（${squadNickname}）` : '';
+                                    label = `${team}${nick}．${questRoleNames.join('・')}`;
+                                } else {
+                                    label = squadNickname || userData.LittleTeamLeagelName;
+                                }
+                                return (
+                                    <span className="text-sm font-black text-white bg-red-600 border border-red-500 px-2.5 py-1 rounded-lg">
+                                        {label}
+                                    </span>
+                                );
+                            })()}
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm text-white/50 font-bold uppercase tracking-widest italic border border-white/15 px-2.5 py-1 rounded-lg">{userData?.Role} 修行中</p>
                         <div className="flex items-center gap-1.5 bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-lg text-sm font-black shadow-inner border border-yellow-500/20">
                             <Coins size={13} /> {userData?.Coins || 0}
                         </div>
                     </div>
-                    <p className="text-sm text-slate-400 font-mono tracking-tighter mix-blend-screen">{userData?.Level! >= 99 ? 'MAX' : `${expInCurrentLevel} / ${nextLevelExp}`}</p>
                 </div>
-                <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-white/5 relative shadow-inner">
+            </div>
+
+            {/* 修為進度條（獨立一列） */}
+            <div className="mt-4 flex items-center gap-3">
+                <div className="flex-1 bg-slate-800 h-3 rounded-full overflow-hidden border border-white/5 relative shadow-inner">
                     <div className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 shadow-[0_0_10px_rgba(249,115,22,0.5)] transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
                 </div>
+                <p className="text-sm text-slate-400 font-mono tracking-tighter shrink-0">{userData?.Level! >= 99 ? 'MAX' : `${expInCurrentLevel} / ${nextLevelExp}`}</p>
             </div>
         </header>
     );
