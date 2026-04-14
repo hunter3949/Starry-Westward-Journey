@@ -68,18 +68,18 @@ export function PeakTrialTab({
                         <div className="bg-white p-4 rounded-2xl inline-block">
                             <QRCode value={showQR.regId} size={200} />
                         </div>
-                        <p className="text-slate-400 text-xs">截圖保存此 QR 碼<br />報到時出示給大隊長掃描</p>
+                        <p className="text-slate-400 text-sm">截圖保存此 QR 碼<br />報到時出示給大隊長掃描</p>
                         <button onClick={() => setShowQR(null)} className="w-full py-2.5 bg-slate-700 text-slate-300 font-black text-sm rounded-2xl">關閉</button>
                     </div>
                 </div>
             )}
             {/* Header */}
             <div className="bg-gradient-to-br from-purple-950/40 to-slate-900 border-2 border-purple-500/30 rounded-4xl p-6 shadow-2xl text-center">
-                <div className="flex items-center justify-center gap-2 text-purple-400 font-black text-xs uppercase tracking-widest mb-1">
+                <div className="flex items-center justify-center gap-2 text-purple-400 font-black text-sm uppercase tracking-widest mb-1">
                     <Trophy size={14} /> 巔峰試煉
                 </div>
                 <h2 className="text-2xl font-black text-white">活動報名</h2>
-                <p className="text-xs text-slate-400 mt-1">參與各大隊舉辦的特別活動，挑戰自我巔峰</p>
+                <p className="text-sm text-slate-400 mt-1">參與各大隊舉辦的特別活動，挑戰自我巔峰</p>
             </div>
 
             {/* 預計修為獎勵框 */}
@@ -94,10 +94,10 @@ export function PeakTrialTab({
                                 本大隊每人預計獲得
                                 <span className="text-purple-300 text-xl mx-1.5">{estimatedExp.toLocaleString()}</span>
                                 修為
-                                <span className="text-red-400 text-xs ml-1.5">（預計）</span>
+                                <span className="text-red-400 text-sm ml-1.5">（預計）</span>
                             </p>
-                            <p className="text-red-400 text-xs font-black">＊請廣邀大隊夥伴一同參與＊</p>
-                            <p className="text-red-400 text-xs">＊此為預計修為，待大會最終審核確認＊</p>
+                            <p className="text-red-400 text-sm font-black">＊請廣邀大隊夥伴一同參與＊</p>
+                            <p className="text-red-400 text-sm">＊此為預計修為，待大會最終審核確認＊</p>
                         </div>
                         {!isRegistered && (
                             <div className="bg-red-950/40 border border-red-500/40 rounded-2xl px-4 py-3 flex items-center justify-center overflow-hidden">
@@ -123,7 +123,7 @@ export function PeakTrialTab({
                                 <div key={reg.id} className="flex items-center justify-between bg-slate-800/60 rounded-2xl px-4 py-2.5">
                                     <div>
                                         <p className="text-white text-sm font-bold">{trial?.title ?? '活動'}</p>
-                                        <p className="text-xs text-slate-500">{trial?.date}{trial?.time ? ` · ${trial.time}` : ''}</p>
+                                        <p className="text-sm text-slate-500">{trial?.date}{trial?.time ? ` · ${trial.time}` : ''}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {!reg.attended && (
@@ -134,7 +134,7 @@ export function PeakTrialTab({
                                                 <QrCode size={14} />
                                             </button>
                                         )}
-                                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${reg.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                        <span className={`text-sm font-black px-2 py-1 rounded-lg ${reg.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                             {reg.attended ? '✅ 已出席' : '已報名'}
                                         </span>
                                     </div>
@@ -150,7 +150,7 @@ export function PeakTrialTab({
                 <div className="bg-slate-900/60 border border-slate-700/40 rounded-3xl p-10 text-center space-y-2">
                     <Trophy size={32} className="text-slate-700 mx-auto" />
                     <p className="text-slate-500 font-black">目前無開放活動</p>
-                    <p className="text-slate-600 text-xs">請關注各大隊公告</p>
+                    <p className="text-slate-600 text-sm">請關注各大隊公告</p>
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -175,29 +175,29 @@ export function PeakTrialTab({
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-black text-white text-base leading-snug">{trial.title}</p>
                                             {trial.battalion_name && (
-                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-400 shrink-0">主辦：{trial.battalion_name}</span>
+                                                <span className="text-sm font-black px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-400 shrink-0">主辦：{trial.battalion_name}</span>
                                             )}
                                         </div>
                                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
-                                            <span className="flex items-center gap-1 text-xs text-slate-400">
+                                            <span className="flex items-center gap-1 text-sm text-slate-400">
                                                 <Calendar size={11} /> {trial.date}
                                             </span>
                                             {trial.time && (
-                                                <span className="flex items-center gap-1 text-xs text-slate-400">
+                                                <span className="flex items-center gap-1 text-sm text-slate-400">
                                                     <Clock size={11} /> {trial.time}
                                                 </span>
                                             )}
                                             {trial.location && (
-                                                <span className="flex items-center gap-1 text-xs text-slate-400">
+                                                <span className="flex items-center gap-1 text-sm text-slate-400">
                                                     <MapPin size={11} /> {trial.location}
                                                 </span>
                                             )}
                                             {trial.max_participants ? (
-                                                <span className={`flex items-center gap-1 text-xs font-black ${full ? 'text-red-400' : 'text-slate-400'}`}>
+                                                <span className={`flex items-center gap-1 text-sm font-black ${full ? 'text-red-400' : 'text-slate-400'}`}>
                                                     <Users size={11} /> {regCount}/{trial.max_participants} 人{full ? '（已額滿）' : ''}
                                                 </span>
                                             ) : regCount > 0 && (
-                                                <span className="flex items-center gap-1 text-xs text-slate-400">
+                                                <span className="flex items-center gap-1 text-sm text-slate-400">
                                                     <Users size={11} /> 已報名 {regCount} 人
                                                 </span>
                                             )}
@@ -205,10 +205,10 @@ export function PeakTrialTab({
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
                                         {full && !myReg && (
-                                            <span className="text-[10px] font-black px-2 py-1 rounded-lg bg-red-500/20 text-red-400">額滿</span>
+                                            <span className="text-sm font-black px-2 py-1 rounded-lg bg-red-500/20 text-red-400">額滿</span>
                                         )}
                                         {myReg && (
-                                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${myReg.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                            <span className={`text-sm font-black px-2 py-1 rounded-lg ${myReg.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                                 {myReg.attended ? '已出席' : '已報名'}
                                             </span>
                                         )}

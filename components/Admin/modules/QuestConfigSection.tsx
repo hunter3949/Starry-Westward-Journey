@@ -151,21 +151,21 @@ export function DailyQuestConfigSection() {
                                         : r.icon
                                             ? <span className="text-2xl">{r.icon}</span>
                                             : <div className="w-8 h-8 rounded-xl bg-slate-800 mx-auto" />}
-                                    <span className="text-[10px] font-black text-slate-600 font-mono block">{r.id}</span>
+                                    <span className="text-xs font-black text-slate-600 font-mono block">{r.id}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-black text-white text-sm">{r.title}</span>
                                         {r.sub && <span className="text-xs text-orange-400">{r.sub}</span>}
-                                        {isFromDb && <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${r.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>{r.is_active ? '啟用' : '停用'}</span>}
+                                        {isFromDb && <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${r.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>{r.is_active ? '啟用' : '停用'}</span>}
                                     </div>
-                                    {r.desc && <p className="text-[11px] text-slate-500 mt-0.5">{r.desc}</p>}
+                                    {r.desc && <p className="text-xs text-slate-500 mt-0.5">{r.desc}</p>}
                                     <div className="flex items-center gap-3 mt-1">
-                                        <span className="text-[10px] text-emerald-400 font-black">+{r.reward} 修為</span>
-                                        <span className="text-[10px] text-yellow-400 font-black">🪙{r.coins != null ? r.coins : `${Math.floor(r.reward * 0.1)}（預設）`}</span>
-                                        <span className="text-[10px] text-sky-400 font-black">🎲×{r.dice}</span>
-                                        {r.limit && <span className="text-[10px] text-amber-400 font-black">上限 {r.limit}</span>}
-                                        <span className="text-[10px] text-slate-600">排序 {r.sort_order}</span>
+                                        <span className="text-xs text-emerald-400 font-black">+{r.reward} 修為</span>
+                                        <span className="text-xs text-yellow-400 font-black">金幣{r.coins != null ? r.coins : `${Math.floor(r.reward * 0.1)}（預設）`}</span>
+                                        <span className="text-xs text-sky-400 font-black">🎲×{r.dice}</span>
+                                        {r.limit && <span className="text-xs text-amber-400 font-black">上限 {r.limit}</span>}
+                                        <span className="text-xs text-slate-600">排序 {r.sort_order}</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
@@ -203,32 +203,32 @@ export function DailyQuestConfigSection() {
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">定課 ID *</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">定課 ID *</label>
                                     <input required placeholder="e.g. q10" value={form.id} disabled={!!editingId}
                                         onChange={e => setForm(f => ({ ...f, id: e.target.value.trim() }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-orange-500 text-sm disabled:opacity-50" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">排序</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">排序</label>
                                     <input type="number" value={form.sort_order}
                                         onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-orange-500 text-sm" />
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">定課標題 *</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">定課標題 *</label>
                                 <input required placeholder="e.g. 打拳" value={form.title}
                                     onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-orange-500 text-sm" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">副標題</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">副標題</label>
                                 <input placeholder="e.g. 身體開發" value={form.sub ?? ''}
                                     onChange={e => setForm(f => ({ ...f, sub: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-orange-500 text-sm" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">完成說明（選填）</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">完成說明（選填）</label>
                                 <input placeholder="e.g. 全程正念練習 30 分鐘" value={form.desc ?? ''}
                                     onChange={e => setForm(f => ({ ...f, desc: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-orange-500 text-sm" />
@@ -236,13 +236,13 @@ export function DailyQuestConfigSection() {
                             <IconPicker value={form.icon ?? ''} onChange={v => setForm(f => ({ ...f, icon: v || null }))} />
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">修為獎勵</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">修為獎勵</label>
                                     <input type="number" min={0} value={form.reward}
                                         onChange={e => setForm(f => ({ ...f, reward: Number(e.target.value) }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-orange-500 text-sm text-center" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">
                                         金幣獎勵
                                         <span className="ml-1 text-slate-600 normal-case font-normal">空=修為×0.1</span>
                                     </label>
@@ -252,13 +252,13 @@ export function DailyQuestConfigSection() {
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm text-center" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">骰子獎勵</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">骰子獎勵</label>
                                     <input type="number" min={0} value={form.dice}
                                         onChange={e => setForm(f => ({ ...f, dice: Number(e.target.value) }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-orange-500 text-sm text-center" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">每日上限</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">每日上限</label>
                                     <input type="number" min={1} placeholder="空=無限"
                                         value={form.limit ?? ''}
                                         onChange={e => setForm(f => ({ ...f, limit: e.target.value ? Number(e.target.value) : null }))}

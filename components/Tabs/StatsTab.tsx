@@ -13,7 +13,7 @@ export const StatCard = ({ label, value, icon, color }: StatCardProps) => (
     <div className="bg-slate-900 border-2 border-slate-800 p-5 rounded-4xl shadow-xl text-left">
         <div className="flex items-center gap-2 mb-2">
             {icon}
-            <span className="text-[10px] font-black text-slate-500 tracking-widest uppercase ml-1">{label}</span>
+            <span className="text-sm font-black text-slate-500 tracking-widest uppercase ml-1">{label}</span>
         </div>
         <div className="flex items-center gap-4">
             <span className="text-4xl font-black text-white">{value || 0}</span>
@@ -62,7 +62,7 @@ function RadarChart({ userData }: { userData: CharacterStats }) {
 
     return (
         <div className="bg-slate-900 border-2 border-slate-800 rounded-4xl p-5 shadow-xl">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 text-center">六維屬性總覽</p>
+            <p className="text-sm font-black text-slate-500 uppercase tracking-widest mb-3 text-center">六維屬性總覽</p>
             <svg viewBox="0 0 300 300" className="w-full max-w-[280px] mx-auto">
                 {/* 背景網格 */}
                 {gridPaths.map((pts, i) => (
@@ -84,7 +84,7 @@ function RadarChart({ userData }: { userData: CharacterStats }) {
                     const p = getPoint(i, maxR + 22);
                     return (
                         <text key={i} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
-                            className="text-[10px] font-black fill-slate-400">
+                            className="text-sm font-black fill-slate-400">
                             {s.label}
                         </text>
                     );
@@ -94,7 +94,7 @@ function RadarChart({ userData }: { userData: CharacterStats }) {
                     const p = getPoint(i, maxR + 36);
                     return (
                         <text key={`v${i}`} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
-                            className="text-[9px] font-bold" fill={s.color}>
+                            className="text-sm font-bold" fill={s.color}>
                             {values[i]}
                         </text>
                     );
@@ -120,13 +120,13 @@ export function StatsTab({ userData }: StatsTabProps) {
                 <div className="bg-gradient-to-br from-yellow-900/40 to-slate-900 border-2 border-yellow-500/20 p-6 rounded-4xl shadow-2xl text-center flex flex-col items-center justify-center">
                     <Coins className="text-yellow-500 mb-2" size={24} />
                     <span className="text-4xl font-black text-yellow-500 mb-1">{userData.Coins || 0}</span>
-                    <p className="text-[10px] text-yellow-500/70 font-black uppercase tracking-[0.2em]">天庭金幣餘額</p>
+                    <p className="text-sm text-yellow-500/70 font-black uppercase tracking-[0.2em]">天庭金幣餘額</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-sky-950/40 to-slate-900 border-2 border-white/5 p-6 rounded-4xl shadow-2xl text-center flex flex-col items-center justify-center">
                     <Zap className="text-sky-400 mb-2" size={24} />
                     <span className="text-4xl font-black text-sky-400 mb-1">{userData.EnergyDice || 0}</span>
-                    <p className="text-[10px] text-sky-400/70 font-black uppercase tracking-[0.2em]">能量骰子</p>
+                    <p className="text-sm text-sky-400/70 font-black uppercase tracking-[0.2em]">能量骰子</p>
                 </div>
 
             </div>
@@ -135,7 +135,7 @@ export function StatsTab({ userData }: StatsTabProps) {
             <div className="bg-slate-900 border-2 border-slate-800 p-5 rounded-4xl shadow-xl text-left">
                 <div className="flex items-center gap-2 mb-3">
                     <Cake size={16} className="text-pink-400" />
-                    <span className="text-[10px] font-black text-slate-500 tracking-widest uppercase ml-1">生日（金剛杖資格驗證）</span>
+                    <span className="text-sm font-black text-slate-500 tracking-widest uppercase ml-1">生日（金剛杖資格驗證）</span>
                 </div>
                 <span className="text-white font-bold">
                     {userData.Birthday

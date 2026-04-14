@@ -96,7 +96,7 @@ export function RegisterForm({ onRegister, onGoToLogin, isSyncing }: RegisterFor
                                         <label className="text-white font-black text-sm">{fortune.label}</label>
                                         <span className="text-indigo-400 font-bold text-xs bg-indigo-950 px-2 py-0.5 rounded">{fortunes[fortune.key]} 分</span>
                                     </div>
-                                    <p className="text-[10px] text-slate-500 font-bold mb-2">{fortune.desc}</p>
+                                    <p className="text-xs text-slate-500 font-bold mb-2">{fortune.desc}</p>
                                     <input
                                         type="range"
                                         min="1"
@@ -106,7 +106,7 @@ export function RegisterForm({ onRegister, onGoToLogin, isSyncing }: RegisterFor
                                         onChange={e => setFortunes({ ...fortunes, [fortune.key]: parseInt(e.target.value, 10) })}
                                         className="w-full accent-indigo-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
                                     />
-                                    <div className="flex justify-between text-[10px] text-slate-600 font-bold px-1">
+                                    <div className="flex justify-between text-xs text-slate-600 font-bold px-1">
                                         <span>1 (匱乏)</span>
                                         <span>10 (豐盛)</span>
                                     </div>

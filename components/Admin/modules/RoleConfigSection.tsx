@@ -38,14 +38,14 @@ export function RoleConfigSection() {
                                 <span className="text-3xl">{r.avatar}</span>
                                 <div>
                                     <p className="font-black text-white text-base">{name}</p>
-                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${r.color} text-white`}>{r.poison}</span>
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.color} text-white`}>{r.poison}</span>
                                 </div>
                             </div>
                             <div className="space-y-1.5 text-xs">
                                 <p className="text-emerald-400"><span className="text-slate-500 mr-1">天賦</span>{r.talent}</p>
                                 <p className="text-red-400"><span className="text-slate-500 mr-1">詛咒</span>{r.curseName}：{r.curseEffect}</p>
                             </div>
-                            <div className="grid grid-cols-3 gap-1 text-[10px]">
+                            <div className="grid grid-cols-3 gap-1 text-xs">
                                 <div className="bg-slate-800 rounded-lg px-2 py-1 text-center">
                                     <p className="text-slate-500">基礎HP</p>
                                     <p className="font-black text-white">{r.baseHP}</p>
@@ -62,7 +62,7 @@ export function RoleConfigSection() {
                             {growth[name] && (
                                 <div className="flex flex-wrap gap-1">
                                     {Object.entries(growth[name]).map(([stat, val]) => (
-                                        <span key={stat} className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-md">
+                                        <span key={stat} className="text-xs bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-md">
                                             {STAT_LABELS[stat] ?? stat} +{val}
                                         </span>
                                     ))}

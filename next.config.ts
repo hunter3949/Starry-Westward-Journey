@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
       // 前台 Tab 偽路由 → 全部指向首頁
       { source: '/dailypractice', destination: '/' },
       { source: '/mission', destination: '/' },
+      { source: '/special', destination: '/' },
       { source: '/shop', destination: '/' },
       { source: '/rank', destination: '/' },
       { source: '/stats', destination: '/' },

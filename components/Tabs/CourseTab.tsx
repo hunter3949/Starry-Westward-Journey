@@ -142,7 +142,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                         <ChevronLeft size={18} />
                     </button>
                     <div>
-                        <p className="text-[10px] text-teal-400 font-black uppercase tracking-widest">志工模式</p>
+                        <p className="text-sm text-teal-400 font-black uppercase tracking-widest">志工模式</p>
                         <h2 className="text-lg font-black text-white">掃碼報到</h2>
                     </div>
                 </div>
@@ -152,7 +152,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                         <button
                             key={c.id}
                             onClick={() => handleVolCourseChange(c.id)}
-                            className={`flex-1 py-2.5 rounded-2xl text-xs font-black transition-all ${
+                            className={`flex-1 py-2.5 rounded-2xl text-sm font-black transition-all ${
                                 volCourseId === c.id
                                     ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/30'
                                     : 'bg-slate-800 text-slate-400'
@@ -164,7 +164,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                 </div>
 
                 {info && (
-                    <div className="bg-slate-900 border border-slate-700/50 rounded-3xl p-4 space-y-1 text-xs text-slate-400">
+                    <div className="bg-slate-900 border border-slate-700/50 rounded-3xl p-4 space-y-1 text-sm text-slate-400">
                         <p className="font-black text-white">{info.name}</p>
                         <p>{info.date_display}・{info.time}</p>
                         <p>{info.location}</p>
@@ -174,17 +174,17 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                 {volCourseId && <Scanner courseKey={volCourseId as 'class_b' | 'class_c'} onCheckedIn={() => loadAttendance(volCourseId)} />}
 
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-teal-400 font-black text-xs uppercase tracking-widest">
+                    <div className="flex items-center gap-2 text-teal-400 font-black text-sm uppercase tracking-widest">
                         <UserCheck size={13} /> 已報到（{attendanceList.length} 人）
                     </div>
                     {attendanceList.length === 0 ? (
-                        <p className="text-xs text-slate-500 text-center py-4">尚無報到記錄</p>
+                        <p className="text-sm text-slate-500 text-center py-4">尚無報到記錄</p>
                     ) : (
                         <div className="bg-slate-900 border border-slate-700/40 rounded-2xl divide-y divide-slate-800 max-h-60 overflow-y-auto">
                             {attendanceList.map(r => (
                                 <div key={r.userId} className="flex justify-between items-center px-4 py-2.5">
                                     <span className="text-sm font-bold text-white">{r.userName}</span>
-                                    <span className="text-[10px] text-slate-500">
+                                    <span className="text-sm text-slate-500">
                                         {new Date(r.attendedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
@@ -205,13 +205,13 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                         <ChevronLeft size={18} />
                     </button>
                     <div>
-                        <p className="text-[10px] text-teal-400 font-black uppercase tracking-widest">志工專區</p>
+                        <p className="text-sm text-teal-400 font-black uppercase tracking-widest">志工專區</p>
                         <h2 className="text-lg font-black text-white">掃碼報到入口</h2>
                     </div>
                 </div>
 
                 <div className="bg-slate-900 border border-slate-700/50 rounded-3xl p-6 space-y-4">
-                    <p className="text-xs text-slate-400">請輸入活動志工密碼以開啟掃碼功能。</p>
+                    <p className="text-sm text-slate-400">請輸入活動志工密碼以開啟掃碼功能。</p>
                     <form onSubmit={handleVolLogin} className="space-y-4">
                         <input
                             type="password"
@@ -221,7 +221,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                             className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-center font-bold outline-none focus:border-teal-500"
                             autoFocus
                         />
-                        {volAuthError && <p className="text-xs text-red-400 text-center font-bold">{volAuthError}</p>}
+                        {volAuthError && <p className="text-sm text-red-400 text-center font-bold">{volAuthError}</p>}
                         <button
                             type="submit"
                             className="w-full bg-teal-600 py-3 rounded-2xl text-white font-black hover:bg-teal-500 active:scale-95 transition-all shadow-lg"
@@ -244,7 +244,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                         <ChevronLeft size={18} />
                     </button>
                     <div>
-                        <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">報名完成</p>
+                        <p className="text-sm text-emerald-400 font-black uppercase tracking-widest">報名完成</p>
                         <h2 className="text-lg font-black text-white">{selectedCourse.name}・入場 QR 碼</h2>
                     </div>
                 </div>
@@ -256,7 +256,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                             {reg?.registrationId && <QRCode value={reg.registrationId} size={200} />}
                         </div>
                     </div>
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                    <p className="text-sm text-slate-400 leading-relaxed">
                         請截圖保存此 QR 碼<br />報到當天出示給志工掃描
                     </p>
                 </div>
@@ -279,7 +279,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                         <ChevronLeft size={18} />
                     </button>
                     <div>
-                        <p className="text-[10px] text-amber-400 font-black uppercase tracking-widest">課程報名</p>
+                        <p className="text-sm text-amber-400 font-black uppercase tracking-widest">課程報名</p>
                         <h2 className="text-lg font-black text-white">{selectedCourse.name}</h2>
                     </div>
                 </div>
@@ -292,13 +292,13 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
 
                 <div className="bg-slate-900 border border-slate-700/50 rounded-3xl p-6 space-y-5">
                     <div className="text-center space-y-1">
-                        <p className="text-xs text-slate-500">報名者</p>
+                        <p className="text-sm text-slate-500">報名者</p>
                         <p className="text-xl font-black text-white">{userName}</p>
                     </div>
 
                     {formError && (
                         <div className="bg-red-950/40 border border-red-500/30 rounded-2xl px-4 py-3">
-                            <p className="text-xs text-red-400 font-bold text-center">{formError}</p>
+                            <p className="text-sm text-red-400 font-bold text-center">{formError}</p>
                         </div>
                     )}
 
@@ -334,10 +334,10 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                                         <div className="flex items-center gap-2 mb-1">
                                             <h3 className="font-black text-white text-base">{course.name}</h3>
                                             {isAttended
-                                                ? <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-400 font-black rounded-lg shrink-0">已出席 ✓</span>
-                                                : isRegistered && <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-black rounded-lg shrink-0">已報名</span>}
+                                                ? <span className="text-sm px-2 py-0.5 bg-amber-500/20 text-amber-400 font-black rounded-lg shrink-0">已出席 ✓</span>
+                                                : isRegistered && <span className="text-sm px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-black rounded-lg shrink-0">已報名</span>}
                                         </div>
-                                        <div className="space-y-1 text-xs text-slate-400">
+                                        <div className="space-y-1 text-sm text-slate-400">
                                             <div className="flex items-center gap-1.5"><CalendarDays size={11} className="text-slate-500 shrink-0" />{course.date_display}</div>
                                             <div className="flex items-center gap-1.5"><Clock size={11} className="text-slate-500 shrink-0" />{course.time}</div>
                                             <div className="flex items-center gap-1.5"><MapPin size={11} className="text-slate-500 shrink-0" />{course.location}</div>
@@ -346,7 +346,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
                                     {((course.reward_exp ?? 0) > 0 || (course.reward_coins ?? 0) > 0) && (
                                         <div className="text-right shrink-0">
                                             {(course.reward_exp ?? 0) > 0 && <div className="text-sm font-black text-orange-400">+{course.reward_exp} 修為</div>}
-                                            {(course.reward_coins ?? 0) > 0 && <div className="text-xs font-bold text-yellow-400">+{course.reward_coins} 🪙</div>}
+                                            {(course.reward_coins ?? 0) > 0 && <div className="text-sm font-bold text-yellow-400">+{course.reward_coins} 金幣</div>}
                                         </div>
                                     )}
                                 </div>
@@ -366,7 +366,7 @@ export default function CourseTab({ courses, volunteerPassword, userId, userName
             )}
 
             <div className="pt-2 text-center">
-                <button onClick={() => setTabView('volunteer_login')} className="text-[11px] text-slate-600 hover:text-teal-400 font-bold transition-colors underline underline-offset-2">
+                <button onClick={() => setTabView('volunteer_login')} className="text-sm text-slate-600 hover:text-teal-400 font-bold transition-colors underline underline-offset-2">
                     志工報到入口
                 </button>
             </div>

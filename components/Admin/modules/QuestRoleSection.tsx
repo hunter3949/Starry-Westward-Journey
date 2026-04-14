@@ -94,7 +94,7 @@ export function QuestRoleSection() {
                                     <div className="flex items-start justify-between gap-2">
                                         <div>
                                             <p className="font-black text-white text-sm">{r.name}</p>
-                                            <p className="text-[11px] text-slate-500 font-mono">{r.id}</p>
+                                            <p className="text-xs text-slate-500 font-mono">{r.id}</p>
                                         </div>
                                         <div className="flex gap-1 shrink-0">
                                             <button onClick={() => openEdit(idx)}
@@ -109,7 +109,7 @@ export function QuestRoleSection() {
                                     </div>
                                     <ul className="space-y-1">
                                         {r.duties.map((d, i) => (
-                                            <li key={i} className="text-[11px] text-slate-400 flex items-start gap-1.5">
+                                            <li key={i} className="text-xs text-slate-400 flex items-start gap-1.5">
                                                 <span className="text-teal-500 mt-0.5 shrink-0">｜</span>{d}
                                             </li>
                                         ))}
@@ -127,18 +127,18 @@ export function QuestRoleSection() {
                                 <h3 className="font-black text-white text-base">{editIdx !== null ? '編輯角色' : '新增角色'}</h3>
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="text-[11px] text-slate-400 font-bold block mb-1">角色 ID（英文）</label>
+                                        <label className="text-xs text-slate-400 font-bold block mb-1">角色 ID（英文）</label>
                                         <input value={form.id} onChange={e => setForm(p => ({ ...p, id: e.target.value }))}
                                             disabled={editIdx !== null}
                                             className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-teal-500 disabled:opacity-50 font-mono" />
                                     </div>
                                     <div>
-                                        <label className="text-[11px] text-slate-400 font-bold block mb-1">角色名稱</label>
+                                        <label className="text-xs text-slate-400 font-bold block mb-1">角色名稱</label>
                                         <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                                             className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-teal-500" />
                                     </div>
                                     <div>
-                                        <label className="text-[11px] text-slate-400 font-bold block mb-1">職責（每行一條）</label>
+                                        <label className="text-xs text-slate-400 font-bold block mb-1">職責（每行一條）</label>
                                         <textarea value={form.duties} onChange={e => setForm(p => ({ ...p, duties: e.target.value }))}
                                             rows={4}
                                             className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-teal-500 resize-none" />

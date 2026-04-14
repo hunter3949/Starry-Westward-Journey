@@ -48,7 +48,7 @@ export function LoginForm({ onLogin, onGoToRegister, onGoToAdmin, isSyncing, reg
                     {registrationMode !== 'roster' && (
                         <button type="button" onClick={onGoToRegister} className="text-slate-500 text-sm font-bold hover:text-orange-400 transition-colors flex items-center justify-center gap-1 mx-auto mt-2"><UserPlus size={16} /> 尚未啟動轉生？</button>
                     )}
-                    <button type="button" onClick={onGoToAdmin} className="text-slate-800 text-[10px] font-black uppercase tracking-[0.3em] hover:text-orange-900 transition-colors">大會中樞入口</button>
+                    <button type="button" onClick={onGoToAdmin} className="text-slate-800 text-xs font-black uppercase tracking-[0.3em] hover:text-orange-900 transition-colors">大會中樞入口</button>
                 </div>
             </form>
         </div>

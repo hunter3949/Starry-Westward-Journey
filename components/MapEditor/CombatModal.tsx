@@ -121,7 +121,7 @@ export function CombatModal({
                                 <span className="text-xs font-black text-slate-500 flex items-center gap-2"><Shield size={14} className="text-indigo-400" /> 防禦力</span>
                                 <span className="font-bold text-white flex items-center gap-1">
                                     {playerDEF}
-                                    {isIrritable && <span className="text-[10px] text-red-500 bg-red-500/10 px-1 rounded">(暴躁 -30%)</span>}
+                                    {isIrritable && <span className="text-xs text-red-500 bg-red-500/10 px-1 rounded">(暴躁 -30%)</span>}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-white/5">
@@ -178,7 +178,7 @@ export function CombatModal({
                 {/* AI Predictive Result */}
                 <div className="bg-slate-950 p-6 flex flex-col md:flex-row items-center justify-between gap-4 border-t border-white/5 flex-shrink-0">
                     <div className="text-left w-full md:w-auto">
-                        <div className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-1 flex items-center gap-1"><Zap size={12} /> AI 戰局推演</div>
+                        <div className="text-xs uppercase font-black tracking-widest text-slate-500 mb-1 flex items-center gap-1"><Zap size={12} /> AI 戰局推演</div>
                         <div className={`text-lg font-black ${winColor} tracking-wide`}>{winChance}</div>
                     </div>
                     <div className="flex gap-3 w-full md:w-auto">

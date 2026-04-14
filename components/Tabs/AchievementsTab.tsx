@@ -59,11 +59,11 @@ function AchievementCard({ def, unlocked_at, isOwner }: {
             <div className={`relative min-h-[100px] p-4 rounded-2xl border-2 ${style.border} ${style.bg} shadow-lg ${style.glow} flex flex-col items-center text-center gap-1`}>
                 <AchievementIcon def={def} size="lg" />
                 <span className={`font-black text-sm leading-tight ${style.text} mt-1`}>{def.name}</span>
-                <div className={`text-[10px] font-bold uppercase tracking-widest ${style.text} opacity-70`}>
+                <div className={`text-sm font-bold uppercase tracking-widest ${style.text} opacity-70`}>
                     {RARITY_STYLE[def.rarity].label}
                 </div>
-                <p className="text-xs text-slate-300 leading-snug mt-1">{def.description}</p>
-                <p className="text-[9px] text-slate-500 mt-auto pt-1">{date} 解鎖</p>
+                <p className="text-sm text-slate-300 leading-snug mt-1">{def.description}</p>
+                <p className="text-sm text-slate-500 mt-auto pt-1">{date} 解鎖</p>
             </div>
         );
     }
@@ -72,7 +72,7 @@ function AchievementCard({ def, unlocked_at, isOwner }: {
         return (
             <div className="relative min-h-[100px] p-4 rounded-2xl border-2 border-slate-800 bg-slate-900/30 flex flex-col items-center justify-center opacity-40 gap-1">
                 <span className="text-xl">🚫</span>
-                <p className="text-[10px] text-slate-500 text-center leading-tight">此成就與你的<br />職業無緣</p>
+                <p className="text-sm text-slate-500 text-center leading-tight">此成就與你的<br />職業無緣</p>
             </div>
         );
     }
@@ -83,7 +83,7 @@ function AchievementCard({ def, unlocked_at, isOwner }: {
                 <span className="text-xl opacity-50">🔒</span>
                 <span className="font-black text-sm text-slate-600">???</span>
             </div>
-            <p className="text-[10px] text-slate-600 italic leading-snug mt-1">{def.hint}</p>
+            <p className="text-sm text-slate-600 italic leading-snug mt-1">{def.hint}</p>
         </div>
     );
 }
@@ -99,7 +99,7 @@ export function AchievementsTab({ achievements, userData }: AchievementsTabProps
             <div className="flex items-center justify-center py-20 animate-in fade-in">
                 <div className="text-center space-y-3">
                     <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                    <p className="text-xs text-slate-500 font-bold">載入成就設定中...</p>
+                    <p className="text-sm text-slate-500 font-bold">載入成就設定中...</p>
                 </div>
             </div>
         );
@@ -118,7 +118,7 @@ export function AchievementsTab({ achievements, userData }: AchievementsTabProps
     return (
         <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
             <div className="bg-slate-900 border-2 border-amber-500/30 rounded-3xl p-5 text-center">
-                <p className="text-xs font-black text-amber-400 uppercase tracking-widest mb-1">成就殿堂</p>
+                <p className="text-sm font-black text-amber-400 uppercase tracking-widest mb-1">成就殿堂</p>
                 <p className="text-2xl font-black text-white">
                     {unlockedCount} <span className="text-slate-500 text-lg">/ {achievableCount}</span>
                 </p>
@@ -128,7 +128,7 @@ export function AchievementsTab({ achievements, userData }: AchievementsTabProps
                         style={{ width: `${progressPct}%` }}
                     />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">{progressPct}% 完成</p>
+                <p className="text-sm text-slate-500 mt-1">{progressPct}% 完成</p>
             </div>
 
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -136,7 +136,7 @@ export function AchievementsTab({ achievements, userData }: AchievementsTabProps
                     <button
                         key={key}
                         onClick={() => setFilter(key)}
-                        className={`shrink-0 px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                        className={`shrink-0 px-4 py-2 rounded-xl text-sm font-black transition-all ${
                             filter === key
                                 ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20'
                                 : 'bg-slate-900 text-slate-400'

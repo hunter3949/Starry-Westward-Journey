@@ -7,7 +7,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   AlertTriangle, CheckCircle2, Sparkles,
   Dice5, Loader2, RotateCcw,
-  Flame, Store, Trophy, BarChart3, Medal, CalendarDays, Compass, Swords, Mountain, ScrollText
+  Flame, Store, Trophy, BarChart3, Medal, CalendarDays, Compass, Swords, Mountain, ScrollText, Star
 } from 'lucide-react';
 
 import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, AchievementRecord, Course, MainQuestEntry, PeakTrial, PeakTrialRegistration } from '@/types';
@@ -71,13 +71,14 @@ const MessageBox = ({ message, onClose, type = 'info', image }: { message: strin
 );
 
 // ── URL 偽路由對照表 ──────────────────────────────────────────────
-type TabKey = 'daily' | 'weekly' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course' | 'peakTrial' | 'history';
+type TabKey = 'daily' | 'weekly' | 'special' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course' | 'peakTrial' | 'history';
 type ViewKey = 'login' | 'register' | 'app' | 'loading' | 'admin' | 'map';
 
 const TAB_ROUTES: Record<string, TabKey> = {
   '/': 'daily',
   '/dailypractice': 'daily',
   '/mission': 'weekly',
+  '/special': 'special',
   '/shop': 'shop',
   '/rank': 'rank',
   '/stats': 'stats',
@@ -92,6 +93,7 @@ const TAB_ROUTES: Record<string, TabKey> = {
 const TAB_TO_PATH: Record<TabKey, string> = {
   daily: '/',
   weekly: '/mission',
+  special: '/special',
   shop: '/shop',
   rank: '/rank',
   stats: '/stats',
@@ -1475,10 +1477,10 @@ export default function App() {
     ];
     return (
       <div className="bg-amber-950/80 border-b-2 border-amber-500/60 px-4 py-2 flex items-center gap-3 flex-wrap">
-        <span className="text-amber-400 text-[10px] font-black tracking-widest shrink-0">⚙ GM模式</span>
+        <span className="text-amber-400 text-sm font-black tracking-widest shrink-0">⚙ GM模式</span>
         <button
           onClick={() => { setAdminAuth(false); setAdminOperator(''); setView('admin'); }}
-          className="px-3 py-1 rounded-xl text-[10px] font-black bg-rose-900/60 text-rose-300 hover:bg-rose-800/70 transition-all shrink-0"
+          className="px-3 py-1 rounded-xl text-sm font-black bg-rose-900/60 text-rose-300 hover:bg-rose-800/70 transition-all shrink-0"
         >
           登入大會中樞
         </button>
@@ -1487,7 +1489,7 @@ export default function App() {
             <button
               key={m.value}
               onClick={() => setGmViewMode(m.value)}
-              className={`px-3 py-1 rounded-xl text-[10px] font-black transition-all ${
+              className={`px-3 py-1 rounded-xl text-sm font-black transition-all ${
                 gmViewMode === m.value
                   ? 'bg-amber-500 text-black'
                   : 'bg-slate-800 text-amber-400/70 hover:bg-slate-700'
@@ -1510,10 +1512,10 @@ export default function App() {
       {userData && !userData.LineUserId && !lineBannerDismissed && (
         <div className="flex items-center gap-3 px-4 py-3 bg-[#06C755]/10 border-b border-[#06C755]/20 text-sm">
           <span className="text-[#06C755] font-black shrink-0">LINE</span>
-          <span className="flex-1 text-left text-slate-300 text-xs">尚未綁定 LINE 帳號，綁定後可直接以 LINE 登入。</span>
+          <span className="flex-1 text-left text-slate-300 text-sm">尚未綁定 LINE 帳號，綁定後可直接以 LINE 登入。</span>
           <a
             href={`/api/auth/line?action=bind&uid=${encodeURIComponent(userData.UserID)}`}
-            className="shrink-0 px-3 py-1 rounded-lg bg-[#06C755] text-white text-xs font-black active:scale-95 transition-all"
+            className="shrink-0 px-3 py-1 rounded-lg bg-[#06C755] text-white text-sm font-black active:scale-95 transition-all"
           >
             立即綁定
           </a>
@@ -1527,20 +1529,21 @@ export default function App() {
       )}
 
       <nav className="sticky top-0 z-20 bg-slate-950/90 backdrop-blur-md flex p-4 gap-2 border-b border-white/5 shadow-xl overflow-x-auto no-scrollbar">
-        <button onClick={() => setActiveTab('daily')} aria-current={activeTab === 'daily' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Flame size={16} />修行定課</button>
-        <button onClick={handleOpenWeeklyTab} aria-current={activeTab === 'weekly' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Sparkles size={16} />任務中心</button>
-        <button onClick={() => setActiveTab('shop')} aria-current={activeTab === 'shop' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'shop' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Store size={16} />藏寶閣</button>
-        <button onClick={() => setActiveTab('rank')} aria-current={activeTab === 'rank' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'rank' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Trophy size={16} />修為榜</button>
-        <button onClick={() => setActiveTab('stats')} aria-current={activeTab === 'stats' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'stats' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><BarChart3 size={16} />六維屬性</button>
-        <button onClick={() => setActiveTab('achievements')} aria-current={activeTab === 'achievements' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'achievements' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Medal size={16} />成就</button>
-        <button onClick={() => setActiveTab('course')} aria-current={activeTab === 'course' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'course' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><CalendarDays size={16} />課程</button>
-        <button onClick={() => setActiveTab('peakTrial')} aria-current={activeTab === 'peakTrial' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'peakTrial' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Mountain size={16} />試煉</button>
-        <button onClick={() => setActiveTab('history')} aria-current={activeTab === 'history' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'history' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><ScrollText size={16} />明細</button>
+        <button onClick={() => setActiveTab('daily')} aria-current={activeTab === 'daily' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Flame size={16} />修行定課</button>
+        <button onClick={handleOpenWeeklyTab} aria-current={activeTab === 'weekly' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Sparkles size={16} />任務中心</button>
+        <button onClick={() => setActiveTab('special')} aria-current={activeTab === 'special' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'special' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Star size={16} />特殊任務</button>
+        <button onClick={() => setActiveTab('shop')} aria-current={activeTab === 'shop' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'shop' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Store size={16} />藏寶閣</button>
+        <button onClick={() => setActiveTab('rank')} aria-current={activeTab === 'rank' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'rank' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Trophy size={16} />修為榜</button>
+        <button onClick={() => setActiveTab('stats')} aria-current={activeTab === 'stats' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'stats' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><BarChart3 size={16} />六維屬性</button>
+        <button onClick={() => setActiveTab('achievements')} aria-current={activeTab === 'achievements' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'achievements' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Medal size={16} />成就</button>
+        <button onClick={() => setActiveTab('course')} aria-current={activeTab === 'course' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'course' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><CalendarDays size={16} />課程</button>
+        <button onClick={() => setActiveTab('peakTrial')} aria-current={activeTab === 'peakTrial' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'peakTrial' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Mountain size={16} />試煉</button>
+        <button onClick={() => setActiveTab('history')} aria-current={activeTab === 'history' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'history' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><ScrollText size={16} />明細</button>
         {showCaptainTab && (
-          <button onClick={handleOpenCaptainTab} aria-current={activeTab === 'captain' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'captain' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Compass size={16} />指揮所</button>
+          <button onClick={handleOpenCaptainTab} aria-current={activeTab === 'captain' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'captain' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Compass size={16} />指揮所</button>
         )}
         {showCommandantTab && (
-          <button onClick={() => setActiveTab('commandant')} aria-current={activeTab === 'commandant' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'commandant' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Swords size={16} />指揮部</button>
+          <button onClick={() => setActiveTab('commandant')} aria-current={activeTab === 'commandant' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'commandant' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Swords size={16} />指揮部</button>
         )}
       </nav>
 
@@ -1566,8 +1569,8 @@ export default function App() {
             logs={logs}
             currentWeeklyMonday={currentWeeklyMonday}
             isTopicDone={isTopicDone}
-            temporaryQuests={temporaryQuests.filter(t => t.active && t.category !== 'special')}
-            specialQuests={temporaryQuests.filter(t => t.active && t.category === 'special')}
+            temporaryQuests={[]}
+            specialQuests={[]}
             userInventory={typeof userData?.Inventory === 'string' ? JSON.parse(userData.Inventory) : (userData?.Inventory || [])}
             teamInventory={typeof teamSettings?.inventory === 'string' ? JSON.parse(teamSettings.inventory) : (teamSettings?.inventory || [])}
             w4Applications={w4Applications}
@@ -1576,6 +1579,25 @@ export default function App() {
             onCheckIn={handleCheckInAction}
             onUndo={setUndoTarget}
             onSubmitW4={handleSubmitW4}
+          />
+        )}
+        {activeTab === 'special' && (
+          <WeeklyTopicTab
+            systemSettings={systemSettings}
+            logs={logs}
+            currentWeeklyMonday={currentWeeklyMonday}
+            isTopicDone={false}
+            temporaryQuests={temporaryQuests.filter(t => t.active && t.category !== 'special')}
+            specialQuests={temporaryQuests.filter(t => t.active && t.category === 'special')}
+            userInventory={typeof userData?.Inventory === 'string' ? JSON.parse(userData.Inventory) : (userData?.Inventory || [])}
+            teamInventory={typeof teamSettings?.inventory === 'string' ? JSON.parse(teamSettings.inventory) : (teamSettings?.inventory || [])}
+            w4Applications={[]}
+            weeklyReview={null}
+            isLoadingReview={false}
+            onCheckIn={handleCheckInAction}
+            onUndo={setUndoTarget}
+            onSubmitW4={async () => {}}
+            hideMainQuest
           />
         )}
         {activeTab === 'rank' && <RankTab leaderboard={leaderboard} currentUserId={userData?.UserID} questRoleDefs={questRoleDefs} />}
@@ -1662,7 +1684,7 @@ export default function App() {
               <div className={`p-6 rounded-3xl border-2 ${style.border} ${style.bg} shadow-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)]`}>
                 <div className="flex justify-center mb-3"><AchievementIcon def={def} size="lg" /></div>
                 <h3 className={`text-2xl font-black ${style.text}`}>{def.name}</h3>
-                <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${style.text} opacity-70`}>{style.label}</p>
+                <p className={`text-sm font-bold uppercase tracking-widest mt-1 ${style.text} opacity-70`}>{style.label}</p>
                 <p className="text-slate-300 text-sm mt-3 leading-relaxed">{def.description}</p>
               </div>
               <button
@@ -1745,13 +1767,13 @@ export default function App() {
                 <div key={f.key} className="space-y-2">
                   <div className="flex justify-between items-end">
                     <label className="text-white font-black text-sm">{f.label}</label>
-                    <span className="text-indigo-400 font-bold text-xs bg-indigo-950 px-2 py-0.5 rounded">{fortuneForm[f.key]} 分</span>
+                    <span className="text-indigo-400 font-bold text-sm bg-indigo-950 px-2 py-0.5 rounded">{fortuneForm[f.key]} 分</span>
                   </div>
-                  <p className="text-[10px] text-slate-500 font-bold">{f.desc}</p>
+                  <p className="text-sm text-slate-500 font-bold">{f.desc}</p>
                   <input type="range" min="1" max="10" step="1" value={fortuneForm[f.key]}
                     onChange={e => setFortuneForm(prev => ({ ...prev, [f.key]: parseInt(e.target.value, 10) }))}
                     className="w-full accent-indigo-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer" />
-                  <div className="flex justify-between text-[10px] text-slate-600 font-bold px-1">
+                  <div className="flex justify-between text-sm text-slate-600 font-bold px-1">
                     <span>1 (匱乏)</span><span>10 (豐盛)</span>
                   </div>
                 </div>
@@ -1865,13 +1887,13 @@ export default function App() {
         <div className="fixed inset-0 z-10 flex flex-col">
           {/* 冒險狀態列：詛咒/天賦效果 + 黃金骰子 */}
           <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-2 bg-slate-950/90 backdrop-blur-sm border-b border-slate-800">
-            <span className={`text-[10px] font-black shrink-0 ${roleTrait?.isCursed ? 'text-red-400' : 'text-emerald-400'}`}>
+            <span className={`text-sm font-black shrink-0 ${roleTrait?.isCursed ? 'text-red-400' : 'text-emerald-400'}`}>
               {roleTrait?.isCursed ? `☠️ ${roleTrait.curseName}` : '✨ 天命覺醒'}
             </span>
-            <p className="text-[10px] text-white/50 leading-tight truncate flex-1 text-center">
+            <p className="text-sm text-white/50 leading-tight truncate flex-1 text-center">
               {roleTrait?.isCursed ? roleTrait.curseEffect : roleTrait?.talent}
             </p>
-            <span className="text-[10px] font-black text-amber-400 shrink-0">⭐ {userData.GoldenDice}</span>
+            <span className="text-sm font-black text-amber-400 shrink-0">⭐ {userData.GoldenDice}</span>
           </div>
           <div className="flex-1 min-h-0 relative overflow-hidden">
           <WorldMap

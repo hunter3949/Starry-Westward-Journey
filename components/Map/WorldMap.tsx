@@ -802,8 +802,8 @@ export const WorldMap: React.FC<WorldMapProps> = ({
                                 {/* AP display */}
                                 <div className="w-full flex flex-col items-center gap-1">
                                     <div className="flex items-center justify-between w-full px-1">
-                                        <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">移動 AP</span>
-                                        <span className={`text-[11px] font-black tabular-nums ${stepsRemaining > 0 ? 'text-cyan-400' : 'text-slate-600'}`}>{stepsRemaining}</span>
+                                        <span className="text-xs uppercase tracking-widest text-slate-500 font-bold">移動 AP</span>
+                                        <span className={`text-xs font-black tabular-nums ${stepsRemaining > 0 ? 'text-cyan-400' : 'text-slate-600'}`}>{stepsRemaining}</span>
                                     </div>
                                     <div className="flex gap-0.5 w-full">
                                         {Array.from({ length: Math.min(10, Math.max(stepsRemaining, 1)) }).map((_, i) => (
@@ -837,7 +837,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({
                                 {/* Planning controls */}
                                 {isPlanningMode && stepsRemaining > 0 && (
                                     <div className="w-full space-y-1.5">
-                                        <div className="text-[9px] text-sky-400 font-black text-center tracking-widest">
+                                        <div className="text-xs text-sky-400 font-black text-center tracking-widest">
                                             已規劃 {plannedPath.length} 步（點最後一格取消）
                                         </div>
                                         <div className="flex gap-2">
@@ -860,7 +860,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({
                                 <button
                                     onClick={() => onRollDice(rollAmount)}
                                     disabled={isRolling || stepsRemaining > 0 || userData.EnergyDice < rollAmount}
-                                    className={`w-full py-2.5 rounded-2xl text-[10px] uppercase font-black flex items-center justify-center gap-2 transition-all ${(isRolling || stepsRemaining > 0 || userData.EnergyDice < rollAmount) ? 'bg-slate-950 border border-white/5 text-slate-600' : 'bg-gradient-to-tr from-emerald-600 to-teal-400 text-white shadow-lg shadow-emerald-500/20 active:scale-95'}`}
+                                    className={`w-full py-2.5 rounded-2xl text-xs uppercase font-black flex items-center justify-center gap-2 transition-all ${(isRolling || stepsRemaining > 0 || userData.EnergyDice < rollAmount) ? 'bg-slate-950 border border-white/5 text-slate-600' : 'bg-gradient-to-tr from-emerald-600 to-teal-400 text-white shadow-lg shadow-emerald-500/20 active:scale-95'}`}
                                 >
                                     {isRolling ? <Loader2 size={12} className="animate-spin" /> : <Dice5 size={12} />} 注入能量轉輪
                                 </button>
@@ -868,7 +868,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({
                                     <button
                                         onClick={() => onRollDice(-1)}
                                         disabled={isRolling || stepsRemaining > 0}
-                                        className={`w-full py-1.5 rounded-xl text-[9px] uppercase font-black flex items-center justify-center gap-1 transition-all ${(isRolling || stepsRemaining > 0) ? 'bg-slate-950 border border-yellow-700/50 text-slate-600' : 'bg-gradient-to-r from-yellow-600 to-amber-500 text-black shadow-lg shadow-yellow-500/30 active:scale-95'}`}
+                                        className={`w-full py-1.5 rounded-xl text-xs uppercase font-black flex items-center justify-center gap-1 transition-all ${(isRolling || stepsRemaining > 0) ? 'bg-slate-950 border border-yellow-700/50 text-slate-600' : 'bg-gradient-to-r from-yellow-600 to-amber-500 text-black shadow-lg shadow-yellow-500/30 active:scale-95'}`}
                                     >
                                         🌟 使用萬能奇蹟骰 ({userData.GoldenDice})
                                     </button>
@@ -900,7 +900,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({
                             {/* HP bar */}
                             <div>
                                 <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">❤️ 血量</span>
+                                    <span className="text-xs font-black uppercase text-slate-500 tracking-widest">❤️ 血量</span>
                                     <span className={`text-xs font-black ${hpColor}`}>{currentHP} / {maxHP}</span>
                                 </div>
                                 <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
@@ -910,27 +910,27 @@ export const WorldMap: React.FC<WorldMapProps> = ({
                             {/* ATK / DEF — hidden on mobile when collapsed */}
                             <div className={`${isStatsExpanded ? 'flex' : 'hidden md:flex'} items-center gap-4`}>
                                 <div>
-                                    <div className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-0.5">⚔️ 攻擊</div>
+                                    <div className="text-xs font-black uppercase text-slate-500 tracking-widest mb-0.5">⚔️ 攻擊</div>
                                     <div className="text-sm font-black text-orange-400">{atk}</div>
                                 </div>
                                 <div className="h-6 w-px bg-white/10" />
                                 <div>
-                                    <div className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-0.5">🛡️ 防禦</div>
+                                    <div className="text-xs font-black uppercase text-slate-500 tracking-widest mb-0.5">🛡️ 防禦</div>
                                     <div className="text-sm font-black text-sky-400">{def}</div>
                                 </div>
                                 <div className="h-6 w-px bg-white/10" />
                                 <div>
-                                    <div className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-0.5"><Dice5 size={9} className="inline" /> 骰子</div>
+                                    <div className="text-xs font-black uppercase text-slate-500 tracking-widest mb-0.5"><Dice5 size={9} className="inline" /> 骰子</div>
                                     <div className="text-sm font-black text-amber-400">{userData.EnergyDice}</div>
                                 </div>
                             </div>
                             {/* Coordinates — hidden on mobile to save space */}
-                            <div className="hidden md:flex items-center gap-1.5 text-[9px] text-slate-600 font-mono">
+                            <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-600 font-mono">
                                 <Footprints size={10} /> {userData.CurrentQ}, {userData.CurrentR}
                             </div>
                             {/* Mobile expand hint */}
                             <div className="flex md:hidden justify-center mt-0.5">
-                                <span className="text-[8px] text-slate-600">{isStatsExpanded ? '▲ 收合' : '▼ 展開'}</span>
+                                <span className="text-xs text-slate-600">{isStatsExpanded ? '▲ 收合' : '▼ 展開'}</span>
                             </div>
                         </div>
                     );
@@ -940,7 +940,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({
                 {(Math.abs(camX + playerPixel.x) > 10 || Math.abs(camY + playerPixel.y) > 10) && (
                     <button
                         ref={recenterBtnRef}
-                        className="absolute top-[52px] md:bottom-6 md:top-auto left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-900/90 border border-white/10 text-cyan-400 text-[11px] font-black shadow-xl backdrop-blur-xl active:scale-95 transition-all"
+                        className="absolute top-[52px] md:bottom-6 md:top-auto left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-900/90 border border-white/10 text-cyan-400 text-xs font-black shadow-xl backdrop-blur-xl active:scale-95 transition-all"
                         onClick={() => { setCamX(-playerPixel.x); setCamY(-playerPixel.y); }}
                         onMouseDown={e => e.stopPropagation()}
                         onMouseUp={e => e.stopPropagation()}

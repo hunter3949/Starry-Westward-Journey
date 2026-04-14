@@ -89,7 +89,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
             {/* 個人排行 */}
             {tab === 'personal' && (
                 <div className="bg-slate-900 border-2 border-white/5 rounded-4xl overflow-hidden divide-y divide-white/5 shadow-2xl">
-                    <div className="p-4 bg-slate-950/50 flex items-center gap-2 text-yellow-500 font-black text-xs uppercase tracking-widest justify-center">
+                    <div className="p-4 bg-slate-950/50 flex items-center gap-2 text-yellow-500 font-black text-sm uppercase tracking-widest justify-center">
                         <Crown size={14} /> 個人修為榜
                     </div>
                     {personalRank.length === 0 ? (
@@ -103,7 +103,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                     className={`flex items-center gap-4 p-5 ${i < 3 ? 'bg-white/5' : ''} ${isSelf ? 'ring-1 ring-inset ring-orange-500/40 bg-orange-500/5' : ''}`}
                                 >
                                     {/* 名次 */}
-                                    <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-black ${RANK_BADGE[i] ?? 'text-slate-500'}`}>
+                                    <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-sm font-black ${RANK_BADGE[i] ?? 'text-slate-500'}`}>
                                         {i + 1}
                                     </div>
                                     {/* 頭像 */}
@@ -118,17 +118,17 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                             </p>
                                             {p.QuestRole && (() => {
                                                 const rn = questRoleDefs.find(r => r.id === p.QuestRole)?.name;
-                                                return rn ? <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black text-teal-300 bg-teal-900/50 border border-teal-700/50 shrink-0">{rn}</span> : null;
+                                                return rn ? <span className="text-sm px-1.5 py-0.5 rounded-full font-black text-teal-300 bg-teal-900/50 border border-teal-700/50 shrink-0">{rn}</span> : null;
                                             })()}
                                         </div>
-                                        <p className="text-[10px] text-slate-500 italic uppercase tracking-widest">
+                                        <p className="text-sm text-slate-500 italic uppercase tracking-widest">
                                             {p.Role}{p.LittleTeamLeagelName ? ` · ${p.LittleTeamLeagelName}` : ''}{p.BigTeamLeagelName ? ` · ${p.BigTeamLeagelName}` : ''}
                                         </p>
                                     </div>
                                     {/* 修為 */}
                                     <div className="text-right text-orange-500 font-black text-sm">
                                         {p.Exp.toLocaleString()}
-                                        <span className="text-[8px] text-slate-600 uppercase tracking-widest ml-1">修為</span>
+                                        <span className="text-sm text-slate-600 uppercase tracking-widest ml-1">修為</span>
                                     </div>
                                 </div>
                             );
@@ -140,7 +140,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
             {/* 小隊排行 */}
             {tab === 'squad' && (
                 <div className="bg-slate-900 border-2 border-white/5 rounded-4xl overflow-hidden divide-y divide-white/5 shadow-2xl">
-                    <div className="p-4 bg-slate-950/50 flex items-center gap-2 text-blue-400 font-black text-xs uppercase tracking-widest justify-center">
+                    <div className="p-4 bg-slate-950/50 flex items-center gap-2 text-blue-400 font-black text-sm uppercase tracking-widest justify-center">
                         <Users size={14} /> 小隊修為榜（成員總和）
                     </div>
                     {squadRank.length === 0 ? (
@@ -152,7 +152,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                 <div key={sq.squadName} className={`p-5 ${i < 3 ? 'bg-white/5' : ''}`}>
                                     <div className="flex items-center gap-4">
                                         {/* 名次 */}
-                                        <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-black ${RANK_BADGE[i] ?? 'text-slate-500'}`}>
+                                        <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-sm font-black ${RANK_BADGE[i] ?? 'text-slate-500'}`}>
                                             {i + 1}
                                         </div>
                                         {/* 隊長頭像（最高修為成員） */}
@@ -162,7 +162,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                         {/* 小隊名稱 */}
                                         <div className="flex-1 text-left">
                                             <p className="font-black text-sm text-white">{sq.squadName}</p>
-                                            <p className="text-[10px] text-slate-500 italic tracking-widest">
+                                            <p className="text-sm text-slate-500 italic tracking-widest">
                                                 {sq.memberCount} 人 · 均 {avgExp.toLocaleString()} 修為
                                                 {sq.teamName ? ` · ${sq.teamName}` : ''}
                                             </p>
@@ -170,7 +170,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                         {/* 總修為 */}
                                         <div className="text-right text-blue-400 font-black text-sm">
                                             {sq.totalExp.toLocaleString()}
-                                            <span className="text-[8px] text-slate-600 uppercase tracking-widest ml-1">總修為</span>
+                                            <span className="text-sm text-slate-600 uppercase tracking-widest ml-1">總修為</span>
                                         </div>
                                     </div>
                                     {/* 成員列表 */}
@@ -178,7 +178,7 @@ export function RankTab({ leaderboard, currentUserId, questRoleDefs = [] }: Rank
                                         {sq.members
                                             .sort((a, b) => b.Exp - a.Exp)
                                             .map(m => (
-                                                <div key={m.UserID} className="flex items-center gap-1 bg-slate-800/60 rounded-lg px-2 py-1 text-[10px]">
+                                                <div key={m.UserID} className="flex items-center gap-1 bg-slate-800/60 rounded-lg px-2 py-1 text-sm">
                                                     <img src={`/images/avatars/${m.Role}.png`} alt={m.Role} className="w-4 h-4 rounded-sm object-cover object-top" />
                                                     <span className="text-slate-300 font-bold">{m.Name}</span>
                                                     <span className="text-slate-500">{m.Exp.toLocaleString()}</span>

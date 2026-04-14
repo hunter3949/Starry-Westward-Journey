@@ -70,20 +70,20 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
                         <div className="absolute top-full right-0 mt-2 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 w-52 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                             <div className="flex items-center gap-2 mb-3">
                                 <Type size={13} className="text-orange-400" />
-                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">字體大小</p>
+                                <p className="text-sm font-black text-slate-400 uppercase tracking-widest">字體大小</p>
                             </div>
                             <div className="grid grid-cols-4 gap-1.5">
                                 {FONT_LABELS.map(({ size, label }) => (
                                     <button
                                         key={size}
                                         onClick={() => onFontSizeChange(size)}
-                                        className={`py-2 rounded-xl text-xs font-black transition-colors ${fontSize === size ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                                        className={`py-2 rounded-xl text-sm font-black transition-colors ${fontSize === size ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'}`}
                                     >
                                         {label}
                                     </button>
                                 ))}
                             </div>
-                            <p className="text-[10px] text-slate-600 text-center mt-3">設定自動儲存</p>
+                            <p className="text-sm text-slate-600 text-center mt-3">設定自動儲存</p>
 
                             {userData?.LineUserId && onUnbindLine && (
                                 <>
@@ -97,7 +97,7 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
                                             setUnbinding(false);
                                             setSettingsOpen(false);
                                         }}
-                                        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black text-red-400 bg-red-900/20 hover:bg-red-900/40 border border-red-800/40 transition-colors disabled:opacity-50"
+                                        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-black text-red-400 bg-red-900/20 hover:bg-red-900/40 border border-red-800/40 transition-colors disabled:opacity-50"
                                     >
                                         <Unlink size={12} />
                                         {unbinding ? '取消中...' : 'LINE 取消綁定'}
@@ -127,7 +127,7 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
                         {userData?.Name?.[0]}
                     </div>
                 )}
-                <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-slate-950 text-[10px] font-black px-2 py-1 rounded-full border-4 border-slate-900">
+                <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-slate-950 text-sm font-black px-2 py-1 rounded-full border-4 border-slate-900">
                     LV.{userData?.Level}
                 </div>
             </div>
@@ -139,7 +139,7 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
                 {(userData?.LittleTeamLeagelName || (userData && ROLE_CURE_MAP[userData.Role]?.poison)) && (
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                         {userData && ROLE_CURE_MAP[userData.Role]?.poison && (
-                            <span className={`text-xs font-black text-white px-2.5 py-1 rounded-lg ${ROLE_CURE_MAP[userData.Role]?.color}`}>
+                            <span className={`text-sm font-black text-white px-2.5 py-1 rounded-lg ${ROLE_CURE_MAP[userData.Role]?.color}`}>
                                 {ROLE_CURE_MAP[userData.Role]?.poison}
                             </span>
                         )}
@@ -161,7 +161,7 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
                                 label = squadNickname || userData.LittleTeamLeagelName;
                             }
                             return (
-                                <span className="text-xs font-black text-white bg-red-600 border border-red-500 px-2.5 py-1 rounded-lg">
+                                <span className="text-sm font-black text-white bg-red-600 border border-red-500 px-2.5 py-1 rounded-lg">
                                     {label}
                                 </span>
                             );
@@ -170,12 +170,12 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
                 )}
                 <div className="flex justify-between items-end mb-2">
                     <div className="flex items-center gap-2">
-                        <p className="text-xs text-white/50 font-bold uppercase tracking-widest italic border border-white/15 px-2.5 py-1 rounded-lg">{userData?.Role} 修行中</p>
-                        <div className="flex items-center gap-1.5 bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-lg text-xs font-black shadow-inner border border-yellow-500/20">
+                        <p className="text-sm text-white/50 font-bold uppercase tracking-widest italic border border-white/15 px-2.5 py-1 rounded-lg">{userData?.Role} 修行中</p>
+                        <div className="flex items-center gap-1.5 bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-lg text-sm font-black shadow-inner border border-yellow-500/20">
                             <Coins size={13} /> {userData?.Coins || 0}
                         </div>
                     </div>
-                    <p className="text-[10px] text-slate-400 font-mono tracking-tighter mix-blend-screen">{userData?.Level! >= 99 ? 'MAX' : `${expInCurrentLevel} / ${nextLevelExp}`}</p>
+                    <p className="text-sm text-slate-400 font-mono tracking-tighter mix-blend-screen">{userData?.Level! >= 99 ? 'MAX' : `${expInCurrentLevel} / ${nextLevelExp}`}</p>
                 </div>
                 <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-white/5 relative shadow-inner">
                     <div className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 shadow-[0_0_10px_rgba(249,115,22,0.5)] transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>

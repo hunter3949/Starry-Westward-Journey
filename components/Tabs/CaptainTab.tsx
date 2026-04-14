@@ -82,25 +82,25 @@ export function CaptainTab({
     return (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
             <div className="bg-indigo-950/40 border-2 border-indigo-500/40 rounded-4xl p-6 shadow-2xl text-center mx-auto">
-                <div className="flex items-center justify-center gap-2 text-indigo-400 font-black text-xs uppercase mb-2 tracking-widest"><ShieldAlert size={16} /> 隊長權限指揮所</div>
+                <div className="flex items-center justify-center gap-2 text-indigo-400 font-black text-sm uppercase mb-2 tracking-widest"><ShieldAlert size={16} /> 隊長權限指揮所</div>
                 <h2 className="text-2xl font-black text-white italic mx-auto">{teamDisplayName || teamName || '未知小隊'}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{teamName}</p>
-                <p className="text-xs text-indigo-300 mt-2 font-black">你擁有點亮同伴前行的提燈。請謹慎決策。</p>
+                <p className="text-sm text-slate-500 mt-0.5">{teamName}</p>
+                <p className="text-sm text-indigo-300 mt-2 font-black">你擁有點亮同伴前行的提燈。請謹慎決策。</p>
                 <div className="mt-4 border-t border-indigo-500/20 pt-4">
                     {editingName ? (
                         <div className="flex gap-2">
                             <input value={nameInput} onChange={e => setNameInput(e.target.value)} placeholder={teamName}
                                 className="flex-1 bg-slate-950 border border-indigo-500/50 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-400" />
                             <button onClick={handleSaveName} disabled={savingName}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-colors">
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-sm rounded-xl transition-colors">
                                 {savingName ? '…' : '儲存'}
                             </button>
                             <button onClick={() => setEditingName(false)}
-                                className="px-3 py-2 bg-slate-700 text-slate-300 text-xs rounded-xl">取消</button>
+                                className="px-3 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">取消</button>
                         </div>
                     ) : (
                         <button onClick={() => { setNameInput(teamDisplayName || ''); setEditingName(true); }}
-                            className="flex items-center gap-1.5 mx-auto text-xs text-indigo-400 hover:text-indigo-200 transition-colors">
+                            className="flex items-center gap-1.5 mx-auto text-sm text-indigo-400 hover:text-indigo-200 transition-colors">
                             <Pencil size={12} /> 設定小隊名稱
                         </button>
                     )}
@@ -110,7 +110,7 @@ export function CaptainTab({
             {/* ── AI 隊務分析 ── */}
             <section className="bg-slate-900 border-2 border-purple-500/30 p-8 rounded-4xl space-y-5 shadow-xl">
                 <h3 className="text-lg font-black text-white border-b border-white/10 pb-4 text-left">🤖 AI 隊務分析</h3>
-                <p className="text-xs text-slate-400 font-bold leading-relaxed text-left">
+                <p className="text-sm text-slate-400 font-bold leading-relaxed text-left">
                     即時分析本小隊近 7 天修行表現，識別表現之星與需要關懷的隊員。
                 </p>
                 <button
@@ -127,7 +127,7 @@ export function CaptainTab({
                 {aiBriefing && (
                     <div className="space-y-4 pt-1 animate-in slide-in-from-bottom-4 duration-500">
                         <div className="flex items-center gap-2">
-                            <span className={`text-xs font-black px-3 py-1 rounded-lg ${
+                            <span className={`text-sm font-black px-3 py-1 rounded-lg ${
                                 aiBriefing.teamMorale === 'high' ? 'bg-emerald-500/20 text-emerald-400' :
                                 aiBriefing.teamMorale === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
                                 'bg-red-500/20 text-red-400'
@@ -138,15 +138,15 @@ export function CaptainTab({
                         </div>
                         <p className="text-sm text-slate-300 leading-relaxed text-left">{aiBriefing.teamSummary}</p>
                         <div className="bg-slate-800 rounded-2xl p-4 space-y-1 text-left">
-                            <p className="text-xs font-black text-emerald-400 uppercase tracking-widest">本週之星</p>
+                            <p className="text-sm font-black text-emerald-400 uppercase tracking-widest">本週之星</p>
                             <p className="text-sm text-white font-bold">{aiBriefing.topPerformer}</p>
                         </div>
                         {aiBriefing.needsSupport.length > 0 && (
                             <div className="bg-slate-800 rounded-2xl p-4 space-y-2 text-left">
-                                <p className="text-xs font-black text-yellow-400 uppercase tracking-widest">需要關懷</p>
+                                <p className="text-sm font-black text-yellow-400 uppercase tracking-widest">需要關懷</p>
                                 <div className="flex flex-wrap gap-2">
                                     {aiBriefing.needsSupport.map(name => (
-                                        <span key={name} className="px-3 py-1 bg-yellow-500/10 text-yellow-300 text-xs font-bold rounded-lg">
+                                        <span key={name} className="px-3 py-1 bg-yellow-500/10 text-yellow-300 text-sm font-bold rounded-lg">
                                             {name}
                                         </span>
                                     ))}
@@ -154,8 +154,8 @@ export function CaptainTab({
                             </div>
                         )}
                         <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-4 text-left">
-                            <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-1">本週建議</p>
-                            <p className="text-xs text-slate-300 leading-relaxed">{aiBriefing.suggestion}</p>
+                            <p className="text-sm font-black text-indigo-400 uppercase tracking-widest mb-1">本週建議</p>
+                            <p className="text-sm text-slate-300 leading-relaxed">{aiBriefing.suggestion}</p>
                         </div>
                     </div>
                 )}
@@ -167,16 +167,16 @@ export function CaptainTab({
                 <h3 className="text-lg font-black text-white border-b border-white/10 pb-4 text-left">🎲 本週推薦定課抽籤</h3>
                 {alreadyDrawnThisWeek && currentQuestName ? (
                     <div className="space-y-3">
-                        <p className="text-xs text-slate-400 font-bold">本週已抽出</p>
+                        <p className="text-sm text-slate-400 font-bold">本週已抽出</p>
                         <div className="bg-indigo-900/30 border-2 border-indigo-500/50 rounded-3xl p-6">
                             <p className="text-3xl font-black text-white">「{currentQuestName}」</p>
-                            <p className="text-xs text-indigo-400 mt-2 font-bold">週一 {weekMondayStr} 起生效</p>
+                            <p className="text-sm text-indigo-400 mt-2 font-bold">週一 {weekMondayStr} 起生效</p>
                         </div>
-                        <p className="text-xs text-slate-500">下週一前無法再次抽籤</p>
+                        <p className="text-sm text-slate-500">下週一前無法再次抽籤</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        <p className="text-xs text-slate-400 font-bold leading-relaxed">
+                        <p className="text-sm text-slate-400 font-bold leading-relaxed">
                             每週一 12:00 前抽選本週推薦定課。<br />
                             已抽過的定課不重複，{remaining.length > 0 ? `尚餘 ${remaining.length} 項可抽` : '本輪已全部抽完，下次抽籤將重置循環'}。
                         </p>
@@ -188,12 +188,12 @@ export function CaptainTab({
                 )}
                 {drawHistory.length > 0 && (
                     <div className="text-left space-y-2 mt-2">
-                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">本輪已抽歷程</p>
+                        <p className="text-sm font-black text-slate-500 uppercase tracking-widest">本輪已抽歷程</p>
                         <div className="flex flex-wrap gap-2">
                             {drawHistory.map(id => {
                                 const name = DAILY_QUEST_CONFIG.find(q => q.id === id)?.title || id;
                                 return (
-                                    <span key={id} className={`px-3 py-1 rounded-xl text-xs font-bold ${id === currentQuestId ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                                    <span key={id} className={`px-3 py-1 rounded-xl text-sm font-bold ${id === currentQuestId ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
                                         {name}
                                     </span>
                                 );
@@ -215,14 +215,14 @@ export function CaptainTab({
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="font-black text-white">{app.user_name}</p>
-                                        <p className="text-xs text-slate-400">訪談：{app.interview_target} · {app.interview_date}</p>
+                                        <p className="text-sm text-slate-400">訪談：{app.interview_target} · {app.interview_date}</p>
                                     </div>
-                                    <span className="text-[10px] font-black text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-lg">待初審</span>
+                                    <span className="text-sm font-black text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-lg">待初審</span>
                                 </div>
-                                {app.description && <p className="text-xs text-slate-400 italic">{app.description}</p>}
+                                {app.description && <p className="text-sm text-slate-400 italic">{app.description}</p>}
                                 <textarea placeholder="備註（選填）" value={reviewNotes[app.id] || ''}
                                     onChange={e => setReviewNotes(prev => ({ ...prev, [app.id]: e.target.value }))}
-                                    rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-xl p-3 text-white text-xs outline-none focus:border-pink-500 resize-none" />
+                                    rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-xl p-3 text-white text-sm outline-none focus:border-pink-500 resize-none" />
                                 <div className="flex gap-3">
                                     <button disabled={reviewingId === app.id} onClick={() => handleReview(app.id, false)}
                                         className="flex-1 py-2 bg-red-600/20 text-red-400 font-black rounded-xl text-sm border border-red-600/30 active:scale-95 transition-all disabled:opacity-50">
@@ -260,7 +260,7 @@ export function CaptainTab({
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-black text-white text-sm">{member.name}</span>
                                         {member.questRoles.length === 0 && (
-                                            <span className="text-[11px] text-slate-600">未指派</span>
+                                            <span className="text-sm text-slate-600">未指派</span>
                                         )}
                                         {member.questRoles.map(roleId => {
                                             const roleDef = questRoleDefs.find(r => r.id === roleId);
@@ -274,19 +274,19 @@ export function CaptainTab({
                                                         await onSetQuestRole(member.userId, roleId, 'unassign');
                                                         setSavingMember(null);
                                                     }}
-                                                    className="text-[11px] font-black text-teal-300 bg-teal-500/20 border border-teal-500/40 px-2.5 py-1 rounded-xl hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40 transition-colors disabled:opacity-50"
+                                                    className="text-sm font-black text-teal-300 bg-teal-500/20 border border-teal-500/40 px-2.5 py-1 rounded-xl hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40 transition-colors disabled:opacity-50"
                                                     title="點擊移除此角色"
                                                 >
                                                     {roleDef.name} ✕
                                                 </button>
                                             );
                                         })}
-                                        {isSaving && <span className="text-[10px] text-slate-500">儲存中…</span>}
+                                        {isSaving && <span className="text-sm text-slate-500">儲存中…</span>}
                                     </div>
                                     {/* 可指派角色 */}
                                     {!full && (
                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                            <span className="text-[10px] text-slate-600">＋指派：</span>
+                                            <span className="text-sm text-slate-600">＋指派：</span>
                                             {questRoleDefs.filter(r => !member.questRoles.includes(r.id)).map(role => (
                                                 <button
                                                     key={role.id}
@@ -296,7 +296,7 @@ export function CaptainTab({
                                                         await onSetQuestRole(member.userId, role.id, 'assign');
                                                         setSavingMember(null);
                                                     }}
-                                                    className="text-[11px] text-slate-400 bg-slate-700 border border-slate-600 px-2.5 py-1 rounded-xl hover:bg-teal-600 hover:text-white hover:border-teal-500 transition-colors disabled:opacity-50"
+                                                    className="text-sm text-slate-400 bg-slate-700 border border-slate-600 px-2.5 py-1 rounded-xl hover:bg-teal-600 hover:text-white hover:border-teal-500 transition-colors disabled:opacity-50"
                                                 >
                                                     {role.name}
                                                 </button>
@@ -304,7 +304,7 @@ export function CaptainTab({
                                         </div>
                                     )}
                                     {full && (
-                                        <p className="text-[10px] text-slate-600">已持有 2 個角色（點擊角色移除）</p>
+                                        <p className="text-sm text-slate-600">已持有 2 個角色（點擊角色移除）</p>
                                     )}
                                 </div>
                             );

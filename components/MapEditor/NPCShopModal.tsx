@@ -67,7 +67,7 @@ export function NPCShopModal({ isOpen, onClose, userData, onBuyItem }: NPCShopMo
                                         <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-3">{item.desc}</p>
 
                                         <div className="flex justify-end mt-auto gap-2">
-                                            <span className="text-[10px] text-slate-500 font-bold self-end mb-1 mr-2 px-2">類型: {item.type.toUpperCase()}</span>
+                                            <span className="text-xs text-slate-500 font-bold self-end mb-1 mr-2 px-2">類型: {item.type.toUpperCase()}</span>
                                             <button
                                                 onClick={() => onBuyItem(item.id, item.price)}
                                                 disabled={!canAfford}

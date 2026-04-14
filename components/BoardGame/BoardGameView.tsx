@@ -162,7 +162,7 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
                         <div className="flex items-center gap-3">
                             <span className="text-2xl font-black text-amber-400 tabular-nums">{cash.toLocaleString()}</span>
                             <button onClick={() => { setShowCashTx(v => !v); if (!showCashTx && transactions.length === 0) loadTransactions(); }}
-                                className="text-[10px] font-black text-amber-600 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded-lg transition-colors">
+                                className="text-xs font-black text-amber-600 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded-lg transition-colors">
                                 明細
                             </button>
                         </div>
@@ -181,13 +181,13 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
                                     <div key={tx.id} className="flex items-center justify-between px-5 py-2.5 border-b border-amber-800/20 last:border-0">
                                         <div>
                                             <span className="text-xs font-black text-amber-200">{label[tx.type] ?? tx.type}</span>
-                                            <span className="text-[10px] text-slate-500 ml-2">{ds}</span>
+                                            <span className="text-xs text-slate-500 ml-2">{ds}</span>
                                         </div>
                                         <div className="text-right">
                                             <span className={`text-xs font-black ${tx.cash_delta > 0 ? 'text-amber-400' : 'text-red-400'}`}>
                                                 {tx.cash_delta > 0 ? '+' : ''}{tx.cash_delta.toLocaleString()}
                                             </span>
-                                            <span className="text-[10px] text-slate-500 ml-1">→ {tx.cash_after.toLocaleString()}</span>
+                                            <span className="text-xs text-slate-500 ml-1">→ {tx.cash_after.toLocaleString()}</span>
                                         </div>
                                     </div>
                                 );
@@ -206,7 +206,7 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
                         <div className="flex items-center gap-3">
                             <span className="text-2xl font-black text-violet-400 tabular-nums">{blessing.toLocaleString()}</span>
                             <button onClick={() => { setShowBlessingTx(v => !v); if (!showBlessingTx && transactions.length === 0) loadTransactions(); }}
-                                className="text-[10px] font-black text-violet-500 bg-violet-500/10 hover:bg-violet-500/20 px-2 py-1 rounded-lg transition-colors">
+                                className="text-xs font-black text-violet-500 bg-violet-500/10 hover:bg-violet-500/20 px-2 py-1 rounded-lg transition-colors">
                                 明細
                             </button>
                         </div>
@@ -225,13 +225,13 @@ export default function BoardGameView({ userData, cash, blessing, systemSettings
                                     <div key={tx.id} className="flex items-center justify-between px-5 py-2.5 border-b border-violet-800/20 last:border-0">
                                         <div>
                                             <span className="text-xs font-black text-violet-200">{label[tx.type] ?? tx.type}</span>
-                                            <span className="text-[10px] text-slate-500 ml-2">{ds}</span>
+                                            <span className="text-xs text-slate-500 ml-2">{ds}</span>
                                         </div>
                                         <div className="text-right">
                                             <span className={`text-xs font-black ${tx.blessing_delta > 0 ? 'text-violet-400' : 'text-red-400'}`}>
                                                 {tx.blessing_delta > 0 ? '+' : ''}{tx.blessing_delta.toLocaleString()}
                                             </span>
-                                            <span className="text-[10px] text-slate-500 ml-1">→ {tx.blessing_after.toLocaleString()}</span>
+                                            <span className="text-xs text-slate-500 ml-1">→ {tx.blessing_after.toLocaleString()}</span>
                                         </div>
                                     </div>
                                 );

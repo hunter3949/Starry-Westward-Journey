@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </h3>
             <div className="space-y-6">
               <div>
-                <div className="flex justify-between text-[10px] font-bold uppercase mb-2 text-slate-500">
+                <div className="flex justify-between text-xs font-bold uppercase mb-2 text-slate-500">
                   <span>廊道長度</span>
                   <span className="text-emerald-400 font-mono">{corridorL}</span>
                 </div>
@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {z.icon}
                   <div className="flex flex-col">
                     <span className={`text-sm font-black ${z.textColor}`}>{z.name}</span>
-                    <span className="text-[10px] opacity-60 italic">對應：{z.char}</span>
+                    <span className="text-xs opacity-60 italic">對應：{z.char}</span>
                   </div>
                 </div>
                 <Edit3 size={14} className="text-slate-600 group-hover:text-emerald-400" />
@@ -125,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {t.url ? <img src={t.url} alt={t.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-700" />}
                       {brush === t.id && <div className="absolute inset-0 bg-emerald-500/10 ring-2 ring-emerald-500/50 rounded-2xl" />}
                     </div>
-                    <span className="text-[10px] font-black uppercase mb-1 text-center leading-tight h-5 overflow-hidden">{t.name}</span>
+                    <span className="text-xs font-black uppercase mb-1 text-center leading-tight h-5 overflow-hidden">{t.name}</span>
                   </button>
                 ))}
             </div>
@@ -133,9 +133,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <section className="p-4 bg-emerald-500/5 rounded-3xl border border-emerald-500/10 mt-auto">
             <div className="flex items-center gap-2 mb-2 text-emerald-400">
               {selectedZone?.id === 'chaos' ? <AlertTriangle size={12} /> : <Navigation size={12} />}
-              <h4 className="text-[10px] font-black uppercase">戰棋規則</h4>
+              <h4 className="text-xs font-black uppercase">戰棋規則</h4>
             </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed italic">{TERRAIN_TYPES[brush]?.effect}</p>
+            <p className="text-xs text-slate-300 leading-relaxed italic">{TERRAIN_TYPES[brush]?.effect}</p>
           </section>
           <button onClick={saveMapToCloud} className="w-full py-5 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-3xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95"><Save size={18} /> 儲存編輯</button>
         </div>

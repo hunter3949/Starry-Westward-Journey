@@ -45,7 +45,7 @@ export function IconPicker({ value, onChange }: {
                             : <ImageIcon size={16} className="text-slate-600" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">圖示</p>
+                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest">圖示</p>
                     <p className="text-xs text-slate-400 truncate">{value || '點擊選擇…'}</p>
                 </div>
                 <ChevronDown size={14} className="text-slate-600 group-hover:text-slate-400 transition-colors shrink-0" />
@@ -95,7 +95,7 @@ export function IconPicker({ value, onChange }: {
                                     <div className="flex gap-2 flex-wrap">
                                         {PRESET_FOLDERS.map(f => (
                                             <button key={f} type="button" onClick={() => setGalleryFolder(f)}
-                                                className={`px-3 py-1 rounded-xl text-[11px] font-black transition-colors ${galleryFolder === f ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+                                                className={`px-3 py-1 rounded-xl text-xs font-black transition-colors ${galleryFolder === f ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                                                 {f}/
                                             </button>
                                         ))}
@@ -154,7 +154,7 @@ export function GalleryPickerButton({ onSelect, label = '🖼 從圖片庫選取
                 <div className="flex gap-1.5 flex-wrap">
                     {FOLDERS.map(f => (
                         <button key={f} type="button" onClick={() => { setFolder(f); load(f); }}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all ${folder === f ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                            className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${folder === f ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
                             {f}
                         </button>
                     ))}

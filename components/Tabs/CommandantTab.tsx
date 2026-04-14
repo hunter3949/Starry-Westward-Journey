@@ -266,7 +266,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
             <div className="bg-gradient-to-br from-rose-950/40 to-slate-900 border-2 border-rose-500/40 rounded-4xl p-6 shadow-2xl text-center">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-center gap-2 text-rose-400 font-black text-xs uppercase tracking-widest">
+                        <div className="flex items-center justify-center gap-2 text-rose-400 font-black text-sm uppercase tracking-widest">
                             <Sword size={14} /> 大隊長指揮部
                         </div>
                     </div>
@@ -278,7 +278,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                     </button>
                 </div>
                 <h2 className="text-2xl font-black text-white italic">{battalionDisplayName || userData.LittleTeamLeagelName || '未知大隊'}</h2>
-                {battalionDisplayName && <p className="text-xs text-slate-500 mt-0.5">{userData.LittleTeamLeagelName}</p>}
+                {battalionDisplayName && <p className="text-sm text-slate-500 mt-0.5">{userData.LittleTeamLeagelName}</p>}
                 {/* 大隊名稱設定 */}
                 <div className="mt-4 border-t border-rose-500/20 pt-4">
                     {editingName ? (
@@ -290,15 +290,15 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                 className="flex-1 bg-slate-950 border border-rose-500/50 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-rose-400"
                             />
                             <button onClick={handleSaveName} disabled={savingName}
-                                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-colors">
+                                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white font-black text-sm rounded-xl transition-colors">
                                 {savingName ? '…' : '儲存'}
                             </button>
                             <button onClick={() => setEditingName(false)}
-                                className="px-3 py-2 bg-slate-700 text-slate-300 text-xs rounded-xl">取消</button>
+                                className="px-3 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">取消</button>
                         </div>
                     ) : (
                         <button onClick={() => { setNameInput(battalionDisplayName || ''); setEditingName(true); }}
-                            className="flex items-center gap-1.5 mx-auto text-xs text-rose-400 hover:text-rose-200 transition-colors">
+                            className="flex items-center gap-1.5 mx-auto text-sm text-rose-400 hover:text-rose-200 transition-colors">
                             <Pencil size={12} /> 設定大隊名稱
                         </button>
                     )}
@@ -310,10 +310,10 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                 <div className="flex items-center gap-2">
                     <Users size={15} className="text-rose-400" />
                     <p className="text-white font-black text-base">所轄小隊</p>
-                    <span className="text-xs text-slate-500 ml-auto">{squads.length} 隊・共 {squads.reduce((s, q) => s + q.members.length, 0)} 人</span>
+                    <span className="text-sm text-slate-500 ml-auto">{squads.length} 隊・共 {squads.reduce((s, q) => s + q.members.length, 0)} 人</span>
                 </div>
                 {squads.length === 0 ? (
-                    <p className="text-slate-600 text-xs text-center py-3">載入中…</p>
+                    <p className="text-slate-600 text-sm text-center py-3">載入中…</p>
                 ) : (
                     squads.map(squad => {
                         const isOpen = expandedSquad === squad.squadName;
@@ -328,47 +328,47 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                 >
                                     <div className="flex-1 min-w-0">
                                         <span className="font-black text-white text-sm">{squad.squadName}</span>
-                                        {captain && <span className="text-[11px] text-slate-400 ml-2">隊長：{captain.name}</span>}
-                                        <span className={`text-[10px] font-black ml-2 ${activeRate >= 70 ? 'text-emerald-400' : activeRate >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                        {captain && <span className="text-sm text-slate-400 ml-2">隊長：{captain.name}</span>}
+                                        <span className={`text-sm font-black ml-2 ${activeRate >= 70 ? 'text-emerald-400' : activeRate >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
                                             活躍率 {activeRate}%
                                         </span>
                                     </div>
-                                    <span className="text-[11px] text-slate-500 shrink-0">{squad.members.length} 人</span>
+                                    <span className="text-sm text-slate-500 shrink-0">{squad.members.length} 人</span>
                                     <ChevronDown size={14} className={`text-slate-500 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isOpen && (
                                     <div className="border-t border-slate-700/40 px-4 py-3 space-y-2">
                                         {/* 表頭 */}
                                         <div className="flex items-center gap-2 pb-1 border-b border-slate-700/40">
-                                            <span className="text-[9px] text-slate-500 w-16 shrink-0">姓名</span>
-                                            <span className="text-[9px] text-slate-500 flex-1">任務角色</span>
-                                            <span className="text-[9px] text-slate-500 shrink-0 w-8 text-center">狀態</span>
-                                            <span className="text-[9px] text-slate-500 shrink-0 w-8 text-center">等級</span>
-                                            <span className="text-[9px] text-slate-500 shrink-0 w-12 text-right">修為</span>
+                                            <span className="text-sm text-slate-500 w-16 shrink-0">姓名</span>
+                                            <span className="text-sm text-slate-500 flex-1">任務角色</span>
+                                            <span className="text-sm text-slate-500 shrink-0 w-8 text-center">狀態</span>
+                                            <span className="text-sm text-slate-500 shrink-0 w-8 text-center">等級</span>
+                                            <span className="text-sm text-slate-500 shrink-0 w-12 text-right">修為</span>
                                         </div>
                                         {squad.members.map(m => {
                                             const active = isMemberActive(m.lastCheckIn);
                                             return (
                                                 <div key={m.userId} className="flex items-center gap-2">
                                                     <div className="w-16 shrink-0 flex items-center gap-1 min-w-0">
-                                                        <span className={`text-xs font-bold truncate ${active ? 'text-white' : 'text-slate-500'}`}>{m.name}</span>
-                                                        {m.isCaptain && <span className="text-[8px] font-black text-rose-400 bg-rose-400/10 px-1 py-0.5 rounded shrink-0">隊長</span>}
+                                                        <span className={`text-sm font-bold truncate ${active ? 'text-white' : 'text-slate-500'}`}>{m.name}</span>
+                                                        {m.isCaptain && <span className="text-sm font-black text-rose-400 bg-rose-400/10 px-1 py-0.5 rounded shrink-0">隊長</span>}
                                                     </div>
                                                     <div className="flex-1 min-w-0 flex flex-wrap gap-1">
                                                         {(() => {
-                                                            if (!m.role) return <span className="text-[10px] text-slate-600">—</span>;
+                                                            if (!m.role) return <span className="text-sm text-slate-600">—</span>;
                                                             let roles: string[];
                                                             try { const p = JSON.parse(m.role); roles = Array.isArray(p) ? p : [m.role]; } catch { roles = [m.role]; }
                                                             return roles.map((r, i) => (
-                                                                <span key={i} className="text-[10px] font-black text-sky-300 bg-sky-500/10 px-1.5 py-0.5 rounded-lg">{r}</span>
+                                                                <span key={i} className="text-sm font-black text-sky-300 bg-sky-500/10 px-1.5 py-0.5 rounded-lg">{r}</span>
                                                             ));
                                                         })()}
                                                     </div>
-                                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg shrink-0 w-8 text-center ${active ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-700/50'}`}>
+                                                    <span className={`text-sm font-black px-1.5 py-0.5 rounded-lg shrink-0 w-8 text-center ${active ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-700/50'}`}>
                                                         {active ? '活躍' : '沉寂'}
                                                     </span>
-                                                    <span className="text-[10px] text-slate-400 shrink-0 w-8 text-center">Lv.{m.level}</span>
-                                                    <span className="text-[10px] text-indigo-400 shrink-0 w-12 text-right tabular-nums">{(m.exp ?? 0).toLocaleString()}</span>
+                                                    <span className="text-sm text-slate-400 shrink-0 w-8 text-center">Lv.{m.level}</span>
+                                                    <span className="text-sm text-indigo-400 shrink-0 w-12 text-right tabular-nums">{(m.exp ?? 0).toLocaleString()}</span>
                                                 </div>
                                             );
                                         })}
@@ -389,13 +389,13 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                         <p className="text-white font-black text-base">傳愛申請終審</p>
                     </div>
                 </div>
-                <p className="text-xs text-slate-400 -mt-2">以下為已通過小隊長初審、待大隊長審核的申請</p>
+                <p className="text-sm text-slate-400 -mt-2">以下為已通過小隊長初審、待大隊長審核的申請</p>
                 {(() => {
                     const reviewableApps = apps.filter(a => a.user_id !== userData.UserID);
                     if (reviewableApps.length === 0) return (
                         <div className="border-t border-slate-700/40 pt-4 text-center">
                             <p className="text-slate-500 font-black text-sm">目前無待審核申請</p>
-                            <p className="text-slate-600 text-xs mt-1">所有申請均已處理完畢</p>
+                            <p className="text-slate-600 text-sm mt-1">所有申請均已處理完畢</p>
                         </div>
                     );
                     return (
@@ -406,20 +406,20 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
                                             <p className="font-black text-white text-base">{app.user_name}</p>
-                                            <p className="text-xs text-slate-400 mt-0.5">
+                                            <p className="text-sm text-slate-400 mt-0.5">
                                                 {app.squad_name} · 訪談對象：<span className="text-rose-300">{app.interview_target}</span>
                                             </p>
-                                            <p className="text-xs text-slate-500 mt-0.5">日期：{app.interview_date}</p>
+                                            <p className="text-sm text-slate-500 mt-0.5">日期：{app.interview_date}</p>
                                             {app.squad_review_notes && (
-                                                <p className="text-xs text-indigo-400 mt-1.5 bg-indigo-500/10 px-2 py-1 rounded-lg">
+                                                <p className="text-sm text-indigo-400 mt-1.5 bg-indigo-500/10 px-2 py-1 rounded-lg">
                                                     小隊長備註：{app.squad_review_notes}
                                                 </p>
                                             )}
                                             {app.description && (
-                                                <p className="text-xs text-slate-400 italic mt-1.5">「{app.description}」</p>
+                                                <p className="text-sm text-slate-400 italic mt-1.5">「{app.description}」</p>
                                             )}
                                         </div>
-                                        <span className="shrink-0 text-[10px] font-black text-blue-400 bg-blue-400/10 px-2 py-1 rounded-lg">待大隊長審核</span>
+                                        <span className="shrink-0 text-sm font-black text-blue-400 bg-blue-400/10 px-2 py-1 rounded-lg">待大隊長審核</span>
                                     </div>
 
                                     {/* Notes */}
@@ -428,7 +428,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                         value={notes[app.id] || ''}
                                         onChange={e => setNotes(prev => ({ ...prev, [app.id]: e.target.value }))}
                                         rows={2}
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-rose-500 resize-none transition-colors"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-rose-500 resize-none transition-colors"
                                     />
 
                                     {/* Actions */}
@@ -465,7 +465,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                     {trials.filter(t => t.created_by === userData.UserID).length === 0 && (
                         <button
                             onClick={() => setShowTrialForm(v => !v)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black rounded-xl active:scale-95 transition-all"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-sm font-black rounded-xl active:scale-95 transition-all"
                         >
                             <Plus size={13} /> 新增活動
                         </button>
@@ -475,7 +475,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                 {/* 新增 / 編輯表單 */}
                 {showTrialForm && (
                     <div className="bg-slate-800/60 border border-purple-500/20 rounded-2xl p-4 space-y-3">
-                        <p className="text-purple-300 font-black text-xs uppercase tracking-widest">
+                        <p className="text-purple-300 font-black text-sm uppercase tracking-widest">
                             {editingTrialId ? '編輯活動' : '新增巔峰試煉活動'}
                         </p>
                         <input value={trialForm.title} onChange={e => setTrialForm(p => ({ ...p, title: e.target.value }))}
@@ -501,18 +501,18 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                         </div>
                         <div className="flex gap-2">
                             <button onClick={handleSaveTrial} disabled={savingTrial}
-                                className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-colors">
+                                className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-black text-sm rounded-xl transition-colors">
                                 {savingTrial ? '儲存中…' : editingTrialId ? '✅ 更新活動' : '✅ 建立活動'}
                             </button>
                             <button onClick={() => { setShowTrialForm(false); setTrialForm(emptyForm); setEditingTrialId(null); }}
-                                className="px-4 py-2 bg-slate-700 text-slate-300 text-xs font-black rounded-xl">取消</button>
+                                className="px-4 py-2 bg-slate-700 text-slate-300 text-sm font-black rounded-xl">取消</button>
                         </div>
                     </div>
                 )}
 
                 {/* 活動列表 */}
                 {trials.length === 0 ? (
-                    <p className="text-slate-600 text-xs text-center py-3">尚無活動，點右上角新增</p>
+                    <p className="text-slate-600 text-sm text-center py-3">尚無活動，點右上角新增</p>
                 ) : (
                     trials.map(trial => {
                         const isViewingThis = viewingRegs?.trialId === trial.id;
@@ -522,14 +522,14 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                     <div className="flex items-center gap-3">
                                         <div className="flex-1 min-w-0">
                                             <p className="font-black text-white text-sm">{trial.title}</p>
-                                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                            <p className="text-sm text-slate-400 mt-0.5">
                                                 {trial.date}{trial.time ? ` · ${trial.time}` : ''}{trial.location ? ` · ${trial.location}` : ''}
                                             </p>
-                                            <p className="text-[10px] text-purple-400 mt-0.5">
+                                            <p className="text-sm text-purple-400 mt-0.5">
                                                 已報名 {trial.registration_count ?? 0} 人{trial.max_participants ? ` / 限額 ${trial.max_participants}` : ''}
                                             </p>
                                         </div>
-                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${trial.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                                        <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${trial.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
                                             {trial.is_active ? '開放' : '關閉'}
                                         </span>
                                         <button onClick={() => handleViewRegs(trial.id)} disabled={loadingRegs === trial.id}
@@ -558,14 +558,14 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                         <button
                                             onClick={() => handleBattalionView(trial.id, 'own')}
                                             disabled={loadingBattalion === trial.id}
-                                            className={`flex-1 text-[11px] font-black py-1.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'own' ? 'bg-blue-600 text-white' : 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25'}`}
+                                            className={`flex-1 text-sm font-black py-1.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'own' ? 'bg-blue-600 text-white' : 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25'}`}
                                         >
                                             {loadingBattalion === trial.id ? '載入中…' : '本隊名單'}
                                         </button>
                                         <button
                                             onClick={() => handleBattalionView(trial.id, 'crossIn')}
                                             disabled={loadingBattalion === trial.id}
-                                            className={`flex-1 text-[11px] font-black py-1.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'crossIn' ? 'bg-amber-600 text-white' : 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25'}`}
+                                            className={`flex-1 text-sm font-black py-1.5 rounded-lg transition-colors disabled:opacity-40 ${battalionStatus?.trialId === trial.id && battalionStatus.activeView === 'crossIn' ? 'bg-amber-600 text-white' : 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25'}`}
                                         >
                                             跨入名單
                                         </button>
@@ -574,7 +574,7 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                     <button
                                         onClick={() => handleOpenReview(trial)}
                                         disabled={loadingReview === trial.id}
-                                        className={`w-full mt-1.5 text-[11px] font-black py-1.5 rounded-lg transition-colors disabled:opacity-40 ${reviewPanel?.trialId === trial.id ? 'bg-indigo-600 text-white' : 'bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25'}`}
+                                        className={`w-full mt-1.5 text-sm font-black py-1.5 rounded-lg transition-colors disabled:opacity-40 ${reviewPanel?.trialId === trial.id ? 'bg-indigo-600 text-white' : 'bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25'}`}
                                     >
                                         {loadingReview === trial.id ? '計算中…' : '統計及回報審核'}
                                     </button>
@@ -596,9 +596,9 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                     <div className="border-t border-slate-700/40 px-4 py-3 space-y-2">
                                         {battalionStatus.activeView === 'own' ? (
                                             <>
-                                                <p className="text-xs text-blue-400 font-black">本隊名單（{battalionStatus.memberStatus.length} 人）</p>
+                                                <p className="text-sm text-blue-400 font-black">本隊名單（{battalionStatus.memberStatus.length} 人）</p>
                                                 {battalionStatus.memberStatus.length === 0 ? (
-                                                    <p className="text-slate-600 text-xs py-1">本大隊尚無成員</p>
+                                                    <p className="text-slate-600 text-sm py-1">本大隊尚無成員</p>
                                                 ) : (
                                                     <div className="space-y-1">
                                                         {(() => {
@@ -610,20 +610,20 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                                             }, {});
                                                             return Object.entries(groups).map(([squad, members]) => (
                                                                 <div key={squad}>
-                                                                    <p className="text-[10px] text-slate-500 font-black mt-1.5 mb-0.5">{squad}</p>
+                                                                    <p className="text-sm text-slate-500 font-black mt-1.5 mb-0.5">{squad}</p>
                                                                     {members.map(m => (
                                                                         <div key={m.userId} className="flex items-center justify-between py-1">
                                                                             <span className="text-sm text-white">{m.name}</span>
                                                                             {m.status === 'registered' ? (
-                                                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${m.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                                                                <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${m.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                                                                     {m.attended ? '✅ 已出席' : '已報名'}
                                                                                 </span>
                                                                             ) : m.status === 'crossout' ? (
-                                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-400">
+                                                                                <span className="text-sm font-black px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-400">
                                                                                     跨出→{m.crossToBattalion}
                                                                                 </span>
                                                                             ) : (
-                                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-slate-700 text-slate-500">未報名</span>
+                                                                                <span className="text-sm font-black px-2 py-0.5 rounded-lg bg-slate-700 text-slate-500">未報名</span>
                                                                             )}
                                                                         </div>
                                                                     ))}
@@ -635,16 +635,16 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                             </>
                                         ) : (
                                             <>
-                                                <p className="text-xs text-amber-400 font-black">跨入參與名單（{battalionStatus.crossInRegs.length} 人）</p>
+                                                <p className="text-sm text-amber-400 font-black">跨入參與名單（{battalionStatus.crossInRegs.length} 人）</p>
                                                 {battalionStatus.crossInRegs.length === 0 ? (
-                                                    <p className="text-slate-600 text-xs py-1">目前無跨隊報名</p>
+                                                    <p className="text-slate-600 text-sm py-1">目前無跨隊報名</p>
                                                 ) : battalionStatus.crossInRegs.map(r => (
                                                     <div key={r.id} className="flex items-center justify-between py-1">
                                                         <div>
                                                             <span className="text-sm text-white">{r.user_name}</span>
-                                                            <span className="text-[10px] text-slate-500 ml-1.5">{r.battalion_name} · {r.squad_name}</span>
+                                                            <span className="text-sm text-slate-500 ml-1.5">{r.battalion_name} · {r.squad_name}</span>
                                                         </div>
-                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${r.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                                                        <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${r.attended ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
                                                             {r.attended ? '✅ 已出席' : '未出席'}
                                                         </span>
                                                     </div>
@@ -666,26 +666,26 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                         <div className="border-t border-slate-700/40 px-4 py-4 space-y-4">
                                             {/* 修為統計 */}
                                             <div className="space-y-2">
-                                                <p className="text-xs text-indigo-400 font-black">修為統計</p>
+                                                <p className="text-sm text-indigo-400 font-black">修為統計</p>
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3">
-                                                        <p className="text-[10px] text-slate-400 mb-0.5">本隊參與</p>
+                                                        <p className="text-sm text-slate-400 mb-0.5">本隊參與</p>
                                                         <p className="text-white font-black text-lg leading-none">{own} 人</p>
-                                                        {own > 21 && <p className="text-[9px] text-amber-500 mt-0.5">（上限 21 人計算）</p>}
-                                                        <p className="text-purple-400 text-xs mt-1 font-black">+{ownExp.toLocaleString()} 修為</p>
+                                                        {own > 21 && <p className="text-sm text-amber-500 mt-0.5">（上限 21 人計算）</p>}
+                                                        <p className="text-purple-400 text-sm mt-1 font-black">+{ownExp.toLocaleString()} 修為</p>
                                                     </div>
                                                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-                                                        <p className="text-[10px] text-slate-400 mb-0.5">跨隊參與</p>
+                                                        <p className="text-sm text-slate-400 mb-0.5">跨隊參與</p>
                                                         <p className="text-white font-black text-lg leading-none">{cross} 人</p>
-                                                        {cross > 21 && <p className="text-[9px] text-amber-500 mt-0.5">（上限 21 人計算）</p>}
-                                                        <p className="text-amber-400 text-xs mt-1 font-black">+{crossExp.toLocaleString()} 修為</p>
+                                                        {cross > 21 && <p className="text-sm text-amber-500 mt-0.5">（上限 21 人計算）</p>}
+                                                        <p className="text-amber-400 text-sm mt-1 font-black">+{crossExp.toLocaleString()} 修為</p>
                                                     </div>
                                                 </div>
                                                 <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-4 py-3 flex items-center justify-between">
-                                                    <p className="text-xs text-slate-400">每位參與者各獲得 <span className="text-red-400">（預計）</span></p>
+                                                    <p className="text-sm text-slate-400">每位參與者各獲得 <span className="text-red-400">（預計）</span></p>
                                                     <p className="text-indigo-300 font-black text-xl">{totalExp.toLocaleString()} 修為</p>
                                                 </div>
-                                                <p className="text-[10px] text-slate-500 text-center">僅出席成員可獲得，未出席者不獲任何修為</p>
+                                                <p className="text-sm text-slate-500 text-center">僅出席成員可獲得，未出席者不獲任何修為</p>
                                             </div>
 
                                             {/* 審核狀態 / 提交區 */}
@@ -696,8 +696,8 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                             ) : status === 'rejected' ? (
                                                 <div className="space-y-2 bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3">
                                                     <p className="text-red-400 font-black text-sm">❌ 審核未通過</p>
-                                                    {reviewNotes && <p className="text-slate-400 text-xs">原因：{reviewNotes}</p>}
-                                                    <p className="text-slate-500 text-xs">可修正後重新上傳大合照送審</p>
+                                                    {reviewNotes && <p className="text-slate-400 text-sm">原因：{reviewNotes}</p>}
+                                                    <p className="text-slate-500 text-sm">可修正後重新上傳大合照送審</p>
                                                 </div>
                                             ) : status === 'pending' ? (
                                                 <div className="text-center py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
@@ -708,22 +708,22 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                             {/* 上傳大合照 + 送審（pending 時也允許重新上傳） */}
                                             {status !== 'approved' && (
                                                 <div className="space-y-3">
-                                                    <p className="text-xs text-slate-400 font-black">上傳大合照供大會中樞審核</p>
+                                                    <p className="text-sm text-slate-400 font-black">上傳大合照供大會中樞審核</p>
                                                     <label className="flex items-center justify-center gap-2 w-full py-3 bg-slate-800 border border-dashed border-slate-600 hover:border-indigo-500/50 rounded-2xl cursor-pointer transition-colors">
-                                                        <span className="text-xs text-slate-400">{reviewPhoto ? '✅ 已選取照片，點此更換' : '📷 選擇大合照'}</span>
+                                                        <span className="text-sm text-slate-400">{reviewPhoto ? '✅ 已選取照片，點此更換' : '📷 選擇大合照'}</span>
                                                         <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
                                                     </label>
                                                     {reviewPhoto && (
                                                         <img src={reviewPhoto} alt="大合照預覽" className="w-full rounded-2xl object-cover max-h-48" />
                                                     )}
                                                     <div className="space-y-1">
-                                                        <p className="text-xs text-slate-400 font-black">上傳影片連結（選填）</p>
+                                                        <p className="text-sm text-slate-400 font-black">上傳影片連結（選填）</p>
                                                         <input
                                                             type="url"
                                                             value={reviewVideoUrl}
                                                             onChange={e => setReviewVideoUrl(e.target.value)}
                                                             placeholder="貼上影片網址（YouTube、Google Drive 等）"
-                                                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-indigo-500 transition-colors"
+                                                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500 transition-colors"
                                                         />
                                                     </div>
                                                     <button
@@ -742,20 +742,20 @@ export function CommandantTab({ userData, battalionDisplayName, apps, squads, tr
                                 {/* 報名名單 */}
                                 {isViewingThis && (
                                     <div className="border-t border-slate-700/40 px-4 py-3 space-y-2">
-                                        <p className="text-xs text-slate-400 font-black">報名名單（{viewingRegs.regs.length} 人）</p>
+                                        <p className="text-sm text-slate-400 font-black">報名名單（{viewingRegs.regs.length} 人）</p>
                                         {viewingRegs.regs.length === 0 ? (
-                                            <p className="text-slate-600 text-xs py-2">尚無人報名</p>
+                                            <p className="text-slate-600 text-sm py-2">尚無人報名</p>
                                         ) : viewingRegs.regs.map(reg => (
                                             <div key={reg.id} className="flex items-center gap-2">
                                                 <span className={`text-sm flex-1 ${reg.attended ? 'text-slate-500 line-through' : 'text-white'}`}>
                                                     {reg.user_name}
                                                 </span>
-                                                <span className="text-[10px] text-slate-500">{reg.squad_name}</span>
+                                                <span className="text-sm text-slate-500">{reg.squad_name}</span>
                                                 {reg.attended ? (
-                                                    <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-lg">已出席</span>
+                                                    <span className="text-sm font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-lg">已出席</span>
                                                 ) : (
                                                     <button onClick={() => handleMarkAttendance(reg.id)} disabled={markingId === reg.id}
-                                                        className="text-[10px] font-black text-purple-400 bg-purple-400/10 hover:bg-purple-400/20 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-40">
+                                                        className="text-sm font-black text-purple-400 bg-purple-400/10 hover:bg-purple-400/20 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-40">
                                                         {markingId === reg.id ? '…' : '核銷'}
                                                     </button>
                                                 )}

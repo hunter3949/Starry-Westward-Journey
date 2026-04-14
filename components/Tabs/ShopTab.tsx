@@ -79,7 +79,7 @@ function HexIcon({ artifactId, isOwned, isTeamBinding, size = 100 }: { artifactI
                         style={{ width: imgSize, height: imgSize }}
                     />
                 ) : (
-                    <span className={`font-black text-[11px] tracking-widest ${isOwned ? (isTeamBinding ? 'text-indigo-300' : 'text-yellow-300') : 'text-slate-500'}`}>
+                    <span className={`font-black text-sm tracking-widest ${isOwned ? (isTeamBinding ? 'text-indigo-300' : 'text-yellow-300') : 'text-slate-500'}`}>
                         {artifactId.toUpperCase()}
                     </span>
                 )}
@@ -154,7 +154,7 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
             <div className="flex items-center justify-center py-20 animate-in fade-in">
                 <div className="text-center space-y-3">
                     <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                    <p className="text-xs text-slate-500 font-bold">載入法寶設定中...</p>
+                    <p className="text-sm text-slate-500 font-bold">載入法寶設定中...</p>
                 </div>
             </div>
         );
@@ -192,14 +192,14 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
                             <h3 className={`text-base font-black ${artifact.isTeamBinding ? 'text-indigo-200' : 'text-yellow-200'}`}>
                                 {artifact.name}
                             </h3>
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest shrink-0 ${artifact.isTeamBinding ? 'bg-indigo-500/20 text-indigo-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                            <span className={`text-sm px-1.5 py-0.5 rounded font-black uppercase tracking-widest shrink-0 ${artifact.isTeamBinding ? 'bg-indigo-500/20 text-indigo-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                                 {artifact.isTeamBinding ? '小隊' : '個人'}
                             </span>
                         </div>
-                        <p className={`text-[11px] leading-relaxed mb-2 ${artifact.isTeamBinding ? 'text-indigo-300/80' : 'text-yellow-300/80'}`}>
+                        <p className={`text-sm leading-relaxed mb-2 ${artifact.isTeamBinding ? 'text-indigo-300/80' : 'text-yellow-300/80'}`}>
                             {artifact.effect}
                         </p>
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-xs
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-sm
                             ${artifact.isTeamBinding ? 'bg-indigo-500/20 text-indigo-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
                             <CheckCircle2 size={11} /> 已裝備
                         </div>
@@ -212,25 +212,25 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
             <div className="relative rounded-3xl px-4 py-4 border-2 border-slate-700/50 bg-slate-900/80 overflow-hidden flex items-center gap-4">
                 {isExclusiveBlocked && (
                     <div className="absolute inset-0 bg-slate-950/60 z-10 flex items-center justify-center rounded-3xl">
-                        <span className="text-[10px] text-slate-400 font-black text-center px-4">與已持有的法寶互斥</span>
+                        <span className="text-sm text-slate-400 font-black text-center px-4">與已持有的法寶互斥</span>
                     </div>
                 )}
                 <HexIcon artifactId={artifact.id} isOwned={false} isTeamBinding={artifact.isTeamBinding} size={100} />
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                         <h3 className="text-base font-black text-white">{artifact.name}</h3>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest shrink-0 ${artifact.isTeamBinding ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                        <span className={`text-sm px-1.5 py-0.5 rounded font-black uppercase tracking-widest shrink-0 ${artifact.isTeamBinding ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
                             {artifact.isTeamBinding ? '小隊' : '個人'}
                         </span>
                     </div>
                     <div className="flex items-start gap-1 bg-slate-950/60 rounded-xl p-2 mb-2">
                         <AlertCircle size={11} className="text-orange-400 shrink-0 mt-0.5" />
-                        <p className="text-[11px] text-orange-300/80 leading-relaxed">{artifact.effect}</p>
+                        <p className="text-sm text-orange-300/80 leading-relaxed">{artifact.effect}</p>
                     </div>
                     <button
                         disabled={isExclusiveBlocked || isBuying === artifact.id || (artifact.isTeamBinding && !userData.IsCaptain)}
                         onClick={() => handlePurchase(artifact.id, artifact.isTeamBinding)}
-                        className={`w-full py-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all
+                        className={`w-full py-2 rounded-xl font-black text-sm flex items-center justify-center gap-1.5 transition-all
                             ${artifact.isTeamBinding
                                 ? (userData.IsCaptain ? 'bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95 shadow-lg shadow-indigo-900/30' : 'bg-slate-800 text-slate-500 cursor-not-allowed')
                                 : 'bg-yellow-600 text-white hover:bg-yellow-500 active:scale-95 shadow-lg shadow-yellow-900/30'
@@ -238,10 +238,10 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
                     >
                         <Coins size={11} />
                         {isBuying === artifact.id ? '煉化中...' : (finalPrice === 0 ? '免費領取（長輩）' : `${artifact.price} 金幣`)}
-                        {isPerMember && <span className="opacity-60 text-[10px]">/人（共 {finalPrice} 金幣）</span>}
+                        {isPerMember && <span className="opacity-60 text-sm">/人（共 {finalPrice} 金幣）</span>}
                     </button>
                     {artifact.isTeamBinding && !userData.IsCaptain && (
-                        <p className="text-[10px] text-slate-500 font-black mt-1 text-center">需由小隊長操作購買</p>
+                        <p className="text-sm text-slate-500 font-black mt-1 text-center">需由小隊長操作購買</p>
                     )}
                 </div>
             </div>
@@ -253,11 +253,11 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
 
             {/* Header */}
             <div className="bg-gradient-to-br from-yellow-950/40 to-slate-900 border-2 border-yellow-500/40 rounded-4xl p-6 shadow-2xl text-center">
-                <div className="flex items-center justify-center gap-2 text-yellow-500 font-black text-xs uppercase mb-1 tracking-widest">
+                <div className="flex items-center justify-center gap-2 text-yellow-500 font-black text-sm uppercase mb-1 tracking-widest">
                     <ShoppingBag size={16} /> 天庭藏寶閣
                 </div>
                 <h2 className="text-2xl font-black text-white italic mb-4">法寶兌換處</h2>
-                <div className="flex items-center justify-center gap-3 text-xs font-black">
+                <div className="flex items-center justify-center gap-3 text-sm font-black">
                     <div className="flex items-center gap-1.5 text-yellow-500 bg-yellow-500/10 px-3 py-1.5 rounded-xl">
                         <User size={13} /> 個人金幣: {userData.Coins || 0}
                     </div>
@@ -272,12 +272,12 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
             {/* Owned artifacts strip */}
             {ownedArtifacts.length > 0 && (
                 <div className="bg-slate-900/60 border border-slate-700/40 rounded-3xl p-4">
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-3">✨ 已裝備法寶</p>
+                    <p className="text-sm text-slate-400 font-black uppercase tracking-widest mb-3">✨ 已裝備法寶</p>
                     <div className="flex gap-3 flex-wrap">
                         {ownedArtifacts.map(a => (
                             <div key={a.id} className="flex flex-col items-center gap-1">
                                 <HexIcon artifactId={a.id} isOwned={true} isTeamBinding={a.isTeamBinding} />
-                                <span className={`text-[9px] font-black ${a.isTeamBinding ? 'text-indigo-300' : 'text-yellow-300'}`}>
+                                <span className={`text-sm font-black ${a.isTeamBinding ? 'text-indigo-300' : 'text-yellow-300'}`}>
                                     {a.name}
                                 </span>
                             </div>
@@ -288,7 +288,7 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
 
             {/* Personal artifacts */}
             <div>
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3 px-1">個人法寶</p>
+                <p className="text-sm text-slate-500 font-black uppercase tracking-widest mb-3 px-1">個人法寶</p>
                 <div className="flex flex-col gap-3">
                     {personalArtifacts.map(a => <ArtifactCard key={a.id} artifact={a} />)}
                 </div>
@@ -296,7 +296,7 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
 
             {/* Team artifacts */}
             <div>
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3 px-1">小隊法寶</p>
+                <p className="text-sm text-slate-500 font-black uppercase tracking-widest mb-3 px-1">小隊法寶</p>
                 <div className="flex flex-col gap-3">
                     {teamArtifacts.map(a => <ArtifactCard key={a.id} artifact={a} />)}
                 </div>
@@ -306,7 +306,7 @@ export function ShopTab({ userData, teamSettings, teamMemberCount = 1, onPurchas
             {userData.BigTeamLeagelName && (
                 <div className="bg-indigo-950/40 border-2 border-indigo-500/30 p-4 rounded-3xl flex items-center justify-between gap-4">
                     <div className="flex-1">
-                        <p className="text-xs text-indigo-300 font-bold mb-2">捐獻個人金幣至團隊</p>
+                        <p className="text-sm text-indigo-300 font-bold mb-2">捐獻個人金幣至團隊</p>
                         <input
                             type="number"
                             min="1"

@@ -86,7 +86,7 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                 <div className="bg-slate-900 border-2 border-orange-500/20 p-6 rounded-4xl space-y-5 shadow-xl">
                     {/* Logo 上傳 */}
                     <div className="space-y-2">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">登入頁 Logo 圖片</p>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">登入頁 Logo 圖片</p>
                         {logoPreview ? (
                             <div className="flex items-center gap-3">
                                 <img src={logoPreview} alt="Logo 預覽" className="w-16 h-16 object-contain rounded-xl border border-orange-500/30 bg-slate-950" />
@@ -109,21 +109,21 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                         )}
                         <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                         <GalleryPickerButton label="🖼 從圖片庫選取 Logo" onSelect={url => { updateGlobalSetting('SiteLogo', url); setLogoPreview(url); logAdminAction('logo_upload', 'admin', undefined, undefined, { source: 'gallery', url }); }} />
-                        <p className="text-[10px] text-slate-600">支援 PNG / JPG，建議正方形（1:1）</p>
+                        <p className="text-xs text-slate-600">支援 PNG / JPG，建議正方形（1:1）</p>
                     </div>
 
                     <div className="border-t border-slate-800" />
 
                     {/* 名稱設定 */}
                     <div className="space-y-2">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">網站 / 登入頁顯示名稱</p>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">網站 / 登入頁顯示名稱</p>
                         <input
                             value={siteName}
                             onChange={e => setSiteName(e.target.value)}
                             placeholder="巨笑開運西遊"
                             className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold text-sm outline-none focus:border-orange-500"
                         />
-                        <p className="text-[10px] text-slate-600">留空則使用預設名稱「巨笑開運西遊」</p>
+                        <p className="text-xs text-slate-600">留空則使用預設名稱「巨笑開運西遊」</p>
                     </div>
                     <button onClick={handleSave} disabled={saving}
                         className="w-full py-3 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-black text-sm rounded-2xl transition-colors">
@@ -140,14 +140,14 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                     </button>
                     {!ogCollapsed && (
                         <div className="bg-slate-950 border border-cyan-500/20 p-5 rounded-3xl space-y-4">
-                            <p className="text-[10px] text-slate-500 leading-relaxed">
+                            <p className="text-xs text-slate-500 leading-relaxed">
                                 設定網址在 LINE、Facebook 等平台分享時顯示的標題、描述與預覽圖片。
                                 <br />儲存後需等待平台清除快取（LINE 約 1 小時）才會更新。
                             </p>
 
                             {/* OG 預覽 */}
                             <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 space-y-2">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">預覽效果</p>
+                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">預覽效果</p>
                                 <div className="bg-white rounded-xl overflow-hidden shadow-lg max-w-xs">
                                     {ogImage && (
                                         <div className="w-full h-32 bg-slate-200 overflow-hidden">
@@ -162,26 +162,26 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                                         <p className="text-slate-500 text-xs line-clamp-2">
                                             {ogDesc || '修行者轉生入口 — 2026 大無限開運親證班'}
                                         </p>
-                                        <p className="text-slate-400 text-[10px]">bigsmile.mindsuces.com</p>
+                                        <p className="text-slate-400 text-xs">bigsmile.mindsuces.com</p>
                                     </div>
                                 </div>
                             </div>
 
                             {/* OG Title */}
                             <div className="space-y-1">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">分享標題（og:title）</p>
+                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">分享標題（og:title）</p>
                                 <input
                                     value={ogTitle}
                                     onChange={e => setOgTitle(e.target.value)}
                                     placeholder={systemSettings.SiteName || '巨笑開運西遊'}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white font-bold text-sm outline-none focus:border-cyan-500 transition-colors"
                                 />
-                                <p className="text-[10px] text-slate-600">留空則使用網站名稱</p>
+                                <p className="text-xs text-slate-600">留空則使用網站名稱</p>
                             </div>
 
                             {/* OG Description */}
                             <div className="space-y-1">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">分享描述（og:description）</p>
+                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">分享描述（og:description）</p>
                                 <textarea
                                     value={ogDesc}
                                     onChange={e => setOgDesc(e.target.value)}
@@ -189,12 +189,12 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                                     rows={2}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-cyan-500 transition-colors resize-none"
                                 />
-                                <p className="text-[10px] text-slate-600">留空則使用預設描述</p>
+                                <p className="text-xs text-slate-600">留空則使用預設描述</p>
                             </div>
 
                             {/* OG Image */}
                             <div className="space-y-1">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">分享圖片（og:image）</p>
+                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">分享圖片（og:image）</p>
                                 <input
                                     value={ogImage}
                                     onChange={e => setOgImage(e.target.value)}
@@ -202,7 +202,7 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-cyan-500 transition-colors"
                                 />
                                 <GalleryPickerButton label="🖼 從圖片庫選取" onSelect={url => setOgImage(url)} />
-                                <p className="text-[10px] text-slate-600">建議尺寸 1200×630px，需為完整的公開 URL（不支援 base64）</p>
+                                <p className="text-xs text-slate-600">建議尺寸 1200×630px，需為完整的公開 URL（不支援 base64）</p>
                             </div>
 
                             <button onClick={handleOgSave} disabled={ogSaving}
@@ -210,7 +210,7 @@ export function BasicParamsSection({ systemSettings, updateGlobalSetting }: { sy
                                 {ogSaving ? '儲存中…' : ogSaved ? '✓ 已儲存' : '儲存社群分享設定'}
                             </button>
 
-                            <div className="flex items-center gap-2 text-[10px] text-slate-600">
+                            <div className="flex items-center gap-2 text-xs text-slate-600">
                                 <ExternalLink size={10} />
                                 <span>儲存後可用</span>
                                 <a href="https://poker.line.naver.jp" target="_blank" rel="noopener noreferrer"

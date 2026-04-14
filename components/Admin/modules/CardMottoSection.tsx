@@ -110,7 +110,7 @@ export function CardMottoSection() {
 
                     {/* 卡背圖片上傳 */}
                     <div className="space-y-2">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">卡牌背面圖片</p>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">卡牌背面圖片</p>
                         {backImage ? (
                             <div className="flex items-center gap-3">
                                 <img src={backImage} alt="卡背預覽" className="w-16 h-20 object-cover rounded-xl border border-purple-500/30" />
@@ -140,7 +140,7 @@ export function CardMottoSection() {
                             onChange={handleImageUpload}
                         />
                         <GalleryPickerButton label="🖼 從圖片庫選取卡背" onSelect={async url => { setImgSaving(true); const { saveCardBackImage } = await import('@/app/actions/admin'); const res = await saveCardBackImage(url); setImgSaving(false); if (res.success) { setBackImage(url); await logAdminAction('card_back_image_upload', 'admin', undefined, undefined, { source: 'gallery', url }); } }} />
-                        <p className="text-[10px] text-slate-600">支援 JPG / PNG，建議比例 3:4（直式）</p>
+                        <p className="text-xs text-slate-600">支援 JPG / PNG，建議比例 3:4（直式）</p>
                     </div>
                     <div className="border-t border-slate-800" />
 
@@ -190,7 +190,7 @@ export function CardMottoSection() {
                     )}
                     {/* 新增 */}
                     <div className="border-t border-slate-800 pt-4 space-y-2">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">新增座右銘</p>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">新增座右銘</p>
                         <textarea
                             value={newVal}
                             onChange={e => setNewVal(e.target.value)}
@@ -203,7 +203,7 @@ export function CardMottoSection() {
                             <Plus size={14} /> 加入列表
                         </button>
                     </div>
-                    <p className="text-[10px] text-slate-600 text-center">共 {mottos.length} 句 · 抽卡時隨機選取</p>
+                    <p className="text-xs text-slate-600 text-center">共 {mottos.length} 句 · 抽卡時隨機選取</p>
                 </div>
             )}
         </section>

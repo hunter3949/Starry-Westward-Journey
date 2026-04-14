@@ -70,7 +70,7 @@ function CurseBreakBadge() {
     return (
         <div className="text-right">
             <div className="font-black text-purple-400 text-sm">🔮 破咒打卡</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">不計修為</div>
+            <div className="text-sm text-slate-500 mt-0.5">不計修為</div>
         </div>
     );
 }
@@ -106,12 +106,12 @@ function Q1Card({ q, isDone, questLog, isDawn, setIsDawn, hasMirror, activeManda
                 <QuestIcon questId="q1" isDone={isDone} icon={q.icon} />
                 <div className="flex-1">
                     <h3 className={`font-black text-lg ${isDone ? 'text-emerald-400' : 'text-white'}`}>{q.title}</h3>
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{q.sub}</p>
+                    <p className="text-sm text-slate-500 font-black uppercase tracking-widest">{q.sub}</p>
                 </div>
                 {!isDone && isCapped ? <CurseBreakBadge /> : (
                     <div className="text-right">
                         <div className="font-black text-orange-500">+{displayExp} 修為</div>
-                        <div className="text-xs font-bold text-yellow-400 mt-0.5">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 🪙</div>
+                        <div className="text-sm font-bold text-yellow-400 mt-0.5">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</div>
                     </div>
                 )}
             </button>
@@ -123,13 +123,13 @@ function Q1Card({ q, isDone, questLog, isDawn, setIsDawn, hasMirror, activeManda
                         onChange={e => setIsDawn(e.target.checked)}
                         className="w-4 h-4 rounded accent-orange-500"
                     />
-                    <span className="text-xs text-slate-400 font-bold">
+                    <span className="text-sm text-slate-400 font-bold">
                         本次為破曉打拳（05:00–08:00 完成）
                         {hasMirror && !isCapped && <span className="text-orange-400 ml-1">+150 修為</span>}
                     </span>
                 </label>
             )}
-            {isDone && questLog && <div className="absolute bottom-1 right-2 text-[8px] font-mono text-emerald-500 opacity-60">{formatCheckInTime(questLog.Timestamp)}</div>}
+            {isDone && questLog && <div className="absolute bottom-1 right-2 text-sm font-mono text-emerald-500 opacity-60">{formatCheckInTime(questLog.Timestamp)}</div>}
         </div>
     );
 }
@@ -205,7 +205,7 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
                         border: '1px solid rgba(255,255,255,0.3)',
                     }}
                 >
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">🃏 今日人生提示卡</p>
+                    <p className="text-sm font-black uppercase tracking-widest text-slate-500">🃏 今日人生提示卡</p>
                     <p className="text-xl font-black text-slate-800 leading-relaxed whitespace-pre-line">{todayCardText}</p>
                 </div>
             ) : (
@@ -218,7 +218,7 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
                 </button>
             )}
             <div className="bg-indigo-900/20 border-2 border-indigo-500/30 rounded-4xl p-6 shadow-2xl text-center mx-auto">
-                <div className="flex items-center gap-2 justify-center text-indigo-400 font-black text-xs uppercase mb-2 tracking-widest"><Sparkles size={16} /> 本週推薦定課</div>
+                <div className="flex items-center gap-2 justify-center text-indigo-400 font-black text-sm uppercase mb-2 tracking-widest"><Sparkles size={16} /> 本週推薦定課</div>
                 {weeklyQuestName
                     ? <h2 className="text-2xl font-black text-white italic mx-auto">「{weeklyQuestName}」</h2>
                     : <p className="text-sm text-slate-500 font-bold">隊長尚未抽選，敬請期待</p>
@@ -266,14 +266,14 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
                 return (
                     <button key={q.id} onClick={() => !isDone ? onCheckIn(q) : onUndo(q)} className={`relative w-full p-6 rounded-3xl border-2 flex items-center gap-4 transition-all ${borderClass}`}>
                         <QuestIcon questId={q.id} isDone={isDone} icon={q.icon} />
-                        <div className="flex-1 text-left"><h3 className={`font-black text-lg ${isDone ? 'text-emerald-400' : 'text-white'}`}>{q.title}</h3><p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{q.sub}</p></div>
+                        <div className="flex-1 text-left"><h3 className={`font-black text-lg ${isDone ? 'text-emerald-400' : 'text-white'}`}>{q.title}</h3><p className="text-sm text-slate-500 font-black uppercase tracking-widest">{q.sub}</p></div>
                         {!isDone && isCapped ? <CurseBreakBadge /> : (
                             <div className="text-right">
                                 <div className="font-black text-orange-500">+{Math.ceil(q.reward * baseMultiplier)} 修為</div>
-                                <div className="text-xs font-bold text-yellow-400 mt-0.5">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 🪙</div>
+                                <div className="text-sm font-bold text-yellow-400 mt-0.5">+{q.coins != null ? q.coins : Math.floor(q.reward * 0.1)} 金幣</div>
                             </div>
                         )}
-                        {isDone && questLog && <div className="absolute bottom-1 right-2 text-[8px] font-mono text-emerald-500 opacity-60">{formatCheckInTime(questLog.Timestamp)}</div>}
+                        {isDone && questLog && <div className="absolute bottom-1 right-2 text-sm font-mono text-emerald-500 opacity-60">{formatCheckInTime(questLog.Timestamp)}</div>}
                     </button>
                 );
             })}

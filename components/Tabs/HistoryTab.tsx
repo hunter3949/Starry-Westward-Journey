@@ -99,11 +99,11 @@ export function HistoryTab({ userData, isCaptain, squadName }: HistoryTabProps) 
             {squadName && (
                 <div className="flex gap-2 bg-slate-900 border border-white/5 rounded-2xl p-1.5">
                     <button onClick={() => setViewMode('personal')}
-                        className={`flex-1 py-2.5 rounded-xl font-black text-xs transition-all ${viewMode === 'personal' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                        className={`flex-1 py-2.5 rounded-xl font-black text-sm transition-all ${viewMode === 'personal' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
                         我的明細
                     </button>
                     <button onClick={() => setViewMode('squad')}
-                        className={`flex-1 py-2.5 rounded-xl font-black text-xs transition-all ${viewMode === 'squad' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                        className={`flex-1 py-2.5 rounded-xl font-black text-sm transition-all ${viewMode === 'squad' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
                         團隊明細
                     </button>
                 </div>
@@ -111,29 +111,29 @@ export function HistoryTab({ userData, isCaptain, squadName }: HistoryTabProps) 
 
             {/* 總覽 */}
             <div className="bg-slate-900 border-2 border-slate-700 rounded-3xl p-5">
-                <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 text-center">
+                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mb-3 text-center">
                     {viewMode === 'squad' ? `${squadName} 團隊帳明細` : '帳號總覽'}
                 </p>
                 {viewMode === 'personal' ? (
                     <div className="grid grid-cols-2 gap-3">
                         <div className="bg-slate-800 rounded-2xl p-3 text-center">
                             <p className="text-2xl font-black text-orange-400">{(userData.Exp ?? 0).toLocaleString()}</p>
-                            <p className="text-[10px] text-slate-500 font-bold">累計修為</p>
+                            <p className="text-sm text-slate-500 font-bold">累計修為</p>
                         </div>
                         <div className="bg-slate-800 rounded-2xl p-3 text-center">
                             <p className="text-2xl font-black text-yellow-400">{(userData.Coins ?? 0).toLocaleString()}</p>
-                            <p className="text-[10px] text-slate-500 font-bold">目前金幣</p>
+                            <p className="text-sm text-slate-500 font-bold">目前金幣</p>
                         </div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-3">
                         <div className="bg-emerald-900/30 rounded-2xl p-3 text-center">
                             <p className="text-2xl font-black text-emerald-400">+{totalCoinsGain.toLocaleString()}</p>
-                            <p className="text-[10px] text-slate-500 font-bold">成員捐贈</p>
+                            <p className="text-sm text-slate-500 font-bold">成員捐贈</p>
                         </div>
                         <div className="bg-red-900/30 rounded-2xl p-3 text-center">
                             <p className="text-2xl font-black text-red-400">{totalCoinsLoss.toLocaleString()}</p>
-                            <p className="text-[10px] text-slate-500 font-bold">團隊支出</p>
+                            <p className="text-sm text-slate-500 font-bold">團隊支出</p>
                         </div>
                     </div>
                 )}
@@ -147,7 +147,7 @@ export function HistoryTab({ userData, isCaptain, squadName }: HistoryTabProps) 
                     { key: 'coins' as FilterType, label: '金幣' },
                 ]).map(({ key, label }) => (
                     <button key={key} onClick={() => setFilter(key)}
-                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${filter === key ? 'bg-amber-600 text-white shadow-lg' : 'bg-slate-900 text-slate-400'}`}>
+                        className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${filter === key ? 'bg-amber-600 text-white shadow-lg' : 'bg-slate-900 text-slate-400'}`}>
                         {label}
                     </button>
                 ))}
@@ -163,29 +163,29 @@ export function HistoryTab({ userData, isCaptain, squadName }: HistoryTabProps) 
                     filtered.map(e => (
                         <div key={e.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors">
                             <div className="w-14 shrink-0 text-center">
-                                <p className="text-[10px] text-slate-500 font-mono">{e.dateStr}</p>
-                                <p className="text-[9px] text-slate-600 font-mono">{e.timeStr}</p>
+                                <p className="text-sm text-slate-500 font-mono">{e.dateStr}</p>
+                                <p className="text-sm text-slate-600 font-mono">{e.timeStr}</p>
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-white truncate">
                                     {viewMode === 'squad' && e.userName && <span className="text-indigo-400 mr-1">{e.userName}</span>}
                                     {e.label}
                                 </p>
-                                <p className="text-[10px] text-slate-600">{TYPE_LABELS[e.type] || e.type}</p>
+                                <p className="text-sm text-slate-600">{TYPE_LABELS[e.type] || e.type}</p>
                             </div>
                             <div className="text-right shrink-0 space-y-0.5">
                                 {e.exp !== 0 && (
-                                    <p className={`text-xs font-black ${e.exp > 0 ? 'text-orange-400' : 'text-red-400'}`}>
+                                    <p className={`text-sm font-black ${e.exp > 0 ? 'text-orange-400' : 'text-red-400'}`}>
                                         {e.exp > 0 ? '+' : ''}{e.exp} 修為
                                     </p>
                                 )}
                                 {e.coins !== 0 && (
-                                    <p className={`text-[10px] font-bold ${e.coins > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                        {e.coins > 0 ? '+' : ''}{e.coins} 🪙
+                                    <p className={`text-sm font-bold ${e.coins > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                        {e.coins > 0 ? '+' : ''}{e.coins} 金幣
                                     </p>
                                 )}
                                 {e.exp === 0 && e.coins === 0 && (
-                                    <p className="text-[10px] text-slate-600">—</p>
+                                    <p className="text-sm text-slate-600">—</p>
                                 )}
                             </div>
                         </div>

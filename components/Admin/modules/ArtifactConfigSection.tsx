@@ -172,32 +172,32 @@ export function ArtifactConfigSection() {
                                         : r.icon
                                             ? <span className="text-2xl">{r.icon}</span>
                                             : <div className="w-8 h-8 rounded-xl bg-slate-800 mx-auto" />}
-                                    <span className="text-[10px] font-black text-slate-600 font-mono block">{r.id}</span>
+                                    <span className="text-xs font-black text-slate-600 font-mono block">{r.id}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-black text-white text-sm">{r.name}</span>
-                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${r.is_team_binding ? 'bg-indigo-500/20 text-indigo-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                        <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${r.is_team_binding ? 'bg-indigo-500/20 text-indigo-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                                             {r.is_team_binding ? '小隊' : '個人'}
                                         </span>
                                         {isFromDb && (
-                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${r.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                                            <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${r.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
                                                 {r.is_active ? '上架' : '下架'}
                                             </span>
                                         )}
                                         {r.exclusive_with && (
-                                            <span className="text-[10px] text-red-400 font-black">互斥：{r.exclusive_with}</span>
+                                            <span className="text-xs text-red-400 font-black">互斥：{r.exclusive_with}</span>
                                         )}
                                     </div>
-                                    <p className="text-[11px] text-orange-300/80 mt-0.5">{r.effect}</p>
-                                    <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{r.description}</p>
+                                    <p className="text-xs text-orange-300/80 mt-0.5">{r.effect}</p>
+                                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{r.description}</p>
                                     <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                        <span className="text-[10px] text-yellow-400 font-black">🪙 {r.price === 0 ? '免費' : `${r.price} 金幣`}{r.is_team_binding ? '/人' : ''}</span>
-                                        <span className="text-[10px] text-slate-600">上限 {r.limit}</span>
-                                        {r.exp_multiplier_personal != null && <span className="text-[10px] text-sky-400 font-bold">個人經驗 ×{r.exp_multiplier_personal}</span>}
-                                        {r.exp_multiplier_team != null && <span className="text-[10px] text-indigo-400 font-bold">全隊經驗 ×{r.exp_multiplier_team}</span>}
-                                        {r.exp_bonus_personal != null && <span className="text-[10px] text-sky-400 font-bold">個人修為 +{r.exp_bonus_personal}</span>}
-                                        {r.exp_bonus_team != null && <span className="text-[10px] text-indigo-400 font-bold">全隊修為 +{r.exp_bonus_team}</span>}
+                                        <span className="text-xs text-yellow-400 font-black">金幣 {r.price === 0 ? '免費' : `${r.price} 金幣`}{r.is_team_binding ? '/人' : ''}</span>
+                                        <span className="text-xs text-slate-600">上限 {r.limit}</span>
+                                        {r.exp_multiplier_personal != null && <span className="text-xs text-sky-400 font-bold">個人經驗 ×{r.exp_multiplier_personal}</span>}
+                                        {r.exp_multiplier_team != null && <span className="text-xs text-indigo-400 font-bold">全隊經驗 ×{r.exp_multiplier_team}</span>}
+                                        {r.exp_bonus_personal != null && <span className="text-xs text-sky-400 font-bold">個人修為 +{r.exp_bonus_personal}</span>}
+                                        {r.exp_bonus_team != null && <span className="text-xs text-indigo-400 font-bold">全隊修為 +{r.exp_bonus_team}</span>}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
@@ -236,46 +236,46 @@ export function ArtifactConfigSection() {
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">法寶 ID *</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">法寶 ID *</label>
                                     <input required placeholder="e.g. a7" value={form.id} disabled={!!editingId}
                                         onChange={e => setForm(f => ({ ...f, id: e.target.value.trim() }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-violet-500 text-sm disabled:opacity-50" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">排序</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">排序</label>
                                     <input type="number" value={form.sort_order}
                                         onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-violet-500 text-sm" />
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">法寶名稱 *</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">法寶名稱 *</label>
                                 <input required placeholder="e.g. 如意金箍棒" value={form.name}
                                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-violet-500 text-sm" />
                             </div>
                             <IconPicker value={form.icon ?? ''} onChange={v => setForm(f => ({ ...f, icon: v || null }))} />
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">法寶效果</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">法寶效果</label>
                                 <input placeholder="e.g. 個人總經驗獲取 ×1.2 倍" value={form.effect}
                                     onChange={e => setForm(f => ({ ...f, effect: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-violet-500 text-sm" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">背景說明</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">背景說明</label>
                                 <textarea rows={2} placeholder="法寶典故或說明..." value={form.description}
                                     onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-violet-500 text-sm resize-none" />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">價格（金幣）</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">價格（金幣）</label>
                                     <input type="number" min={0} value={form.price}
                                         onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-violet-500 text-sm text-center" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">購買上限</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">購買上限</label>
                                     <input type="number" min={1} value={form.limit}
                                         onChange={e => setForm(f => ({ ...f, limit: Number(e.target.value) }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-violet-500 text-sm text-center" />
@@ -283,8 +283,8 @@ export function ArtifactConfigSection() {
                             </div>
                             <div className="space-y-1">
                                 <div className="flex items-baseline gap-2 px-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">互斥法寶 ID（選填）</label>
-                                    <span className="text-[10px] text-red-400 font-bold">＊兩個法寶只能擇一持有，購買其中一個後將無法再購買另一個</span>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">互斥法寶 ID（選填）</label>
+                                    <span className="text-xs text-red-400 font-bold">＊兩個法寶只能擇一持有，購買其中一個後將無法再購買另一個</span>
                                 </div>
                                 <input placeholder="e.g. a1" value={form.exclusive_with ?? ''}
                                     onChange={e => setForm(f => ({ ...f, exclusive_with: e.target.value.trim() || null }))}
@@ -292,8 +292,8 @@ export function ArtifactConfigSection() {
                             </div>
                             {/* 觸發條件 */}
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">適用定課（觸發條件）</label>
-                                <p className="text-[9px] text-slate-600 px-1 mb-1">
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">適用定課（觸發條件）</label>
+                                <p className="text-xs text-slate-600 px-1 mb-1">
                                     填入定課 ID 以逗號分隔。特殊格式：<span className="text-violet-400">all</span> = 所有定課、<span className="text-violet-400">prefix:q</span> = q 開頭、<span className="text-violet-400">prefix:t</span> = t 開頭
                                 </p>
                                 <input placeholder="e.g. all 或 q1,q1_dawn 或 prefix:t"
@@ -306,31 +306,31 @@ export function ArtifactConfigSection() {
                             </div>
                             {/* 經驗加成 */}
                             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">經驗加成（空白 = 無效果）</p>
+                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">經驗加成（空白 = 無效果）</p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-sky-500 px-1">個人經驗加倍（×）</label>
+                                        <label className="text-xs font-bold text-sky-500 px-1">個人經驗加倍（×）</label>
                                         <input type="number" min={1} step={0.01} placeholder="e.g. 1.2"
                                             value={form.exp_multiplier_personal ?? ''}
                                             onChange={e => setForm(f => ({ ...f, exp_multiplier_personal: e.target.value === '' ? null : Number(e.target.value) }))}
                                             className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3 text-white font-bold outline-none focus:border-sky-500 text-sm text-center" />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-indigo-400 px-1">全隊經驗加倍（×）</label>
+                                        <label className="text-xs font-bold text-indigo-400 px-1">全隊經驗加倍（×）</label>
                                         <input type="number" min={1} step={0.01} placeholder="e.g. 1.5"
                                             value={form.exp_multiplier_team ?? ''}
                                             onChange={e => setForm(f => ({ ...f, exp_multiplier_team: e.target.value === '' ? null : Number(e.target.value) }))}
                                             className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3 text-white font-bold outline-none focus:border-indigo-500 text-sm text-center" />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-sky-500 px-1">個人修為加分（+）</label>
+                                        <label className="text-xs font-bold text-sky-500 px-1">個人修為加分（+）</label>
                                         <input type="number" min={0} step={1} placeholder="e.g. 150"
                                             value={form.exp_bonus_personal ?? ''}
                                             onChange={e => setForm(f => ({ ...f, exp_bonus_personal: e.target.value === '' ? null : Number(e.target.value) }))}
                                             className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3 text-white font-bold outline-none focus:border-sky-500 text-sm text-center" />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-indigo-400 px-1">全隊修為加分（+）</label>
+                                        <label className="text-xs font-bold text-indigo-400 px-1">全隊修為加分（+）</label>
                                         <input type="number" min={0} step={1} placeholder="e.g. 200"
                                             value={form.exp_bonus_team ?? ''}
                                             onChange={e => setForm(f => ({ ...f, exp_bonus_team: e.target.value === '' ? null : Number(e.target.value) }))}

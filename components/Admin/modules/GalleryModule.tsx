@@ -158,7 +158,7 @@ export function ImageGallerySection() {
                             <Upload size={14} />
                             {uploading ? '上傳中...' : '上傳圖片'}
                         </button>
-                        <span className="text-[11px] text-slate-500">上傳到：<span className="text-teal-400 font-bold">{activeFolder}/</span></span>
+                        <span className="text-xs text-slate-500">上傳到：<span className="text-teal-400 font-bold">{activeFolder}/</span></span>
                         <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleUpload} />
                         {uploadError && <span className="text-xs text-red-400 font-bold">{uploadError}</span>}
                     </div>
@@ -197,26 +197,26 @@ export function ImageGallerySection() {
                                     ) : (
                                         <div className="flex flex-col items-center gap-1 text-slate-600">
                                             <ImageIcon size={28} strokeWidth={1} />
-                                            <span className="text-[10px]">{item.name.split('.').pop()?.toUpperCase()}</span>
+                                            <span className="text-xs">{item.name.split('.').pop()?.toUpperCase()}</span>
                                         </div>
                                     )}
                                 </div>
                                 {/* 底部資訊 */}
                                 <div className="px-2 pb-2 space-y-1">
-                                    <p className="text-[10px] text-slate-400 truncate font-bold">{item.name}</p>
-                                    <p className="text-[9px] text-slate-600">{fmtSize(item.size)}</p>
+                                    <p className="text-xs text-slate-400 truncate font-bold">{item.name}</p>
+                                    <p className="text-xs text-slate-600">{fmtSize(item.size)}</p>
                                 </div>
                                 {/* Hover 操作 */}
                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 rounded-sm">
                                     <button onClick={() => handleCopy(item.url)}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-black rounded-xl transition-colors">
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-black rounded-xl transition-colors">
                                         <Copy size={11} />
                                         {copied === item.url ? '已複製！' : '複製連結'}
                                     </button>
                                     {source === 'storage' && 'fullPath' in item && (
                                         <button onClick={() => handleDelete({ fullPath: (item as { fullPath: string }).fullPath, name: item.name, publicUrl: item.url, size: item.size, createdAt: '' })}
                                             disabled={deleting === (item as { fullPath?: string }).fullPath}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-black rounded-xl transition-colors disabled:opacity-50">
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/80 hover:bg-red-500 text-white text-xs font-black rounded-xl transition-colors disabled:opacity-50">
                                             <Trash2 size={11} />
                                             {deleting === (item as { fullPath?: string }).fullPath ? '刪除中...' : '刪除'}
                                         </button>
@@ -227,7 +227,7 @@ export function ImageGallerySection() {
                     </div>
                 )}
                 {!loading && displayFiles.length > 0 && (
-                    <div className="px-5 py-3 border-t border-slate-800 text-[11px] text-slate-600 flex items-center justify-between">
+                    <div className="px-5 py-3 border-t border-slate-800 text-xs text-slate-600 flex items-center justify-between">
                         <span>{displayFiles.length} 個檔案</span>
                         <span className="text-teal-600 font-bold">{source === 'local' ? `public/images/${localFolder}/` : `${activeFolder}/`}</span>
                     </div>

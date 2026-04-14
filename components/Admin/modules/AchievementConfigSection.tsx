@@ -146,11 +146,11 @@ export function AchievementConfigSection() {
             <div className="flex items-center gap-2 flex-wrap">
                 {(['all', 'common', 'rare', 'epic', 'legendary'] as const).map(r => (
                     <button key={r} onClick={() => setRarityFilter(r)}
-                        className={`px-3 py-1 rounded-xl text-[11px] font-black transition-colors ${rarityFilter === r ? 'bg-yellow-500 text-black' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+                        className={`px-3 py-1 rounded-xl text-xs font-black transition-colors ${rarityFilter === r ? 'bg-yellow-500 text-black' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                         {r === 'all' ? '全部' : RARITY_LABEL[r]}
                     </button>
                 ))}
-                <span className="text-[11px] text-slate-600 ml-auto">{displayed.length} 個成就</span>
+                <span className="text-xs text-slate-600 ml-auto">{displayed.length} 個成就</span>
             </div>
             )}
 
@@ -163,17 +163,17 @@ export function AchievementConfigSection() {
                             <div key={r.id} className="flex items-center gap-4 px-5 py-3 hover:bg-white/5 transition-colors">
                                 <div className="w-10 shrink-0 text-center">
                                     <span className="text-2xl">{r.icon}</span>
-                                    <span className="text-[9px] font-black text-slate-600 font-mono block mt-0.5">{r.id}</span>
+                                    <span className="text-xs font-black text-slate-600 font-mono block mt-0.5">{r.id}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-black text-white text-sm">{r.name}</span>
-                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${RARITY_COLOR[r.rarity] ?? ''}`}>{RARITY_LABEL[r.rarity]}</span>
-                                        {r.role_exclusive && <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-400">{r.role_exclusive}</span>}
-                                        {isFromDb && <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${r.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>{r.is_active ? '啟用' : '停用'}</span>}
+                                        <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${RARITY_COLOR[r.rarity] ?? ''}`}>{RARITY_LABEL[r.rarity]}</span>
+                                        {r.role_exclusive && <span className="text-xs font-black px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-400">{r.role_exclusive}</span>}
+                                        {isFromDb && <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${r.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>{r.is_active ? '啟用' : '停用'}</span>}
                                     </div>
-                                    <p className="text-[11px] text-slate-500 mt-0.5 italic">「{r.hint}」</p>
-                                    <p className="text-[11px] text-slate-400 mt-0.5">{r.description}</p>
+                                    <p className="text-xs text-slate-500 mt-0.5 italic">「{r.hint}」</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">{r.description}</p>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     {isFromDb && (
@@ -210,27 +210,27 @@ export function AchievementConfigSection() {
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">成就 ID *</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">成就 ID *</label>
                                     <input required placeholder="e.g. streak_7" value={form.id} disabled={!!editingId}
                                         onChange={e => setForm(f => ({ ...f, id: e.target.value.trim() }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm disabled:opacity-50" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">排序</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">排序</label>
                                     <input type="number" value={form.sort_order}
                                         onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">成就名稱 *</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">成就名稱 *</label>
                                 <input required placeholder="e.g. 七日精進" value={form.name}
                                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">稀有度</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">稀有度</label>
                                     <select value={form.rarity}
                                         onChange={e => setForm(f => ({ ...f, rarity: e.target.value as AchievementConfigRow['rarity'] }))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm">
@@ -241,24 +241,24 @@ export function AchievementConfigSection() {
                                     </select>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">圖示</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">圖示</label>
                                     <IconPicker value={form.icon} onChange={v => setForm(f => ({ ...f, icon: v || '🏅' }))} />
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">提示語（hint）</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">提示語（hint）</label>
                                 <input placeholder="e.g. 七，是完整的數字…" value={form.hint}
                                     onChange={e => setForm(f => ({ ...f, hint: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">達成條件說明</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">達成條件說明</label>
                                 <textarea rows={2} placeholder="e.g. 連續 7 天完成打拳定課" value={form.description}
                                     onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm resize-none" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">職業專屬（選填）</label>
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">職業專屬（選填）</label>
                                 <input placeholder="e.g. 孫悟空" value={form.role_exclusive ?? ''}
                                     onChange={e => setForm(f => ({ ...f, role_exclusive: e.target.value.trim() || null }))}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-white font-bold outline-none focus:border-yellow-500 text-sm" />
