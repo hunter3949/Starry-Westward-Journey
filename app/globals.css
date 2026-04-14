@@ -1,8 +1,44 @@
 @import "tailwindcss";
 
+/* ── 主題色系統 ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* 深色主題（預設） */
+  --bg-primary: #020617;      /* slate-950 */
+  --bg-secondary: #0f172a;    /* slate-900 */
+  --bg-tertiary: #1e293b;     /* slate-800 */
+  --bg-hover: rgba(255,255,255,0.05);
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;  /* slate-400 */
+  --text-tertiary: #64748b;   /* slate-500 */
+  --text-muted: #475569;      /* slate-600 */
+  --border-primary: rgba(255,255,255,0.05);
+  --border-secondary: #1e293b;
+  --card-bg: #0f172a;
+  --card-border: #1e293b;
+  --input-bg: #020617;
+  --input-border: #1e293b;
+  --backdrop: rgba(2,6,23,0.9);
+  --shadow-color: rgba(0,0,0,0.5);
+}
+
+.light {
+  /* 淺色主題（米色暖色底） */
+  --bg-primary: #faf7f2;      /* warm cream */
+  --bg-secondary: #f5f0e8;    /* warm beige */
+  --bg-tertiary: #ebe5d9;     /* warm sand */
+  --bg-hover: rgba(0,0,0,0.04);
+  --text-primary: #1c1917;    /* stone-900 */
+  --text-secondary: #57534e;  /* stone-600 */
+  --text-tertiary: #78716c;   /* stone-500 */
+  --text-muted: #a8a29e;      /* stone-400 */
+  --border-primary: rgba(0,0,0,0.08);
+  --border-secondary: #e7e0d5;
+  --card-bg: #ffffff;
+  --card-border: #e7e0d5;
+  --input-bg: #ffffff;
+  --input-border: #d6cfc4;
+  --backdrop: rgba(250,247,242,0.95);
+  --shadow-color: rgba(0,0,0,0.08);
 }
 
 @theme inline {
@@ -12,15 +48,144 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s, color 0.3s;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* ── 主題覆蓋：用 CSS 變數取代硬編碼顏色 ── */
+
+/* 背景 */
+.theme-bg { background-color: var(--bg-primary); }
+.theme-bg-card { background-color: var(--card-bg); }
+.theme-bg-secondary { background-color: var(--bg-secondary); }
+.theme-bg-tertiary { background-color: var(--bg-tertiary); }
+.theme-bg-input { background-color: var(--input-bg); }
+
+/* 文字 */
+.theme-text { color: var(--text-primary); }
+.theme-text-secondary { color: var(--text-secondary); }
+.theme-text-muted { color: var(--text-muted); }
+
+/* 邊框 */
+.theme-border { border-color: var(--border-primary); }
+.theme-border-card { border-color: var(--card-border); }
+
+/* 淺色主題全局覆蓋 — 批量修正深色 class */
+.light .bg-slate-950 { background-color: var(--bg-primary) !important; }
+.light .bg-slate-900 { background-color: var(--bg-secondary) !important; }
+.light .bg-slate-900\/50 { background-color: var(--bg-secondary) !important; }
+.light .bg-slate-900\/80 { background-color: var(--bg-secondary) !important; }
+.light .bg-slate-800 { background-color: var(--bg-tertiary) !important; }
+.light .bg-slate-800\/50 { background-color: var(--bg-tertiary) !important; }
+.light .bg-slate-800\/60 { background-color: var(--bg-tertiary) !important; }
+.light .bg-slate-950\/50 { background-color: rgba(250,247,242,0.5) !important; }
+.light .bg-slate-950\/90 { background-color: rgba(250,247,242,0.95) !important; }
+.light .bg-slate-950\/60 { background-color: rgba(250,247,242,0.6) !important; }
+
+/* 文字顏色覆蓋 */
+.light .text-white { color: var(--text-primary) !important; }
+.light .text-slate-200 { color: var(--text-primary) !important; }
+.light .text-slate-300 { color: var(--text-secondary) !important; }
+.light .text-slate-400 { color: var(--text-secondary) !important; }
+.light .text-slate-500 { color: var(--text-tertiary) !important; }
+.light .text-slate-600 { color: var(--text-muted) !important; }
+.light .text-slate-50 { color: var(--text-primary) !important; }
+
+/* 邊框覆蓋 */
+.light .border-white\/5 { border-color: var(--border-primary) !important; }
+.light .border-white\/10 { border-color: var(--border-primary) !important; }
+.light .border-slate-800 { border-color: var(--card-border) !important; }
+.light .border-slate-700 { border-color: var(--card-border) !important; }
+.light .border-slate-700\/50 { border-color: var(--card-border) !important; }
+.light .border-slate-600 { border-color: var(--card-border) !important; }
+
+/* 輸入框 */
+.light .bg-slate-950:is(input, textarea, select) { background-color: var(--input-bg) !important; border-color: var(--input-border) !important; color: var(--text-primary) !important; }
+.light input, .light textarea, .light select { background-color: var(--input-bg) !important; color: var(--text-primary) !important; }
+
+/* 分隔線 */
+.light .divide-white\/5 > :not(:first-child) { border-color: var(--border-primary) !important; }
+.light .divide-slate-800 > :not(:first-child) { border-color: var(--card-border) !important; }
+
+/* 漸層與特殊背景 */
+.light .bg-gradient-to-t { --tw-gradient-from: var(--bg-primary) !important; --tw-gradient-via: var(--bg-primary) !important; }
+.light .from-slate-950 { --tw-gradient-from: var(--bg-primary) !important; }
+.light .via-slate-950 { --tw-gradient-via: var(--bg-primary) !important; }
+
+/* 模態框 / 彈窗背景 */
+.light .bg-black\/70 { background-color: rgba(0,0,0,0.3) !important; }
+.light .bg-black\/80 { background-color: rgba(0,0,0,0.3) !important; }
+.light .bg-slate-950\/90 { background-color: rgba(250,247,242,0.95) !important; }
+.light .bg-slate-950\/95 { background-color: rgba(250,247,242,0.98) !important; }
+
+/* 陰影 */
+.light .shadow-xl { box-shadow: 0 4px 16px var(--shadow-color) !important; }
+.light .shadow-2xl { box-shadow: 0 8px 24px var(--shadow-color) !important; }
+.light .shadow-lg { box-shadow: 0 2px 12px var(--shadow-color) !important; }
+
+/* hover 效果 */
+.light .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.04) !important; }
+.light .hover\:bg-slate-800:hover { background-color: var(--bg-tertiary) !important; }
+.light .hover\:bg-slate-700:hover { background-color: #d6cfc4 !important; }
+.light .hover\:text-white:hover { color: var(--text-primary) !important; }
+
+/* 保持強調色（橘/黃/綠/藍/紫/粉等）不變 — 這些在淺色模式下也好看 */
+
+/* Nav bar */
+.light .bg-slate-900.text-slate-400 { background-color: var(--bg-secondary) !important; }
+.light .hover\:bg-slate-800:hover { background-color: var(--bg-tertiary) !important; }
+.light .hover\:text-slate-100:hover { color: var(--text-primary) !important; }
+
+/* 滾動條 */
+.light ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+.light ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); }
+
+/* ── 後台面板 ── */
+.light .bg-slate-900.border-2 { background-color: var(--card-bg) !important; }
+.light .bg-slate-950.p-4 { background-color: var(--bg-primary) !important; }
+
+/* 按鈕在淺色下的調整 */
+.light .bg-slate-800.text-slate-400 { background-color: var(--bg-tertiary) !important; color: var(--text-secondary) !important; }
+.light .bg-slate-700 { background-color: #d6cfc4 !important; }
+
+/* 標籤 / badge */
+.light .bg-slate-700.text-slate-500 { background-color: #d6cfc4 !important; color: var(--text-tertiary) !important; }
+
+/* 側欄 */
+.light .bg-slate-900.border-r { background-color: var(--bg-secondary) !important; }
+
+/* 圓角卡片 */
+.light [class*="rounded-4xl"].bg-slate-900 { background-color: var(--card-bg) !important; }
+.light [class*="rounded-3xl"].bg-slate-900 { background-color: var(--card-bg) !important; }
+
+/* placeholder */
+.light ::placeholder { color: var(--text-muted) !important; }
+
+/* 登入/註冊頁面 */
+.light .bg-slate-950 { background-color: var(--bg-primary) !important; }
+.light .min-h-screen.bg-slate-950 { background-color: var(--bg-primary) !important; }
+
+/* 強調色在淺色模式微調透明度 */
+.light .bg-orange-500\/10 { background-color: rgba(249,115,22,0.08) !important; }
+.light .bg-yellow-400\/10 { background-color: rgba(250,204,21,0.08) !important; }
+.light .bg-emerald-500\/10 { background-color: rgba(16,185,129,0.08) !important; }
+.light .bg-blue-400\/10 { background-color: rgba(96,165,250,0.08) !important; }
+.light .bg-purple-400\/10 { background-color: rgba(192,132,252,0.08) !important; }
+.light .bg-pink-500\/10 { background-color: rgba(236,72,153,0.08) !important; }
+.light .bg-amber-500\/10 { background-color: rgba(245,158,11,0.08) !important; }
+.light .bg-indigo-500\/20 { background-color: rgba(99,102,241,0.1) !important; }
+.light .bg-red-500\/10 { background-color: rgba(239,68,68,0.08) !important; }
+.light .bg-emerald-600\/20 { background-color: rgba(5,150,105,0.1) !important; }
+.light .bg-yellow-500\/10 { background-color: rgba(234,179,8,0.08) !important; }
+.light .bg-cyan-500\/20 { background-color: rgba(6,182,212,0.1) !important; }
+
+/* 修為榜 */
+.light .bg-yellow-500.text-slate-950 { background-color: #f59e0b !important; color: white !important; }
+.light .bg-slate-300.text-slate-950 { background-color: #94a3b8 !important; color: white !important; }
+.light .bg-orange-400.text-slate-950 { background-color: #fb923c !important; color: white !important; }
+
+/* 蜘蛛網圖 */
+.light .fill-slate-400 { fill: var(--text-secondary) !important; }

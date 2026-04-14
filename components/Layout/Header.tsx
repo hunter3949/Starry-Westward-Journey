@@ -85,6 +85,28 @@ export function Header({ userData, onLogout, fontSize, onFontSizeChange, questRo
                             </div>
                             <p className="text-sm text-slate-600 text-center mt-3">設定自動儲存</p>
 
+                            {/* 主題切換 */}
+                            <div className="border-t border-slate-700 mt-3 pt-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-sm">🎨</span>
+                                    <p className="text-sm font-black text-slate-400 uppercase tracking-widest">主題</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    <button
+                                        onClick={() => { document.documentElement.classList.remove('light'); localStorage.setItem('theme', 'dark'); }}
+                                        className={`py-2 rounded-xl text-sm font-black transition-colors ${typeof window !== 'undefined' && !document.documentElement.classList.contains('light') ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                                    >
+                                        深色
+                                    </button>
+                                    <button
+                                        onClick={() => { document.documentElement.classList.add('light'); localStorage.setItem('theme', 'light'); }}
+                                        className={`py-2 rounded-xl text-sm font-black transition-colors ${typeof window !== 'undefined' && document.documentElement.classList.contains('light') ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                                    >
+                                        淺色
+                                    </button>
+                                </div>
+                            </div>
+
                             {userData?.LineUserId && onUnbindLine && (
                                 <>
                                     <div className="border-t border-slate-800 my-3" />

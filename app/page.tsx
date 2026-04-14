@@ -189,6 +189,10 @@ export default function App() {
     const valid = FONT_SIZES.includes(saved as FontSizeValue) ? saved as FontSizeValue : 100;
     setFontSizeState(valid);
     document.documentElement.style.fontSize = `${valid}%`;
+    // 載入主題設定
+    const theme = localStorage.getItem('theme');
+    if (theme === 'light') document.documentElement.classList.add('light');
+    else document.documentElement.classList.remove('light');
   }, []);
   const setFontSize = (size: FontSizeValue) => {
     setFontSizeState(size);
