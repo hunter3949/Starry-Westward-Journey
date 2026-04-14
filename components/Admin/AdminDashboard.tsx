@@ -198,7 +198,6 @@ const ACTION_LABELS: Record<string, string> = {
     auto_assign_squads: '自動分配大小隊',
     auto_draw_quests: '全服自動抽籤',
     weekly_snapshot: '每週業力結算',
-    w3_compliance: 'w3 週罰款結算',
     w4_final_approve: 'w4 終審核准',
     w4_final_reject: 'w4 終審駁回',
     topic_title_update: '更新主題名稱',
@@ -281,7 +280,6 @@ interface AdminDashboardProps {
     onDeleteTempQuest: (id: string) => void;
     onUpdateTempQuest: (id: string, reward: number, coins: number | null) => void;
     onTriggerSnapshot: () => void;
-    onCheckW3Compliance: () => void;
     onAutoDrawAllSquads: () => void;
     onImportRoster: (csvData: string) => Promise<void>;
     onFinalReviewW4: (appId: string, approve: boolean, notes: string) => Promise<void>;
@@ -299,7 +297,7 @@ export function AdminDashboard({
     leaderboard, topicHistory, temporaryQuests,
     squadApprovedW4Apps, adminLogs, testimonies, courses,
     onAddTempQuest, onToggleTempQuest, onDeleteTempQuest, onUpdateTempQuest,
-    onTriggerSnapshot, onCheckW3Compliance, onAutoDrawAllSquads,
+    onTriggerSnapshot, onAutoDrawAllSquads,
     onImportRoster, onFinalReviewW4, onUpsertCourse, onDeleteCourse,
     onUpdateMemberAssignment, onRefreshLeaderboard, onClose, onQuickLogin
 }: AdminDashboardProps) {
@@ -648,7 +646,7 @@ export function AdminDashboard({
     };
 
     // 參與人員名單
-    type MemberSortKey = 'Name' | 'BigTeamLeagelName' | 'LittleTeamLeagelName' | 'Level' | 'Exp' | 'Streak' | 'TotalFines';
+    type MemberSortKey = 'Name' | 'BigTeamLeagelName' | 'LittleTeamLeagelName' | 'Level' | 'Exp' | 'Streak';
     const [memberFilter, setMemberFilter] = React.useState('');
     const [memberTeamFilter, setMemberTeamFilter] = React.useState('');
     const [memberSquadFilter, setMemberSquadFilter] = React.useState('');
@@ -2516,25 +2514,6 @@ export function AdminDashboard({
                                 </div>
 
                                 {/* 財務 */}
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">財務</p>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <div className="bg-slate-800 rounded-2xl p-3 text-center">
-                                            <p className="text-[10px] text-slate-500 font-bold mb-1">總罰金</p>
-                                            <p className="text-sm font-black text-red-400">NT${memberDetailTarget.TotalFines}</p>
-                                        </div>
-                                        <div className="bg-slate-800 rounded-2xl p-3 text-center">
-                                            <p className="text-[10px] text-slate-500 font-bold mb-1">已繳金額</p>
-                                            <p className="text-sm font-black text-emerald-400">NT${memberDetailTarget.FinePaid}</p>
-                                        </div>
-                                        <div className="bg-slate-800 rounded-2xl p-3 text-center">
-                                            <p className="text-[10px] text-slate-500 font-bold mb-1">未繳餘額</p>
-                                            <p className={`text-sm font-black ${memberDetailTarget.TotalFines - memberDetailTarget.FinePaid > 0 ? 'text-red-400' : 'text-slate-500'}`}>
-                                                NT${memberDetailTarget.TotalFines - memberDetailTarget.FinePaid}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
 
                                 {/* 道具 */}
                                 {(memberDetailTarget.Inventory?.length > 0 || (memberDetailTarget.GameInventory?.length ?? 0) > 0) && (
@@ -3362,7 +3341,6 @@ export function AdminDashboard({
                                 <p className="text-xs text-slate-400 mt-2">{systemSettings.WorldStateMsg || '環境保持平衡。'}</p>
                             </div>
                             <button onClick={onTriggerSnapshot} className="w-full bg-blue-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-blue-500 transition-colors">🔄 執行每週業力結算 (Weekly Snapshot)</button>
-                            <button onClick={onCheckW3Compliance} className="w-full bg-red-700 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-red-600 transition-colors">⚖️ 執行 w3 週罰款結算（未完成者 +NT$200）</button>
                             <button onClick={onAutoDrawAllSquads} className="w-full bg-indigo-600 p-4 rounded-2xl text-white font-black shadow-lg hover:bg-indigo-500 transition-colors">🎲 全服自動抽籤（為未抽小隊代選本週定課）</button>
                         </div>
                     </section>

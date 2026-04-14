@@ -10,7 +10,7 @@ import {
   Flame, Store, Trophy, BarChart3, Medal, CalendarDays, Compass, Swords, Mountain, ScrollText
 } from 'lucide-react';
 
-import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, FinePaymentRecord, AchievementRecord, Course, MainQuestEntry, PeakTrial, PeakTrialRegistration } from '@/types';
+import { CharacterStats, DailyLog, Quest, SystemSettings, TopicHistory, TemporaryQuest, W4Application, AdminLog, Testimony, AchievementRecord, Course, MainQuestEntry, PeakTrial, PeakTrialRegistration } from '@/types';
 import { getLogicalDateStr, getWeeklyMonday } from '@/lib/utils/time';
 import { standardizePhone } from '@/lib/utils/phone';
 import { ROLE_CURE_MAP, DEFAULT_CONFIG, ADVENTURE_COST, ADMIN_PASSWORD, calculateLevelFromExp, ROLE_GROWTH_RATES, DEFAULT_QUEST_ROLES, setLevelExpCache } from '@/lib/constants';
@@ -38,7 +38,7 @@ import { ACHIEVEMENT_MAP, RARITY_STYLE, type AchievementDef } from '@/lib/achiev
 import { getUserAchievements } from '@/app/actions/achievements';
 const AdminDashboard = dynamic(() => import('@/components/Admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })), { ssr: false });
 import { processCheckInTransaction } from '@/app/actions/quest';
-import { triggerWeeklySnapshot, importRostersData, checkWeeklyW3Compliance, autoAssignSquadsForTesting, logAdminAction } from '@/app/actions/admin';
+import { triggerWeeklySnapshot, importRostersData, autoAssignSquadsForTesting, logAdminAction } from '@/app/actions/admin';
 import { listCourses, upsertCourse, deleteCourse } from '@/app/actions/course';
 import { listPeakTrials, getMyPeakTrialRegistrations } from '@/app/actions/peakTrials';
 import { getTestimonies } from '@/app/actions/testimonies_admin';
@@ -46,7 +46,7 @@ import { drawWeeklyQuestForSquad, autoDrawAllSquads } from '@/app/actions/team';
 import { submitW4Application, reviewW4BySquadLeader, reviewW4ByAdmin, reviewW4ByBattalionLeader, getW4Applications, getAdminActivityLog, deleteAdminLog } from '@/app/actions/w4';
 import { generateWeeklyReview, generateCaptainBriefing } from '@/app/actions/gemini';
 import { handleChestOpen } from '@/app/actions/map';
-import { getSquadFineStatus, recordFinePayment, setPaidToCaptainDate, getSquadFinePaymentHistory, checkSquadW3Compliance, recordOrgSubmission, getSquadOrgSubmissions, setMemberQuestRole } from '@/app/actions/fines';
+import { setMemberQuestRole } from '@/app/actions/fines';
 import { getBoardGameStats } from '@/app/actions/boardGame';
 import BoardGameView from '@/components/BoardGame/BoardGameView';
 
@@ -229,20 +229,12 @@ export default function App() {
   const [peakTrials, setPeakTrials] = useState<PeakTrial[]>([]);
   const [myPeakTrialRegs, setMyPeakTrialRegs] = useState<PeakTrialRegistration[]>([]);
 
-  // 罰款管理 state
-  interface SquadMemberFine { userId: string; name: string; totalFines: number; finePaid: number; balance: number; }
-  const [squadFineMembers, setSquadFineMembers] = useState<SquadMemberFine[]>([]);
-  const [fineHistory, setFineHistory] = useState<FinePaymentRecord[]>([]);
-  const [isLoadingFines, setIsLoadingFines] = useState(false);
-  const [orgSubmissions, setOrgSubmissions] = useState<import('@/types').SquadFineSubmission[]>([]);
   interface SquadMemberWithRole { userId: string; name: string; questRoles: string[]; }
   const [squadMembersWithRoles, setSquadMembersWithRoles] = useState<SquadMemberWithRole[]>([]);
   interface QuestRoleDef { id: string; name: string; duties: string[] }
   const [questRoleDefs, setQuestRoleDefs] = useState<QuestRoleDef[]>([]);
   const [userAchievements, setUserAchievements] = useState<AchievementRecord[]>([]);
   const [achievementQueue, setAchievementQueue] = useState<AchievementDef[]>([]);
-  const [isCheckingCompliance, setIsCheckingCompliance] = useState(false);
-  const [complianceResult, setComplianceResult] = useState<{ periodLabel: string; violators: { userId: string; name: string }[]; alreadyRun: boolean } | null>(null);
 
   const showCaptainTab = userData?.IsGM
     ? (gmViewMode === 'all' || gmViewMode === 'captain')
@@ -364,50 +356,7 @@ export default function App() {
     }
   };
 
-  const handleCheckW3Compliance = async () => {
-    if (!confirm("確定要執行『w3 週罰款結算』？\n本週未完成「自我精進課」(w3) 的修行者將被記 NT$200 罰金。")) return;
-    setIsSyncing(true);
-    try {
-      const res = await checkWeeklyW3Compliance(undefined, undefined, adminOperator);
-      if (res.success) {
-        const count = res.violatorCount ?? 0;
-        const names = res.violators?.map((v: { name: string }) => v.name).join('、') || '（無）';
-        setModalMessage({ text: `w3 結算完成！共 ${count} 人未達標，已記罰：${names}`, type: count > 0 ? 'error' : 'success' });
-      } else {
-        setModalMessage({ text: "結算失敗：" + res.error, type: 'error' });
-      }
-    } catch (e: any) {
-      setModalMessage({ text: "系統異常：" + e.message, type: 'error' });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
-  const handleCaptainCheckW3Compliance = async () => {
-    if (!userData?.UserID) return;
-    setIsCheckingCompliance(true);
-    try {
-      const res = await checkSquadW3Compliance(userData.UserID);
-      if (res.success) {
-        setComplianceResult({
-          periodLabel: res.periodLabel ?? '',
-          violators: res.violators ?? [],
-          alreadyRun: res.alreadyRun ?? false,
-        });
-        // Refresh fine status to reflect updated TotalFines
-        if (!res.alreadyRun) {
-          const fineRes = await getSquadFineStatus(userData.UserID);
-          if (fineRes.success && fineRes.members) setSquadFineMembers(fineRes.members);
-        }
-      } else {
-        setModalMessage({ text: '結算失敗：' + res.error, type: 'error' });
-      }
-    } catch (e: any) {
-      setModalMessage({ text: '系統異常：' + e.message, type: 'error' });
-    } finally {
-      setIsCheckingCompliance(false);
-    }
-  };
 
   const handleDrawWeeklyQuest = async () => {
     if (!userData?.LittleTeamLeagelName || !userData.IsCaptain) return;
@@ -446,8 +395,6 @@ export default function App() {
 
   const handleOpenCaptainTab = () => {
     setActiveTab('captain');
-    // 每次切回 captain tab 時重新載入罰款資料
-    if (userData?.IsCaptain || userData?.IsGM) loadFinesData();
   };
 
   const handleGetAIBriefing = async () => {
@@ -484,7 +431,6 @@ export default function App() {
     }
   };
 
-  // ── 罰款 handlers ──
   const parseQuestRoles = (qr: string | null): string[] => {
     if (!qr) return [];
     try { const p = JSON.parse(qr); return Array.isArray(p) ? p : [String(qr)]; } catch { return [String(qr)]; }
@@ -501,20 +447,6 @@ export default function App() {
     }
   };
 
-  const loadFinesData = async () => {
-    if (!userData?.UserID) return;
-    setIsLoadingFines(true);
-    const [summaryRes, histRes, orgRes] = await Promise.allSettled([
-      getSquadFineStatus(userData.UserID),
-      getSquadFinePaymentHistory(userData.UserID),
-      getSquadOrgSubmissions(userData.UserID),
-    ]);
-    if (summaryRes.status === 'fulfilled' && summaryRes.value.success && summaryRes.value.members) setSquadFineMembers(summaryRes.value.members as SquadMemberFine[]);
-    if (histRes.status === 'fulfilled' && histRes.value.success && histRes.value.records) setFineHistory(histRes.value.records as FinePaymentRecord[]);
-    if (orgRes.status === 'fulfilled' && orgRes.value.success && orgRes.value.records) setOrgSubmissions(orgRes.value.records as import('@/types').SquadFineSubmission[]);
-    if (userData.LittleTeamLeagelName) await loadSquadMembers(userData.LittleTeamLeagelName);
-    setIsLoadingFines(false);
-  };
 
   const handleSetQuestRole = async (targetUserId: string, roleId: string, action: 'assign' | 'unassign') => {
     if (!userData?.UserID || !userData.LittleTeamLeagelName) return;
@@ -526,16 +458,6 @@ export default function App() {
     }
   };
 
-  const handleRecordFinePayment = async (targetUserId: string, amount: number, periodLabel: string, paidToCaptainAt?: string) => {
-    if (!userData?.LittleTeamLeagelName) return;
-    const res = await recordFinePayment(userData.UserID, targetUserId, amount, periodLabel, paidToCaptainAt);
-    if (res.success) {
-      setModalMessage({ text: `已記錄繳款 NT$${amount}`, type: 'success' });
-      await loadFinesData();
-    } else {
-      setModalMessage({ text: res.error || '記錄失敗', type: 'error' });
-    }
-  };
 
   const loadBattalionSquads = async () => {
     if (!userData?.UserID) return;
@@ -558,22 +480,6 @@ export default function App() {
     setBattalionSquads(Array.from(squadMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([squadName, members]) => ({ squadName, members: members.sort((a, b) => a.name.localeCompare(b.name)) })));
-  };
-
-  const handleSetPaidToCaptainDate = async (paymentId: string, date: string) => {
-    const res = await setPaidToCaptainDate(userData?.UserID || '', paymentId, date);
-    if (res.success) await loadFinesData();
-    else setModalMessage({ text: res.error || '更新失敗', type: 'error' });
-  };
-
-  const handleRecordOrgSubmission = async (amount: number, submittedAt: string, notes?: string) => {
-    const res = await recordOrgSubmission(userData?.UserID || '', amount, submittedAt, notes);
-    if (res.success) {
-      setModalMessage({ text: `已記錄上繳大會 NT$${amount}`, type: 'success' });
-      await loadFinesData();
-    } else {
-      setModalMessage({ text: res.error || '記錄失敗', type: 'error' });
-    }
   };
 
   const handleAutoDrawAllSquads = async () => {
@@ -901,7 +807,6 @@ export default function App() {
       let finalR = r;
       let remaining = Math.max(0, stepsRemaining - dist);
       let penaltyText = "";
-      let newFines = userData.TotalFines;
       let finalFacing = newFacing ?? userData.Facing ?? 0;
 
       // 貪區 (慾望泥沼): 強制滯留，行動力歸零
@@ -910,9 +815,7 @@ export default function App() {
         penaltyText = "你陷入了慾望泥沼，本回合行動力歸零！";
       }
 
-      // 嗔區 (焦熱荒原): 熔岩灼傷，增加罰金 (修為受損)
       if (zoneId === 'anger' && !todayCompletedQuestIds.includes('q1') && !todayCompletedQuestIds.includes('q2')) {
-        newFines += 50;
         penaltyText = penaltyText ? penaltyText + " 且遭到焦熱熔岩灼傷，業力增加！" : "遭到焦熱熔岩灼傷，業力增加！";
       }
 
@@ -929,11 +832,11 @@ export default function App() {
       }
 
       const { error } = await supabase.from('CharacterStats')
-        .update({ CurrentQ: finalQ, CurrentR: finalR, TotalFines: newFines, Facing: finalFacing })
+        .update({ CurrentQ: finalQ, CurrentR: finalR, Facing: finalFacing })
         .eq('UserID', userData.UserID);
       if (error) throw error;
 
-      setUserData(prev => prev ? { ...prev, CurrentQ: finalQ, CurrentR: finalR, TotalFines: newFines, Facing: finalFacing } : null);
+      setUserData(prev => prev ? { ...prev, CurrentQ: finalQ, CurrentR: finalR, Facing: finalFacing } : null);
       setStepsRemaining(remaining);
 
       if (penaltyText) {
@@ -997,17 +900,29 @@ export default function App() {
       const newLevel = calculateLevelFromExp(newExp);
       const roleInfo = ROLE_CURE_MAP[userData.Role];
 
-      // 計算實際金幣：查 DailyQuestConfig 是否有自訂 coins，否則用 reward × 0.1
-      let coinToDeduct = Math.floor(actualReward * 0.1);
+      // 金幣：用跟打卡一樣的邏輯（quest.coins 或 baseReward × 0.1，不是 actualReward）
+      const baseReward = quest.reward || 0;
+      let coinToDeduct = quest.coins != null ? quest.coins : Math.floor(baseReward * 0.1);
+
+      // 骰子：查 BonusQuestConfig 計算額外骰子
+      let totalDice = quest.dice || 0;
       try {
-        const { data: qcfg } = await supabase.from('DailyQuestConfig').select('coins').eq('id', quest.id).single();
-        if (qcfg?.coins != null) coinToDeduct = qcfg.coins;
-      } catch { /* table 不存在時 fallback 預設值 */ }
+        const { data: bcfg } = await supabase.from('SystemSettings').select('Value').eq('SettingName', 'BonusQuestConfig').single();
+        if (bcfg?.Value) {
+          const rules = JSON.parse(bcfg.Value);
+          for (const rule of rules) {
+            if (!rule.active || !rule.keywords) continue;
+            if (rule.keywords.some((kw: string) => (quest.title || '').includes(kw))) {
+              if (rule.bonusType === 'energy_dice') totalDice += rule.bonusAmount || 0;
+            }
+          }
+        }
+      } catch { /* fallback */ }
 
       const update: Partial<CharacterStats> = {
         Exp: newExp,
         Level: newLevel,
-        EnergyDice: Math.max(0, userData.EnergyDice - (quest.dice || 0)),
+        EnergyDice: Math.max(0, userData.EnergyDice - totalDice),
         Coins: Math.max(0, userData.Coins - coinToDeduct),
       };
 
@@ -1082,7 +997,7 @@ export default function App() {
             UserID: userId, Name: rosterMatch.name, Role: null,
             Level: 1, Exp: 0, Coins: 0, Inventory: [], EnergyDice: 3,
             Savvy: 10, Luck: 10, Charisma: 10, Spirit: 10, Physique: 10, Potential: 10,
-            Streak: 0, LastCheckIn: null, TotalFines: 0, CurrentQ: 0, CurrentR: 0,
+            Streak: 0, LastCheckIn: null, CurrentQ: 0, CurrentR: 0,
             Email: rosterMatch.email,
             BigTeamLeagelName: rosterMatch.BigTeamLeagelName,
             LittleTeamLeagelName: rosterMatch.LittleTeamLeagelName,
@@ -1160,7 +1075,7 @@ export default function App() {
       UserID: phone, Name: name.trim(), Role: assignedRole,
       Level: newLevel, Exp: newExp, Coins: 0, Inventory: newInventory, EnergyDice: newDice,
       Savvy: 10, Luck: 10, Charisma: 10, Spirit: 10, Physique: 10, Potential: 10,
-      Streak: 0, LastCheckIn: null, TotalFines: 0, CurrentQ: 0, CurrentR: 0,
+      Streak: 0, LastCheckIn: null, CurrentQ: 0, CurrentR: 0,
       Email: email, InitialFortunes: fortunes, DDA_Difficulty: ddaDiff
     };
 
@@ -1540,7 +1455,6 @@ export default function App() {
   // 小隊長：登入後或切換到 captain tab 時自動載入隊員名單
   useEffect(() => {
     if ((userData?.IsCaptain || userData?.IsGM) && userData?.UserID && activeTab === 'captain') {
-      loadFinesData();
     }
   }, [userData?.UserID, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1617,7 +1531,7 @@ export default function App() {
         <button onClick={handleOpenWeeklyTab} aria-current={activeTab === 'weekly' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Sparkles size={16} />任務中心</button>
         <button onClick={() => setActiveTab('shop')} aria-current={activeTab === 'shop' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'shop' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Store size={16} />藏寶閣</button>
         <button onClick={() => setActiveTab('rank')} aria-current={activeTab === 'rank' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'rank' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Trophy size={16} />修為榜</button>
-        <button onClick={() => setActiveTab('stats')} aria-current={activeTab === 'stats' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'stats' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><BarChart3 size={16} />六維與罰金</button>
+        <button onClick={() => setActiveTab('stats')} aria-current={activeTab === 'stats' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'stats' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><BarChart3 size={16} />六維屬性</button>
         <button onClick={() => setActiveTab('achievements')} aria-current={activeTab === 'achievements' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'achievements' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Medal size={16} />成就</button>
         <button onClick={() => setActiveTab('course')} aria-current={activeTab === 'course' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'course' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><CalendarDays size={16} />課程</button>
         <button onClick={() => setActiveTab('peakTrial')} aria-current={activeTab === 'peakTrial' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer ${activeTab === 'peakTrial' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Mountain size={16} />試煉</button>
@@ -1687,16 +1601,6 @@ export default function App() {
             onGetAIBriefing={handleGetAIBriefing}
             aiBriefing={aiBriefing}
             isLoadingBriefing={isLoadingBriefing}
-            squadFineMembers={squadFineMembers}
-            fineHistory={fineHistory}
-            onRecordPayment={handleRecordFinePayment}
-            onSetPaidToCaptainDate={handleSetPaidToCaptainDate}
-            orgSubmissions={orgSubmissions}
-            onRecordOrgSubmission={handleRecordOrgSubmission}
-            isLoadingFines={isLoadingFines}
-            onCheckW3Compliance={handleCaptainCheckW3Compliance}
-            isCheckingCompliance={isCheckingCompliance}
-            complianceResult={complianceResult}
             squadMembersWithRoles={squadMembersWithRoles}
             onSetQuestRole={handleSetQuestRole}
             questRoleDefs={questRoleDefs}
@@ -1905,7 +1809,6 @@ export default function App() {
           onDeleteTempQuest={handleDeleteTempQuest}
           onUpdateTempQuest={handleUpdateTempQuest}
           onTriggerSnapshot={handleTriggerSnapshot}
-          onCheckW3Compliance={handleCheckW3Compliance}
           onAutoDrawAllSquads={handleAutoDrawAllSquads}
           onImportRoster={handleImportRoster}
           onFinalReviewW4={handleFinalReviewW4}

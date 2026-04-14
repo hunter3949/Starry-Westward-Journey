@@ -16,8 +16,6 @@ export interface CharacterStats {
   Potential: number;
   Streak: number;
   LastCheckIn: string | null;
-  TotalFines: number;
-  FinePaid: number;  // 已繳款累計（餘額 = TotalFines - FinePaid）
   CurrentQ: number;
   CurrentR: number;
   Email?: string;
@@ -260,29 +258,6 @@ export interface HexData extends HexPos {
   zoneId?: string;
   subIdx?: number;
   ring?: 'crisp' | 'performance' | 'culled';
-}
-
-export interface FinePaymentRecord {
-  id: string;
-  user_id: string;
-  user_name: string;
-  squad_name: string;
-  amount: number;
-  period_label: string;
-  paid_to_captain_at: string | null;   // 隊員上繳小隊長日期
-  submitted_to_org_at: string | null;  // 小隊長上繳大會日期（DB 保留，UI 不顯示）
-  recorded_by: string;
-  created_at: string;
-}
-
-export interface SquadFineSubmission {
-  id: string;
-  squad_name: string;
-  amount: number;
-  submitted_at: string;  // YYYY-MM-DD
-  recorded_by: string;
-  notes: string | null;
-  created_at: string;
 }
 
 export interface AchievementRecord {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Skull, Sparkles, Shield, Heart, Brain, Zap, Trophy, Coins, Cake } from 'lucide-react';
+import { Sparkles, Shield, Heart, Brain, Zap, Trophy, Coins, Cake } from 'lucide-react';
 import { CharacterStats } from '@/types';
 
 interface StatCardProps {
@@ -123,15 +123,10 @@ export function StatsTab({ userData }: StatsTabProps) {
                     <p className="text-[10px] text-yellow-500/70 font-black uppercase tracking-[0.2em]">天庭金幣餘額</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-red-950/40 to-slate-900 border-2 border-white/5 p-6 rounded-4xl shadow-2xl text-center flex flex-col items-center justify-center">
-                    <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center mb-2 mx-auto"><Skull className="text-red-500" size={16} /></div>
-                    <span className="text-4xl font-black text-white mb-1">
-                        {Math.max(0, (userData.TotalFines || 0) - (userData.FinePaid || 0))}
-                    </span>
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">罰金餘額</p>
-                    <p className="text-[9px] text-slate-600 mt-1">
-                        累計 NT${userData.TotalFines || 0}　已繳 NT${userData.FinePaid || 0}
-                    </p>
+                <div className="bg-gradient-to-br from-sky-950/40 to-slate-900 border-2 border-white/5 p-6 rounded-4xl shadow-2xl text-center flex flex-col items-center justify-center">
+                    <Zap className="text-sky-400 mb-2" size={24} />
+                    <span className="text-4xl font-black text-sky-400 mb-1">{userData.EnergyDice || 0}</span>
+                    <p className="text-[10px] text-sky-400/70 font-black uppercase tracking-[0.2em]">能量骰子</p>
                 </div>
 
             </div>

@@ -1,17 +1,7 @@
 import { useState } from 'react';
-import { ShieldAlert, Dices, Loader2, ChevronDown, ChevronUp, Banknote, CalendarCheck, Building2, UserCheck, Pencil } from 'lucide-react';
+import { ShieldAlert, Dices, Loader2, UserCheck, Pencil } from 'lucide-react';
 import { DAILY_QUEST_CONFIG } from '@/lib/constants';
-import { TeamSettings, W4Application, CaptainBriefing, FinePaymentRecord, SquadFineSubmission } from '@/types';
 import { setSquadDisplayName } from '@/app/actions/admin';
-// SquadFineSubmission used in orgSubmissions prop below
-
-interface SquadMemberFine {
-    userId: string;
-    name: string;
-    totalFines: number;
-    finePaid: number;
-    balance: number;
-}
 
 interface SquadMemberWithRole {
     userId: string;
@@ -23,26 +13,13 @@ interface CaptainTabProps {
     captainUserId: string;
     teamName: string;
     teamDisplayName?: string;
-    teamSettings?: TeamSettings;
-    pendingW4Apps: W4Application[];
+    teamSettings?: import('@/types').TeamSettings;
+    pendingW4Apps: import('@/types').W4Application[];
     onDrawWeeklyQuest: () => Promise<void>;
     onReviewW4: (appId: string, approve: boolean, notes: string) => Promise<void>;
     onGetAIBriefing: () => Promise<void>;
-    aiBriefing: CaptainBriefing | null;
+    aiBriefing: import('@/types').CaptainBriefing | null;
     isLoadingBriefing: boolean;
-    // 罰款管理
-    squadFineMembers: SquadMemberFine[];
-    fineHistory: FinePaymentRecord[];
-    orgSubmissions: SquadFineSubmission[];
-    onRecordPayment: (targetUserId: string, amount: number, periodLabel: string, paidToCaptainAt?: string) => Promise<void>;
-    onSetPaidToCaptainDate: (paymentId: string, date: string) => Promise<void>;
-    onRecordOrgSubmission: (amount: number, submittedAt: string, notes?: string) => Promise<void>;
-    isLoadingFines: boolean;
-    // w3 違規結算
-    onCheckW3Compliance: () => Promise<void>;
-    isCheckingCompliance: boolean;
-    complianceResult: { periodLabel: string; violators: { userId: string; name: string }[]; alreadyRun: boolean } | null;
-    // 任務角色
     squadMembersWithRoles: SquadMemberWithRole[];
     onSetQuestRole: (targetUserId: string, roleId: string, action: 'assign' | 'unassign') => Promise<void>;
     questRoleDefs: { id: string; name: string; duties: string[] }[];
@@ -61,8 +38,6 @@ function getCurrentWeekMondayStr(): string {
 export function CaptainTab({
     captainUserId, teamName, teamDisplayName, teamSettings, pendingW4Apps, onDrawWeeklyQuest, onReviewW4,
     onGetAIBriefing, aiBriefing, isLoadingBriefing,
-    squadFineMembers, fineHistory, orgSubmissions, onRecordPayment, onSetPaidToCaptainDate, onRecordOrgSubmission, isLoadingFines,
-    onCheckW3Compliance, isCheckingCompliance, complianceResult,
     squadMembersWithRoles, onSetQuestRole, questRoleDefs, onDisplayNameSaved,
 }: CaptainTabProps) {
     const [isDrawing, setIsDrawing] = useState(false);
@@ -84,30 +59,6 @@ export function CaptainTab({
     // 任務角色指派 state
     const [savingMember, setSavingMember] = useState<string | null>(null);
 
-    // 罰款管理 state
-    const [paymentInput, setPaymentInput] = useState<Record<string, { amount: string; date: string }>>({});
-    const [recordingId, setRecordingId] = useState<string | null>(null);
-    const [historyOpen, setHistoryOpen] = useState(false);
-    const [updatingDateId, setUpdatingDateId] = useState<string | null>(null);
-    const [captainDateInputs, setCaptainDateInputs] = useState<Record<string, string>>({});
-    // 批次上繳大會
-    const [orgSubmitAmount, setOrgSubmitAmount] = useState('');
-    const [orgSubmitDate, setOrgSubmitDate] = useState('');
-    const [orgSubmitNotes, setOrgSubmitNotes] = useState('');
-    const [isSubmittingOrg, setIsSubmittingOrg] = useState(false);
-    const [periodLabel, setPeriodLabel] = useState(() => {
-        // 預設產生目前雙週週期標籤（台灣時間）
-        const nowTW = new Date(Date.now() + 8 * 3600 * 1000);
-        const day = nowTW.getUTCDay() || 7;
-        const thisMonday = new Date(nowTW);
-        thisMonday.setUTCDate(nowTW.getUTCDate() - (day - 1));
-        const prevMonday = new Date(thisMonday);
-        prevMonday.setUTCDate(thisMonday.getUTCDate() - 14);
-        const prevPrevMonday = new Date(thisMonday);
-        prevPrevMonday.setUTCDate(thisMonday.getUTCDate() - 7);
-        return `${prevMonday.toISOString().slice(0, 10)}~${prevPrevMonday.toISOString().slice(0, 10)}`;
-    });
-
     const weekMondayStr = getCurrentWeekMondayStr();
     const alreadyDrawnThisWeek = teamSettings?.mandatory_quest_week === weekMondayStr;
     const currentQuestId = teamSettings?.mandatory_quest_id;
@@ -126,35 +77,6 @@ export function CaptainTab({
         await onReviewW4(appId, approve, reviewNotes[appId] || '');
         setReviewingId(null);
         setReviewNotes(prev => { const n = { ...prev }; delete n[appId]; return n; });
-    };
-
-    const handleRecordPayment = async (userId: string) => {
-        const input = paymentInput[userId];
-        const amount = parseInt(input?.amount || '0', 10);
-        if (!amount || amount <= 0) return;
-        setRecordingId(userId);
-        await onRecordPayment(userId, amount, periodLabel, input?.date || undefined);
-        setRecordingId(null);
-        setPaymentInput(prev => { const n = { ...prev }; delete n[userId]; return n; });
-    };
-
-    const handleSetCaptainDate = async (paymentId: string) => {
-        const date = captainDateInputs[paymentId];
-        if (!date) return;
-        setUpdatingDateId(paymentId + '_captain');
-        await onSetPaidToCaptainDate(paymentId, date);
-        setUpdatingDateId(null);
-    };
-
-    const handleRecordOrgSubmission = async () => {
-        const amount = parseInt(orgSubmitAmount, 10);
-        if (!amount || amount <= 0 || !orgSubmitDate) return;
-        setIsSubmittingOrg(true);
-        await onRecordOrgSubmission(amount, orgSubmitDate, orgSubmitNotes || undefined);
-        setIsSubmittingOrg(false);
-        setOrgSubmitAmount('');
-        setOrgSubmitDate('');
-        setOrgSubmitNotes('');
     };
 
     return (
@@ -317,243 +239,6 @@ export function CaptainTab({
                 )}
             </section>
 
-            {/* ── 💸 罰款管理 ── */}
-            <section className="bg-slate-900 border-2 border-amber-500/30 p-8 rounded-4xl space-y-6 shadow-xl">
-                <h3 className="text-lg font-black text-white border-b border-white/10 pb-4 flex items-center gap-2">
-                    <Banknote size={18} className="text-amber-400" /> 罰款管理
-                </h3>
-
-                {/* w3 違規結算 */}
-                <div className="bg-slate-800/60 rounded-2xl p-4 space-y-3">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">📋 上週 w3 違規結算</p>
-                    <button
-                        disabled={isCheckingCompliance || complianceResult?.alreadyRun === true}
-                        onClick={onCheckW3Compliance}
-                        className="w-full flex items-center justify-center gap-2 bg-red-800/60 hover:bg-red-700/70 text-white font-black text-sm py-3 rounded-xl transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {isCheckingCompliance
-                            ? <><Loader2 size={14} className="animate-spin" /> 結算中…</>
-                            : complianceResult?.alreadyRun
-                            ? `✅ 本週已結算（${complianceResult.periodLabel}）`
-                            : '計算上週 w3 違規'}
-                    </button>
-                    {complianceResult && !complianceResult.alreadyRun && (
-                        <p className="text-xs text-center animate-in slide-in-from-top-2 duration-300">
-                            {complianceResult.violators.length === 0
-                                ? <span className="text-emerald-400 font-black">🎉 上週全員達標！</span>
-                                : <span className="text-red-400 font-bold">
-                                    {complianceResult.violators.map(v => v.name).join('、')} 未完成 w3，各 +NT$200
-                                  </span>
-                            }
-                        </p>
-                    )}
-                </div>
-
-                {/* 收款概覽 + 記錄上繳大會 */}
-                {(() => {
-                    const totalCollected = squadFineMembers.reduce((s, m) => s + m.finePaid, 0);
-                    const totalSubmitted = orgSubmissions.reduce((s, r) => s + r.amount, 0);
-                    const pendingSubmit = Math.max(0, totalCollected - totalSubmitted);
-                    return (
-                        <div className="bg-slate-800/60 rounded-2xl p-4 space-y-4">
-                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <Building2 size={13} /> 收款概覽
-                            </p>
-                            <div className="grid grid-cols-3 gap-2 text-center">
-                                <div className="bg-slate-700/50 rounded-xl py-3">
-                                    <p className="text-[10px] text-slate-400 font-bold mb-1">已向成員收款</p>
-                                    <p className="text-base font-black text-emerald-400">NT${totalCollected}</p>
-                                </div>
-                                <div className="bg-slate-700/50 rounded-xl py-3">
-                                    <p className="text-[10px] text-slate-400 font-bold mb-1">已上繳大會</p>
-                                    <p className="text-base font-black text-blue-400">NT${totalSubmitted}</p>
-                                </div>
-                                <div className="bg-slate-700/50 rounded-xl py-3">
-                                    <p className="text-[10px] text-slate-400 font-bold mb-1">待上繳</p>
-                                    <p className={`text-base font-black ${pendingSubmit > 0 ? 'text-amber-400' : 'text-slate-500'}`}>NT${pendingSubmit}</p>
-                                </div>
-                            </div>
-
-                            {/* 記錄上繳大會 */}
-                            <div className="space-y-2 pt-1 border-t border-white/5">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">記錄上繳大會</p>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="number"
-                                        placeholder="金額 NT$"
-                                        value={orgSubmitAmount}
-                                        onChange={e => setOrgSubmitAmount(e.target.value)}
-                                        min={1}
-                                        className="flex-1 bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-blue-500"
-                                    />
-                                    <input
-                                        type="date"
-                                        value={orgSubmitDate}
-                                        onChange={e => setOrgSubmitDate(e.target.value)}
-                                        className="flex-1 bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-blue-500"
-                                    />
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="備註（選填）"
-                                    value={orgSubmitNotes}
-                                    onChange={e => setOrgSubmitNotes(e.target.value)}
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-blue-500"
-                                />
-                                <button
-                                    disabled={isSubmittingOrg || !orgSubmitAmount || !orgSubmitDate}
-                                    onClick={handleRecordOrgSubmission}
-                                    className="w-full flex items-center justify-center gap-2 bg-blue-700/70 hover:bg-blue-600/80 text-white font-black text-sm py-3 rounded-xl transition-all active:scale-95 disabled:opacity-50"
-                                >
-                                    {isSubmittingOrg ? <><Loader2 size={14} className="animate-spin" /> 記錄中…</> : <><Building2 size={14} /> 記錄上繳大會</>}
-                                </button>
-                            </div>
-
-                            {/* 上繳紀錄 */}
-                            {orgSubmissions.length > 0 && (
-                                <div className="space-y-2 pt-1 border-t border-white/5">
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">上繳紀錄</p>
-                                    {orgSubmissions.map(r => (
-                                        <div key={r.id} className="flex justify-between items-center text-xs py-1">
-                                            <span className="text-blue-300 font-bold">{r.submitted_at}</span>
-                                            <span className="text-white font-black">NT${r.amount}</span>
-                                            <span className="text-slate-500">{r.notes || '—'}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })()}
-
-                {/* 週期標籤 */}
-                <div className="flex items-center gap-3">
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">結算週期</span>
-                    <input
-                        value={periodLabel}
-                        onChange={e => setPeriodLabel(e.target.value)}
-                        placeholder="2026-03-03~2026-03-10"
-                        className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-amber-500"
-                    />
-                </div>
-
-                {/* 成員罰款列表 */}
-                {isLoadingFines ? (
-                    <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-amber-400" /></div>
-                ) : squadFineMembers.length === 0 ? (
-                    <p className="text-sm text-slate-500 text-center py-4">小隊暫無罰款紀錄</p>
-                ) : (
-                    <div className="space-y-3">
-                        {squadFineMembers.map(m => (
-                            <div key={m.userId} className="bg-slate-800 rounded-2xl p-4 space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <span className="font-black text-white">{m.name}</span>
-                                    <div className="flex gap-3 text-xs text-right">
-                                        <span className="text-slate-400">累計 <span className="text-red-400 font-black">NT${m.totalFines}</span></span>
-                                        <span className="text-slate-400">已繳 <span className="text-emerald-400 font-black">NT${m.finePaid}</span></span>
-                                        <span className={`font-black ${m.balance > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
-                                            餘額 NT${m.balance}
-                                        </span>
-                                    </div>
-                                </div>
-                                {m.balance > 0 && (
-                                    <div className="flex gap-2 items-end">
-                                        <div className="flex-1 space-y-1.5">
-                                            <input
-                                                type="number"
-                                                placeholder="繳款金額 NT$"
-                                                value={paymentInput[m.userId]?.amount || ''}
-                                                onChange={e => setPaymentInput(prev => ({
-                                                    ...prev,
-                                                    [m.userId]: { ...prev[m.userId], amount: e.target.value },
-                                                }))}
-                                                min={1}
-                                                max={m.balance}
-                                                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-amber-500"
-                                            />
-                                            <input
-                                                type="date"
-                                                title="隊員交款給小隊長的日期（選填）"
-                                                value={paymentInput[m.userId]?.date || ''}
-                                                onChange={e => setPaymentInput(prev => ({
-                                                    ...prev,
-                                                    [m.userId]: { ...prev[m.userId], date: e.target.value },
-                                                }))}
-                                                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-amber-500"
-                                            />
-                                            <p className="text-[10px] text-slate-500">↑ 隊員交款日期（選填）</p>
-                                        </div>
-                                        <button
-                                            disabled={recordingId === m.userId || !paymentInput[m.userId]?.amount}
-                                            onClick={() => handleRecordPayment(m.userId)}
-                                            className="px-4 py-4 bg-amber-600 text-white font-black rounded-xl text-sm active:scale-95 transition-all disabled:opacity-40 whitespace-nowrap flex items-center gap-1.5"
-                                        >
-                                            {recordingId === m.userId
-                                                ? <Loader2 size={14} className="animate-spin" />
-                                                : <CalendarCheck size={14} />}
-                                            記錄
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* 歷史繳款紀錄 */}
-                {fineHistory.length > 0 && (
-                    <div className="space-y-3">
-                        <button
-                            onClick={() => setHistoryOpen(o => !o)}
-                            className="w-full flex items-center justify-between text-xs font-black text-slate-400 uppercase tracking-widest py-1"
-                        >
-                            <span>歷史繳款紀錄 ({fineHistory.length})</span>
-                            {historyOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </button>
-
-                        {historyOpen && (
-                            <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
-                                {fineHistory.map(rec => (
-                                    <div key={rec.id} className="bg-slate-800/80 rounded-2xl p-4 space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <div>
-                                                <span className="font-black text-white text-sm">{rec.user_name}</span>
-                                                <span className="text-emerald-400 font-black text-sm ml-2">+NT${rec.amount}</span>
-                                            </div>
-                                            <span className="text-[10px] text-slate-500 bg-slate-700 px-2 py-1 rounded-lg">{rec.period_label}</span>
-                                        </div>
-
-                                        {/* 隊員→小隊長日期 */}
-                                        <div className="flex items-center gap-2">
-                                            <CalendarCheck size={13} className="text-blue-400 shrink-0" />
-                                            <span className="text-xs text-slate-400 whitespace-nowrap">隊員交款日：</span>
-                                            {rec.paid_to_captain_at
-                                                ? <span className="text-xs text-blue-300 font-bold">{rec.paid_to_captain_at}</span>
-                                                : <span className="text-xs text-slate-600">未記錄</span>
-                                            }
-                                            <input
-                                                type="date"
-                                                title="修改隊員交款日"
-                                                value={captainDateInputs[rec.id] || rec.paid_to_captain_at || ''}
-                                                onChange={e => setCaptainDateInputs(prev => ({ ...prev, [rec.id]: e.target.value }))}
-                                                className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-white text-xs outline-none focus:border-blue-500 ml-auto"
-                                            />
-                                            <button
-                                                disabled={updatingDateId === rec.id + '_captain'}
-                                                onClick={() => handleSetCaptainDate(rec.id)}
-                                                className="px-2 py-1 bg-blue-700/50 text-blue-300 rounded-lg text-xs font-black disabled:opacity-40 active:scale-95 transition-all"
-                                            >
-                                                {updatingDateId === rec.id + '_captain' ? <Loader2 size={10} className="animate-spin" /> : '✓'}
-                                            </button>
-                                        </div>
-
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </section>
 
             {/* 🎭 任務角色指派 */}
             <section className="bg-slate-900 border-2 border-slate-800 p-8 rounded-4xl space-y-4 shadow-xl">
