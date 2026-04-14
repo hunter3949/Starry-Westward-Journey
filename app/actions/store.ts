@@ -1,23 +1,26 @@
 'use server';
 
 import { connectDb } from '@/lib/db';
+import { createClient } from '@supabase/supabase-js';
 import { ARTIFACTS_CONFIG, calculateLevelFromExp, setLevelExpCache } from '@/lib/constants';
+import { writeTransactionLog } from './txlog';
+
+const _sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+let _levelCacheLoaded = false;
 
 export async function purchaseArtifact(userId: string, artifactId: string, teamName: string | null) {
-    // Server-side: 載入等級門檻
-    try {
-        const { createClient: cc } = await import('@supabase/supabase-js');
-        const sbb = cc(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-        const { data: lvCfg } = await sbb.from('LevelConfig').select('level, exp_required').order('level');
-        if (lvCfg && lvCfg.length > 0) setLevelExpCache(lvCfg);
-    } catch { /* fallback */ }
+    // Server-side: 載入等級門檻（只載入一次）
+    if (!_levelCacheLoaded) {
+        try {
+            const { data: lvCfg } = await _sb.from('LevelConfig').select('level, exp_required').order('level');
+            if (lvCfg && lvCfg.length > 0) { setLevelExpCache(lvCfg); _levelCacheLoaded = true; }
+        } catch { /* fallback */ }
+    }
 
     // 優先從 DB 讀取法寶設定，fallback 到常數
     let config: { id: string; name: string; price: number; isTeamBinding: boolean; limit: number; exclusiveWith?: string | null } | undefined;
     try {
-        const { createClient } = await import('@supabase/supabase-js');
-        const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-        const { data: dbRow } = await supabase.from('ArtifactConfig').select('*').eq('id', artifactId).eq('is_active', true).single();
+        const { data: dbRow } = await _sb.from('ArtifactConfig').select('*').eq('id', artifactId).eq('is_active', true).single();
         if (dbRow) {
             config = { id: dbRow.id, name: dbRow.name, price: dbRow.price, isTeamBinding: dbRow.is_team_binding, limit: dbRow.limit, exclusiveWith: dbRow.exclusive_with };
         }
@@ -142,8 +145,8 @@ export async function purchaseArtifact(userId: string, artifactId: string, teamN
         await client.query('COMMIT');
 
         // Write transaction log
-        const { writeTransactionLog } = await import('./txlog');
-        await writeTransactionLog(userId, 'artifact_purchase', `購買${config.name}`, 0, config.isTeamBinding ? 0 : -config.price, { artifactId: config.id });
+        
+        writeTransactionLog(userId, 'artifact_purchase', `購買${config.name}`, 0, config.isTeamBinding ? 0 : -config.price, { artifactId: config.id });
 
         return { success: true };
 
@@ -184,8 +187,8 @@ export async function transferCoinsToTeam(userId: string, teamName: string, amou
 
         await client.query('COMMIT');
 
-        const { writeTransactionLog } = await import('./txlog');
-        await writeTransactionLog(userId, 'coin_transfer', `捐獻金幣至小隊`, 0, -amount, { teamName });
+        
+        writeTransactionLog(userId, 'coin_transfer', `捐獻金幣至小隊`, 0, -amount, { teamName });
 
         return { success: true };
 

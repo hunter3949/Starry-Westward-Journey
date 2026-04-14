@@ -4,7 +4,12 @@ import { connectDb } from '@/lib/db';
 import { getLogicalDateStr } from '@/lib/utils/time';
 import { ROLE_CURE_MAP, ROLE_GROWTH_RATES, calculateLevelFromExp, setLevelExpCache } from '@/lib/constants';
 import { checkAndUnlockAchievements } from './achievements';
+import { writeTransactionLog } from './txlog';
+import { createClient } from '@supabase/supabase-js';
 import type { BonusQuestRule } from '@/types';
+
+const _sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+let _levelCacheLoaded = false;
 
 const DEFAULT_BONUS_RULES: BonusQuestRule[] = [
     { id: 'w1', label: '小天使通話', reward: 500, limit: 1, keywords: ['小天使通話', '與家人互動', '親證圓夢'], bonusType: 'energy_dice', bonusAmount: 1, active: true },
@@ -22,13 +27,13 @@ export async function processCheckInTransaction(
     questDice: number = 0,
     questCoins?: number
 ) {
-    // Server-side: 載入等級門檻到快取（每次 action 呼叫都重新載入，確保最新）
-    try {
-        const { createClient } = await import('@supabase/supabase-js');
-        const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-        const { data: lvCfg } = await sb.from('LevelConfig').select('level, exp_required').order('level');
-        if (lvCfg && lvCfg.length > 0) setLevelExpCache(lvCfg);
-    } catch { /* fallback to default formula */ }
+    // Server-side: 載入等級門檻到快取（只載入一次，後續重用）
+    if (!_levelCacheLoaded) {
+        try {
+            const { data: lvCfg } = await _sb.from('LevelConfig').select('level, exp_required').order('level');
+            if (lvCfg && lvCfg.length > 0) { setLevelExpCache(lvCfg); _levelCacheLoaded = true; }
+        } catch { /* fallback to default formula */ }
+    }
 
     const client = await connectDb();
 
@@ -234,8 +239,7 @@ export async function processCheckInTransaction(
         await client.query('COMMIT');
 
         // Write transaction log
-        const { writeTransactionLog } = await import('./txlog');
-        await writeTransactionLog(userId, 'quest_checkin', finalQuestTitle, finalQuestReward, gainedCoins, { questId });
+        writeTransactionLog(userId, 'quest_checkin', finalQuestTitle, finalQuestReward, gainedCoins, { questId });
 
         // Check achievements after commit (uses its own pg client, does not affect this transaction)
         const newAchievements = await checkAndUnlockAchievements(userId, questId);
