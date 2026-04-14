@@ -27,6 +27,7 @@ export async function processCheckInTransaction(
     questDice: number = 0,
     questCoins?: number
 ) {
+    const t0 = Date.now();
     // Server-side: 載入等級門檻到快取（只載入一次，後續重用）
     if (!_levelCacheLoaded) {
         try {
@@ -34,10 +35,14 @@ export async function processCheckInTransaction(
             if (lvCfg && lvCfg.length > 0) { setLevelExpCache(lvCfg); _levelCacheLoaded = true; }
         } catch { /* fallback to default formula */ }
     }
+    console.log(`[CHECKIN] level cache: ${Date.now() - t0}ms`);
 
+    const t1 = Date.now();
     const client = await connectDb();
+    console.log(`[CHECKIN] connectDb: ${Date.now() - t1}ms`);
 
     try {
+        const t2 = Date.now();
         await client.query('BEGIN');
 
         const logicalTodayStr = getLogicalDateStr();
@@ -51,8 +56,8 @@ export async function processCheckInTransaction(
         const q1Variants = (questId === 'q1' || questId === 'q1_dawn') ? ['q1', 'q1_dawn'] : [questId];
         const isQQuest = questId.startsWith('q');
 
+        const t3 = Date.now();
         const [statsRes, countRes, dupRes, artifactRes, bonusCfgRes] = await Promise.all([
-            // 1. Lock user + join team inventory
             client.query(
                 `SELECT cs.*, ts.inventory AS team_inv
                  FROM "CharacterStats" cs
@@ -60,23 +65,20 @@ export async function processCheckInTransaction(
                  WHERE cs."UserID" = $1 FOR UPDATE OF cs`,
                 [userId]
             ),
-            // 2. 今日 q 定課數量（日上限）
             isQQuest ? client.query(
                 `SELECT COUNT(*) as count FROM "DailyLogs"
                  WHERE "UserID" = $1 AND "QuestID" LIKE 'q%' AND ${logicalDateExpr} = $2`,
                 [userId, logicalTodayStr]
             ) : Promise.resolve({ rows: [{ count: '0' }] }),
-            // 3. 重複打卡檢查
             isQQuest ? client.query(
                 `SELECT COUNT(*) as count FROM "DailyLogs"
                  WHERE "UserID" = $1 AND "QuestID" = ANY($2) AND ${logicalDateExpr} = $3`,
                 [userId, q1Variants, logicalTodayStr]
             ) : Promise.resolve({ rows: [{ count: '0' }] }),
-            // 4. 法寶設定
             client.query(`SELECT * FROM "ArtifactConfig" WHERE "is_active" = true`).catch(() => ({ rows: [] })),
-            // 5. BonusQuestConfig
             client.query(`SELECT "Value" FROM "SystemSettings" WHERE "SettingName" = 'BonusQuestConfig' LIMIT 1`).catch(() => ({ rows: [] })),
         ]);
+        console.log(`[CHECKIN] queries: ${Date.now() - t3}ms`);
 
         if (statsRes.rowCount === 0) throw new Error(`查無此用戶: ${userId}`);
 
@@ -211,6 +213,7 @@ export async function processCheckInTransaction(
 
         updateQuery += ` WHERE "UserID" = $6 RETURNING *`;
 
+        const t4 = Date.now();
         const updatedStatsRes = await client.query(updateQuery, updateParams);
 
         // 6. Insert DailyLog
@@ -220,8 +223,12 @@ export async function processCheckInTransaction(
             [new Date().toISOString(), userId, questId, finalQuestTitle, finalQuestReward]
         );
 
-        // Commit transaction
+        console.log(`[CHECKIN] update+insert: ${Date.now() - t4}ms`);
+
+        const t5 = Date.now();
         await client.query('COMMIT');
+        console.log(`[CHECKIN] commit: ${Date.now() - t5}ms`);
+        console.log(`[CHECKIN] TOTAL: ${Date.now() - t0}ms`);
 
         // 非阻塞：明細 + 成就檢查（不等待，加速回傳）
         writeTransactionLog(userId, 'quest_checkin', finalQuestTitle, finalQuestReward, gainedCoins, { questId });
