@@ -163,11 +163,20 @@ export function DailyQuestsTab({ weeklyQuestId, logs, logicalTodayStr, userInven
     };
     if (!questConfig) {
         return (
-            <div className="flex items-center justify-center py-20 animate-in fade-in">
-                <div className="text-center space-y-3">
-                    <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                    <p className="text-xs text-slate-500 font-bold">載入定課設定中...</p>
-                </div>
+            <div className="space-y-4 animate-in fade-in">
+                {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="w-full p-6 rounded-3xl border-2 border-white/5 bg-slate-900 flex items-center gap-4 animate-pulse">
+                        <div className="w-[72px] h-[72px] rounded-2xl bg-slate-800 shrink-0" />
+                        <div className="flex-1 space-y-2">
+                            <div className="h-5 w-24 bg-slate-800 rounded" />
+                            <div className="h-3 w-16 bg-slate-800/50 rounded" />
+                        </div>
+                        <div className="space-y-1 text-right">
+                            <div className="h-4 w-20 bg-slate-800 rounded ml-auto" />
+                            <div className="h-3 w-12 bg-slate-800/50 rounded ml-auto" />
+                        </div>
+                    </div>
+                ))}
             </div>
         );
     }
