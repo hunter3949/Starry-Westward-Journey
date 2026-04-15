@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       { source: '/dailypractice', destination: '/' },
       { source: '/mission', destination: '/' },
       { source: '/special', destination: '/' },
+      { source: '/maze', destination: '/' },
       { source: '/shop', destination: '/' },
       { source: '/rank', destination: '/' },
       { source: '/stats', destination: '/' },

@@ -37,6 +37,7 @@ import { AchievementIcon } from '@/components/AchievementIcon';
 import { ACHIEVEMENT_MAP, RARITY_STYLE, type AchievementDef } from '@/lib/achievements';
 import { getUserAchievements } from '@/app/actions/achievements';
 const AdminDashboard = dynamic(() => import('@/components/Admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })), { ssr: false });
+const MazeGameComponent = dynamic(() => import('@/components/Game/MazeGame').then(m => ({ default: m.MazeGame })), { ssr: false });
 import { processCheckInTransaction } from '@/app/actions/quest';
 import { triggerWeeklySnapshot, importRostersData, autoAssignSquadsForTesting, logAdminAction } from '@/app/actions/admin';
 import { listCourses, upsertCourse, deleteCourse } from '@/app/actions/course';
@@ -71,7 +72,7 @@ const MessageBox = ({ message, onClose, type = 'info', image }: { message: strin
 );
 
 // ── URL 偽路由對照表 ──────────────────────────────────────────────
-type TabKey = 'daily' | 'weekly' | 'special' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course' | 'peakTrial' | 'history';
+type TabKey = 'daily' | 'weekly' | 'special' | 'stats' | 'rank' | 'captain' | 'shop' | 'commandant' | 'achievements' | 'course' | 'peakTrial' | 'history' | 'maze';
 type ViewKey = 'login' | 'register' | 'app' | 'loading' | 'admin' | 'map';
 
 const TAB_ROUTES: Record<string, TabKey> = {
@@ -79,6 +80,7 @@ const TAB_ROUTES: Record<string, TabKey> = {
   '/dailypractice': 'daily',
   '/mission': 'weekly',
   '/special': 'special',
+  '/maze': 'maze',
   '/shop': 'shop',
   '/rank': 'rank',
   '/stats': 'stats',
@@ -94,6 +96,7 @@ const TAB_TO_PATH: Record<TabKey, string> = {
   daily: '/',
   weekly: '/mission',
   special: '/special',
+  maze: '/maze',
   shop: '/shop',
   rank: '/rank',
   stats: '/stats',
@@ -1536,6 +1539,7 @@ export default function App() {
         <button onClick={() => setActiveTab('daily')} aria-current={activeTab === 'daily' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Flame size={16} />修行定課</button>
         <button onClick={handleOpenWeeklyTab} aria-current={activeTab === 'weekly' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Sparkles size={16} />任務中心</button>
         <button onClick={() => setActiveTab('special')} aria-current={activeTab === 'special' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'special' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Star size={16} />特殊任務</button>
+        <button onClick={() => setActiveTab('maze')} aria-current={activeTab === 'maze' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'maze' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Swords size={16} />迷宮</button>
         <button onClick={() => setActiveTab('shop')} aria-current={activeTab === 'shop' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'shop' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Store size={16} />藏寶閣</button>
         <button onClick={() => setActiveTab('rank')} aria-current={activeTab === 'rank' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'rank' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><Trophy size={16} />修為榜</button>
         <button onClick={() => setActiveTab('stats')} aria-current={activeTab === 'stats' ? 'page' : undefined} className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl text-sm font-black transition-all cursor-pointer ${activeTab === 'stats' ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}><BarChart3 size={16} />六維屬性</button>
@@ -1674,6 +1678,11 @@ export default function App() {
         )}
         {activeTab === 'history' && userData && (
           <HistoryTab logs={logs} userData={userData} isCaptain={!!(userData.IsCaptain || userData.IsGM)} squadName={userData.LittleTeamLeagelName} />
+        )}
+        {activeTab === 'maze' && (
+          <div className="w-full" style={{ height: 'calc(100vh - 200px)' }}>
+            <MazeGameComponent />
+          </div>
         )}
       </main>
 
