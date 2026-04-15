@@ -189,3 +189,43 @@ body {
 
 /* 蜘蛛網圖 */
 .light .fill-slate-400 { fill: var(--text-secondary) !important; }
+
+/* ── 淺色模式：卡片增強邊框和陰影 ── */
+.light [class*="rounded-3xl"][class*="border"] { 
+  border-color: #d6cfc4 !important; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important; 
+}
+.light [class*="rounded-4xl"][class*="border"] { 
+  border-color: #d6cfc4 !important; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important; 
+}
+
+/* 任務卡片背景加白 */
+.light [class*="rounded-3xl"].bg-slate-900,
+.light [class*="rounded-4xl"].bg-slate-900 { 
+  background-color: #ffffff !important; 
+  border-color: #d6cfc4 !important;
+}
+
+/* 臨時/特殊任務卡片 */
+.light .border-emerald-500\/20 { border-color: #86efac !important; }
+.light .border-purple-500\/20 { border-color: #c4b5fd !important; }
+.light .border-pink-500\/20 { border-color: #f9a8d4 !important; }
+.light .border-white\/5 { border-color: #d6cfc4 !important; }
+
+/* 主線任務卡片 */
+.light .border-yellow-500\/50 { border-color: #fbbf24 !important; }
+.light .bg-yellow-500\/5 { background-color: rgba(234,179,8,0.05) !important; }
+
+/* 週課按鈕圓形 */
+.light .bg-slate-800.text-slate-500 { background-color: #ebe5d9 !important; color: #78716c !important; }
+
+/* 標題文字確保深色 */
+.light .font-black.text-white { color: #1c1917 !important; }
+.light .text-white.font-black { color: #1c1917 !important; }
+
+/* 副標題 */
+.light .text-slate-400.font-bold { color: #78716c !important; }
+
+/* 日期文字 */
+.light .text-slate-500.font-mono { color: #a8a29e !important; }
